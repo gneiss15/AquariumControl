@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# PreparePublicRelease.py, Version: 1.03
+# PreparePublicRelease.py, Version: 1.04
 """Prepare a sanitized AquariumControl publication archive without touching live data."""
 
 import argparse
@@ -113,6 +113,8 @@ def prepare(root, destination):
             included.append(relative)
     root_files = [('README.public.md', 'README.md'), ('README.public.md', 'README.public.md'),
                   ('BUILD-SECRETS.md', 'BUILD-SECRETS.md')]
+    if (root / 'README.public.DE.md').is_file():
+        root_files.append(('README.public.DE.md', 'README.DE.md'))
     for name in ('LICENSE.md', 'NOTICE.md', 'THIRD_PARTY.md'):
         if (root / name).is_file():
             root_files.append((name, name))

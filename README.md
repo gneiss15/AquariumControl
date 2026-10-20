@@ -1,5 +1,7 @@
-<!-- README.public.md, Version: 1.03 -->
+<!-- README.public.md, Version: 1.04 -->
 # AquariumControl
+
+[Deutsch](README.DE.md)
 
 **Work in progress. Comments, test reports and suggestions are welcome.**
 
