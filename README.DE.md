@@ -1,4 +1,4 @@
-<!-- README.public.DE.md, Version: 1.00 -->
+<!-- README.public.DE.md, Version: 1.01 -->
 # AquariumControl
 
 [English](README.md)
@@ -20,6 +20,10 @@ Die eigenen Projektdateien stehen unter [PolyForm Noncommercial 1.0.0](LICENSE.m
 
 Die Erstübernahme der Schaltgeräte wird separat in [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) gepflegt. Die kompatiblen Main-Anwendungen liegen hier in AquariumControl.
 
+## Leistungsmessung kalibrieren
+
+NOUS A8T können mithilfe eines Shelly als Messreferenz abgeglichen werden. Das [Kalibrierskript](Aq/tools/CalibrateA8T.py) und die [Anleitung](Aq/tools/CalibrateA8T.DE.md) sind enthalten. Das Skript berechnet Korrekturwerte aus zwei Messreihen mit vertauschter Gerätereihenfolge; geschrieben wird nur auf den A8T, mit `--apply` und zusätzlicher Bestätigung. Die Shelly-Kalibrierung bleibt unverändert.
+
 ## Lokale Konfiguration und Builds
 
 Die Python-Werkzeuge benötigen Python 3.10 oder neuer. Native Builds verwenden die Projekt-Makefiles. ESP32- und ESP8266-Projekte verwenden unterschiedliche Toolchains; vor dem Bauen die jeweilige Projekt-README lesen. Vorhandene lokale Werkzeugpfade sind konfigurierbar. Dashboard und MultiTimer wurden mit der installierten PC-Toolchain aus einem isolierten Export gebaut und gelinkt. ESP-Builds aus einer frischen Kopie stehen noch aus.
@@ -28,7 +32,7 @@ Enthalten sind Quellen und Hardwareunterlagen. Gerätespezifische `DevState`-Kon
 
 ## Prüfstand
 
-Der laufende Betrieb ist für die bestehende Aquarium-Installation bestätigt; daraus folgt keine Funktionsgarantie für andere Hardware. Die NOUS1-Leistungskalibrierung wurde bei etwa 150 W mit Shelly2 verglichen; weitere NOUS-Kalibrierungen stehen aus. Das Hinzufügen und Entfernen von Hardware im Geräteeditor ist lokal automatisiert geprüft, der Gerätetest steht noch aus.
+Der laufende Betrieb ist für die bestehende Aquarium-Installation bestätigt; daraus folgt keine Funktionsgarantie für andere Hardware. Das Hinzufügen und Entfernen von Hardware im Geräteeditor ist lokal automatisiert geprüft, der Gerätetest steht noch aus.
 
 ## Hardwareunterlagen
 

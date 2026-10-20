@@ -1,4 +1,4 @@
-<!-- README.public.md, Version: 1.04 -->
+<!-- README.public.md, Version: 1.05 -->
 # AquariumControl
 
 [Deutsch](README.DE.md)
@@ -20,6 +20,10 @@ The project’s own files use the [PolyForm Noncommercial License 1.0.0](LICENSE
 
 Takeover/initial migration is maintained separately in [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover). Compatible Main applications are maintained here in AquariumControl.
 
+## Power-meter calibration
+
+NOUS A8T meters can be calibrated using a Shelly as the measurement reference. The [calibration script](Aq/tools/CalibrateA8T.py) and [instructions](Aq/tools/CalibrateA8T.md) are included. The script calculates corrections from two runs with the device order reversed; it writes calibration values only to the A8T, with `--apply` and additional confirmation. The Shelly calibration remains unchanged.
+
 ## Local configuration and builds
 
 Python utilities require Python 3.10 or later. Native builds use the project Makefiles. ESP32 and ESP8266 projects use different toolchains; consult each project's README before building. Existing local toolchain paths are configurable. Dashboard and MultiTimer dummy/native builds passed from an isolated extracted export using the installed PC toolchain. Fresh ESP builds are still pending.
@@ -28,7 +32,7 @@ The distribution contains source and hardware documentation. Device-specific `De
 
 ## Verification status
 
-Current operation is confirmed for the existing aquarium installation. This is not a guarantee for different hardware. NOUS1 power calibration was compared against Shelly2 at approximately 150 W; other NOUS calibrations remain pending. Adding/removing hardware in the new device editor has local automated coverage and awaits a real-device test.
+Current operation is confirmed for the existing aquarium installation. This is not a guarantee for different hardware. Adding/removing hardware in the new device editor has local automated coverage and awaits a real-device test.
 
 ## Hardware documentation
 

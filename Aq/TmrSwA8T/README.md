@@ -1,4 +1,4 @@
-<!-- README.md, Version: 1.22 -->
+<!-- README.md, Version: 1.23 -->
 # TmrSwA8T
 
 ## Übernahme der Geräte
@@ -34,6 +34,10 @@ Die neue PCNT-/LEDC-Messung ist damit noch nicht am Gerät bestätigt.
 Für den ersten Test nur Main auf LightTimerAq3 aktualisieren; LittleFS und
 Rescue benötigen kein Update. Firmware-only-Build:
 `TMR_SW_ENABLE_LITTLEFS=false ./EspCompile.sh`.
+
+## Kalibrierung der Leistungsmessung
+
+Ein NOUS A8T kann mithilfe eines Shelly als Messreferenz abgeglichen werden. [Anleitung](../tools/CalibrateA8T.DE.md) · [Skript](../tools/CalibrateA8T.py). Die Messung verwendet zwei vertauschte Gerätereihenfolgen. Das Skript schaltet beide Relais temporär ein; Kalibrierwerte werden ausschließlich auf den A8T und nur mit `--apply` sowie zusätzlicher Bestätigung geschrieben. Die Shelly-Kalibrierung bleibt unverändert.
 
 ## Build-Einstiege
 

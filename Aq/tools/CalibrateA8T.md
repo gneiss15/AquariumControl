@@ -1,53 +1,48 @@
-# A8T-Leistungsmessung mit Shelly-Referenz
+<!-- CalibrateA8T.md, Version: 1.00 -->
+# Calibrate a NOUS A8T using a Shelly reference
 
-Das Skript `CalibrateA8T.py` vergleicht einen Shelly und einen Nous A8T in zwei
-Messreihen mit vertauschter Reihenfolge. Der Shelly dient als Referenz; nur die
-Kalibrierwerte des A8T werden angepasst. Standardmäßig zeigt das Skript die
-berechneten Werte an, ohne sie zu schreiben.
+[Deutsch](CalibrateA8T.DE.md) · [Script](CalibrateA8T.py)
 
-## Voraussetzungen
+`CalibrateA8T.py` compares a Shelly reference with a NOUS A8T in two measurement runs, reversing their order between runs. It calculates corrections for the A8T voltage, current and power calibration. By default, it reports the calculated values without saving them.
 
-- Beide Geräte laufen mit der passenden TmrSw-Firmware und sind im selben
-  erreichbaren Netzwerk.
-- Der Shelly und der Nous A8T schalten die verwendete Last zuverlässig.
-- Python 3 auf dem PC.
-- Für den Schreibvorgang ist die lokale Kalibrierungsseite des A8T erreichbar.
+## Requirements
 
-## Ablauf
+- A Shelly and a NOUS A8T running compatible TmrSw firmware, reachable from the PC. The script checks DeviceTypes `TmrSwShellyC3V1` and `TmrSwA8T`.
+- A suitable stable load that both devices can switch. The default minimum accepted power is 100 W.
+- Python 3 on the PC; no additional Python packages are needed.
+- The A8T calibration API must be reachable when applying values.
 
-1. Verbraucher und Geräte bei getrennter Netzversorgung in der Reihenfolge
-   Shelly → Nous A8T → Verbraucher verbinden.
-2. Das Skript starten. Shelly mit dem Netz verbinden und die Aufforderung
-   bestätigen. Das Skript schaltet zuerst das Shelly-Relais ein, wartet dann
-   auf den dadurch versorgten A8T und schaltet diesen ebenfalls ein.
-3. Nach der ersten Messung die Netzversorgung trennen, die Reihenfolge zu
-   Nous A8T → Shelly → Verbraucher tauschen und den NOUS wieder mit dem Netz
-   verbinden. Nach der Aufforderung schaltet das Skript zuerst den NOUS ein,
-   wartet auf den Shelly dahinter und schaltet diesen ebenfalls ein.
-4. Das Skript nimmt die zweite Messreihe auf, berechnet daraus neue A8T-Werte
-   und speichert die Rohmessungen als CSV.
-5. Die Werte prüfen. Wenn du beim gleichen Durchlauf schreiben möchtest,
-   starte das Skript mit `--apply`; nach den Messungen verlangt es zusätzlich
-   die ausdrückliche Schreibbestätigung `A8T SCHREIBEN`.
+## Procedure
 
-Der Override ist temporär und wird beim Beenden des Skripts aufgehoben. Bei
-Abbruch oder Verbindungsverlust die Geräte lokal kontrollieren. Änderungen an
-der Verkabelung nur im spannungsfreien Zustand durchführen.
+1. With the mains supply disconnected, connect Shelly → NOUS A8T → load.
+2. Start the script, connect the Shelly to the mains supply and acknowledge the prompt. The script switches on the upstream Shelly first, waits for the downstream A8T, then switches on the A8T.
+3. After the first run, disconnect the mains supply and reverse the order: NOUS A8T → Shelly → load. Connect the NOUS to the mains supply and acknowledge the prompt. The script switches on the upstream NOUS, waits for the Shelly, then switches on the Shelly.
+4. The script records the second run, saves raw samples to CSV and calculates new A8T values. Invalid sample pairs are rejected. Corrections use each run's median ratios and the geometric mean of both runs.
+5. Review the calculated values. Saving requires `--apply` and the exact additional confirmation `A8T SCHREIBEN`. After saving, the script reads the A8T calibration back and checks it.
 
-## Aufruf
+The script temporarily overrides both relays to ON, even without `--apply`. It attempts to release these overrides when the measurement sequence ends. After interruption or loss of communication, check the devices locally. Change the physical connection order only with the mains supply disconnected.
 
-```text
+## Commands
+
+From the repository root, using the actual device addresses, measure and calculate without saving calibration values:
+
+```sh
 python3 Aq/tools/CalibrateA8T.py --shelly http://SHELLY-IP --nous http://NOUS-IP
 ```
 
-Optionen:
+To apply values, start with `--apply`. This repeats both measurement runs and asks for confirmation before writing:
 
-- `--seconds`: Messdauer pro Verkabelungsreihenfolge (Standard: 30 Sekunden)
-- `--interval`: Abstand zwischen Messungen in Sekunden (Standard: 1 Sekunde)
-- `--min-power`: Mindestleistung für gültige Messpaare in Watt (Standard: 100 W)
-- `--output`: CSV-Zieldatei
-- `--apply`: berechnete Kalibrierwerte nach zusätzlicher Bestätigung auf den A8T
-  schreiben und zurücklesen. Ohne diese Option bleibt es bei der Berechnung.
+```sh
+python3 Aq/tools/CalibrateA8T.py --shelly http://SHELLY-IP --nous http://NOUS-IP --apply
+```
 
-Das Skript schreibt niemals auf den Shelly. Das Überschreiben seiner
-Werkskalibrierung ist für diesen Ablauf nicht vorgesehen.
+Options:
+
+- `--seconds`: measurement duration per order; default 30 seconds, minimum 10.
+- `--interval`: sampling interval; default 1 second.
+- `--min-power`: minimum power for accepted sample pairs; default 100 W.
+- `--reconnect-timeout`: time allowed for a device to become reachable; default 180 seconds.
+- `--output`: CSV destination; default `PowerCalibration_<timestamp>.csv`. Existing files are not overwritten.
+- `--apply`: save the calculated A8T values after additional confirmation.
+
+The Shelly calibration remains unchanged; only its relay override is controlled during measurement. This is a comparison against the selected Shelly reference, so its measurement accuracy limits the comparison. Personal measurement CSV files are not part of the public repository.
