@@ -1,4 +1,4 @@
-<!-- README.public.DE.md, Version: 1.01 -->
+<!-- README.public.DE.md, Version: 1.02 -->
 # AquariumControl
 
 [English](README.md)
@@ -34,8 +34,16 @@ Enthalten sind Quellen und Hardwareunterlagen. Gerätespezifische `DevState`-Kon
 
 Der laufende Betrieb ist für die bestehende Aquarium-Installation bestätigt; daraus folgt keine Funktionsgarantie für andere Hardware. Das Hinzufügen und Entfernen von Hardware im Geräteeditor ist lokal automatisiert geprüft, der Gerätetest steht noch aus.
 
-## Hardwareunterlagen
+## Weiterführende Hardware-READMEs
 
-Feeder enthält CAD, Explosionsansicht, Stückliste und Verdrahtungspläne. FeederV2 ist konstruiert, aber noch nicht praktisch getestet. **Coming soon:** vollständige FeederSimple-Umbauanleitung sowie Pi-Verdrahtung und Komponentenliste. Vorhandene Fotos und Teilbeschreibungen stehen in den jeweiligen Hardwareverzeichnissen. Hersteller-PDFs und private Arbeitsunterlagen sind nicht enthalten.
+Die Hardwarebeschreibung und ihr jeweiliger Dokumentationsstand stehen in den Projektunterlagen:
 
-Unklare Anleitungen, fehlende Informationen und Testergebnisse bitte über die Issues dieses Repositorys melden. Bestehende Komponentenlizenzen und Autorenhinweise erhalten.
+- [Feeder – Hardware](Aq/Feeder/Hw/README.DE.md)
+- [FeederSimple – Hardware](Aq/FeederSimple/Hw/README.DE.md)
+- [MultiTimer / Dashboard – Raspberry-Pi-Hardware](Aq/MultiTimer/Hw/README.DE.md)
+
+## Rückmeldungen ausdrücklich erwünscht
+
+**Bitte meldet unklare Anleitungen, fehlende Informationen, Probleme und Testergebnisse. Auch Erfahrungen mit einem erfolgreichen Nachbau und Verbesserungsvorschläge sind willkommen.**
+
+[Rückmeldung als GitHub Issue eintragen](https://github.com/gneiss15/AquariumControl/issues)
