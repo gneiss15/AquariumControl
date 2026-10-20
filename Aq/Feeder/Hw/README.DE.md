@@ -1,4 +1,4 @@
-<!-- Feeder/Hw/README.DE.md, Version: 1.06 -->
+<!-- Feeder/Hw/README.DE.md, Version: 1.07 -->
 # Feeder – Hardware
 
 [English](README.md)
@@ -35,7 +35,7 @@ Das Bild öffnet die offline nutzbare HTML-Ansicht. Das Modell lässt sich drehe
 
 [SVG zum Bearbeiten](Schematics/FeederWiring.DE.svg) · [Anschlussliste](Schematics/Wiring.DE.md)
 
-Die Kabel sind direkt gesteckt. An den Buchsen und am Servo sind sie teilweise einseitig angelötet. Der 4,7-kΩ-Pull-up sitzt direkt an der Sensorbuchse zwischen Datenleitung und 3,3 V. Der Plan benötigt 13 einadrige Dupont-Leitungen mit Sensoranschluss, sonst 10. Das Kabel am Temperaturfühler zählt nicht dazu.
+Die Kabel sind direkt gesteckt. An den Buchsen und am Servo sind sie teilweise einseitig angelötet. Der 4,7-kΩ-Pull-up sitzt direkt an der Sensorbuchse zwischen Datenleitung und 3,3 V. Die LEMO-Belegung ist Pin 1 = +3,3 V, Pin 2 = GND, Pin 3 = Data/DQ; der Pull-up verbindet Pin 1 und Pin 3. Der Plan benötigt 13 einadrige Dupont-Leitungen mit Sensoranschluss, sonst 10. Das Kabel am Temperaturfühler zählt nicht dazu.
 
 ## Stückliste
 
@@ -55,4 +55,4 @@ Ein CAD-Abgleich mit `python3 Aq/Feeder/tools/ExportCadBom.py` schreibt die aktu
 
 ## Montage und Erstinbetriebnahme
 
-**Coming soon – noch unvollständig.** Die schrittweise Montage, Sensor-Steckerkontakte, Kabellängen und Erstinbetriebnahme einschließlich Servo-Kalibrierung werden noch ergänzt. Die vorhandenen CAD-, Stücklisten- und Verdrahtungsunterlagen stehen bereits zur Verfügung. Rückmeldungen zum Nachbau sind willkommen.
+**Coming soon – noch unvollständig.** Die schrittweise Montage, Kabellängen und Erstinbetriebnahme einschließlich Servo-Kalibrierung werden noch ergänzt. Die vorhandenen CAD-, Stücklisten- und Verdrahtungsunterlagen stehen bereits zur Verfügung. Rückmeldungen zum Nachbau sind willkommen.

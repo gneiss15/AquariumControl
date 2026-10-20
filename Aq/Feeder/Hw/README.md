@@ -1,4 +1,4 @@
-<!-- Feeder/Hw/README.md, Version: 1.06 -->
+<!-- Feeder/Hw/README.md, Version: 1.07 -->
 # Feeder – hardware
 
 [Deutsch](README.DE.md)
@@ -35,7 +35,7 @@ The image opens the offline HTML viewer. Rotate or zoom the model, use the explo
 
 [Editable SVG](Schematics/FeederWiring.svg) · [Connection list](Schematics/Wiring.md)
 
-The cables are plugged in directly. At the sockets and servo, some cables are soldered at one end. The 4.7 kΩ pull-up is soldered directly at the sensor socket between data and 3.3 V. The diagram uses 13 single-wire Dupont leads with the sensor connection, or 10 without it. The temperature probe cable is separate.
+The cables are plugged in directly. At the sockets and servo, some cables are soldered at one end. The 4.7 kΩ pull-up is soldered directly at the sensor socket between data and 3.3 V. The LEMO pinout is pin 1 = +3.3 V, pin 2 = GND, pin 3 = Data/DQ; the pull-up connects pins 1 and 3. The diagram uses 13 single-wire Dupont leads with the sensor connection, or 10 without it. The temperature probe cable is separate.
 
 ## Bill of materials
 
@@ -55,4 +55,4 @@ Running `python3 Aq/Feeder/tools/ExportCadBom.py` exports current CAD quantities
 
 ## Assembly and first-time setup
 
-**Coming soon – incomplete.** Step-by-step assembly, sensor connector contact numbers, cable lengths and first-time setup including servo calibration are still to be documented. CAD, bill of materials and wiring documents are already available. Feedback from builders is welcome.
+**Coming soon – incomplete.** Step-by-step assembly, cable lengths and first-time setup including servo calibration are still to be documented. CAD, bill of materials and wiring documents are already available. Feedback from builders is welcome.

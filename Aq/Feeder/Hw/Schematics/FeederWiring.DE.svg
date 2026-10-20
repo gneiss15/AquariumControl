@@ -84,10 +84,10 @@
 <text x="905" y="252" font-size="16" fill="#303740" text-anchor="start">GND</text>
 <rect x="1040" y="410" width="310" height="205" rx="14" fill="#f4f7fa" stroke="#a9bccb" stroke-width="2"/>
 <text x="1060" y="442" font-size="22" fill="#183044" text-anchor="start">DS18B20 (optional)</text>
-<text x="1060" y="463" font-size="18" fill="#183044" text-anchor="start">VDD · 3,3 V</text>
-<text x="1060" y="503" font-size="18" fill="#183044" text-anchor="start">GND</text>
-<text x="1060" y="543" font-size="18" fill="#183044" text-anchor="start">DQ · OneWire</text>
-<text x="1060" y="581" font-size="16" fill="#183044" text-anchor="start">3-polige Buchse + Fühler</text>
+<text x="1060" y="463" font-size="18" fill="#183044" text-anchor="start">1 · VDD · 3,3 V</text>
+<text x="1060" y="503" font-size="18" fill="#183044" text-anchor="start">2 · GND</text>
+<text x="1060" y="543" font-size="18" fill="#183044" text-anchor="start">3 · DQ · OneWire</text>
+<text x="1060" y="581" font-size="16" fill="#183044" text-anchor="start">LEMO · Buchse + Fühler</text>
 <polyline points="820,316 910,316 910,460 1040,460" fill="none" stroke="white" stroke-width="8"/><polyline points="820,316 910,316 910,460 1040,460" fill="none" stroke="#bd2835" stroke-width="3"/>
 <circle cx="820" cy="316" r="4" fill="#bd2835"/>
 <circle cx="1040" cy="460" r="4" fill="#bd2835"/>

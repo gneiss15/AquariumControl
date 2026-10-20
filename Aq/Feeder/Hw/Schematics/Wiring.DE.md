@@ -16,13 +16,13 @@
 | 8 | GPIO13 / D7 | Encoder DT |
 | 9 | GPIO12 / D6 | Encoder CLK |
 | 10 | GPIO14 / D5 | Encoder SW |
-| 11 | 3V3 | DS18B20 VDD |
-| 12 | GND | DS18B20 GND |
-| 13 | GPIO2 / D4 | DS18B20 DQ |
+| 11 | 3V3 | LEMO 1 → DS18B20 VDD |
+| 12 | GND | LEMO 2 → DS18B20 GND |
+| 13 | GPIO2 / D4 | LEMO 3 → DS18B20 DQ |
 
-Leitungen 11–13 sind nur für den optionalen Temperaturfühler erforderlich. Die drei Signale führen über die Sensorbuchse und den passenden Kabelstecker zum DS18B20; eine verbindliche Kontaktnummerierung der Stecker ist noch zu ergänzen. Nicht nach Aderfarbe allein anschließen.
+Leitungen 11–13 sind nur für den optionalen Temperaturfühler erforderlich. Die LEMO-Verbindung ist wie folgt belegt: **Pin 1 = +3,3 V, Pin 2 = GND, Pin 3 = Data/DQ**. Die drei Signale führen über die Sensorbuchse und den passenden Kabelstecker zum DS18B20. Nicht nach Aderfarbe allein anschließen.
 
-Der Widerstand 4,7 kΩ wird direkt an der Buchse zwischen 3,3 V und DQ angelötet und benötigt keine eigene Dupont-Leitung. Die Kabel sind direkt auf die Stiftleisten gesteckt; an den Buchsen und am Servo sind sie teilweise einseitig angelötet. Die erforderlichen Kabellängen am Einbau bestimmen.
+Der Widerstand 4,7 kΩ wird direkt an der Buchse zwischen Pin 1 (+3,3 V) und Pin 3 (DQ) angelötet und benötigt keine eigene Dupont-Leitung. Die Kabel sind direkt auf die Stiftleisten gesteckt; an den Buchsen und am Servo sind sie teilweise einseitig angelötet. Die erforderlichen Kabellängen am Einbau bestimmen.
 
 Das OLED ist bereits auf dem Modul angeschlossen. GPIO4, GPIO5 und GPIO16 bleiben dafür reserviert. GPIO2 wird für OneWire verwendet; GPIO15/D8 ist dafür ungeeignet. Encoder und DS18B20 verwenden 3,3 V, der Servo 5 V. Alle Baugruppen haben gemeinsame Masse.
 
