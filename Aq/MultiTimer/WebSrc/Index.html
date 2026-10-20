@@ -1,0 +1,148 @@
+<!-- Index.html, Version: 1.17 -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html;charset=UTF-8">
+  <title>MultiTimer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/Index.css">
+  <script defer src="/Index.js"></script>
+</head>
+<body>
+  <svg class="IconSymbols" aria-hidden="true">
+    <symbol id="IconDrag" viewBox="0 0 24 24">
+      <path d="M4 7h16M4 12h16M4 17h16"></path>
+    </symbol>
+    <symbol id="IconTrash" viewBox="0 0 24 24">
+      <path d="M4 7h16M9 7V4h6v3M8 10v8M12 10v8M16 10v8M6 7l1 14h10l1-14"></path>
+    </symbol>
+  </svg>
+  <div id="MainDiv">
+    <div id="DeviceName" class="DeviceName">?</div>
+    <div class="TopBar">
+      <label class="VisuallyHidden" for="PageSelector">Page</label>
+      <select id="PageSelector" class="PageSelector" onchange="MSelect(this.value)">
+        <option value="SwitchTimes" data-tr="SwitchTimes">Switch Times</option>
+        <option value="Intervals" data-tr="Intervals">Intervals</option>
+        <option value="Configuration" data-tr="Configuration">Configuration</option>
+        <option value="Allocation" data-tr="Allocation">Allocation</option>
+      </select>
+      <div class="PageInfo">
+        <span>Version <span id="VersionSummary">?</span></span>
+        <span><span data-tr="Updated">Updated</span> <span id="UpdatedValue">--:--</span></span>
+      </div>
+      <div class="MenuDdLi LanguageMenu">
+        <a class="LanguageButton" id="MLang" href="javascript:void(0)">EN</a>
+        <div class="MenuDdDiv" id="LanguageMenu"></div>
+      </div>
+    </div>
+
+    <div id="SwitchTimes" class="MenuSelectDiv">
+      <table>
+        <thead>
+          <caption><h1><span data-tr="SwitchTimes">Switch Times</span></h1></caption>
+          <tr>
+            <th>#</th>
+            <th><span data-tr="Active">Active</span></th>
+            <th><span data-tr="Channel">Channel</span></th>
+            <th><span data-tr="Time">Time</span></th>
+            <th><span data-tr="Sun">Sun</span></th>
+            <th><span data-tr="Mon">Mon</span></th>
+            <th><span data-tr="Tue">Tue</span></th>
+            <th><span data-tr="Wed">Wed</span></th>
+            <th><span data-tr="Thu">Thu</span></th>
+            <th><span data-tr="Fri">Fri</span></th>
+            <th><span data-tr="Sat">Sat</span></th>
+            <th><span data-tr="On">On</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tfoot>
+          <tr>
+            <th colspan="13">
+              <button id="SaveSwitch" type="button" style="float:left;margin-left:60px;"><span data-tr="Save">Save</span></button>
+              <button id="AddSwitch"><span>+</span></button>
+              <button id="ResetSwitch" style="float:right;margin-right:60px;"><span data-tr="Reset">Reset</span></button>
+            </th>
+          </tr>
+        </tfoot>
+        <tbody id="SwitchData"></tbody>
+      </table>
+    </div>
+
+    <div id="Intervals" class="MenuSelectDiv">
+      <table>
+        <thead>
+          <caption><h1><span data-tr="Intervals">Intervals</span></h1></caption>
+          <tr>
+            <th>#</th>
+            <th><span data-tr="Active">Active</span></th>
+            <th><span data-tr="Channel">Channel</span></th>
+            <th><span data-tr="Start">Start</span></th>
+            <th><span data-tr="Period">Period</span></th>
+            <th><span data-tr="OnTime">On time</span></th>
+            <th><span data-tr="Sun">Sun</span></th>
+            <th><span data-tr="Mon">Mon</span></th>
+            <th><span data-tr="Tue">Tue</span></th>
+            <th><span data-tr="Wed">Wed</span></th>
+            <th><span data-tr="Thu">Thu</span></th>
+            <th><span data-tr="Fri">Fri</span></th>
+            <th><span data-tr="Sat">Sat</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tfoot>
+          <tr>
+            <th colspan="14">
+              <button id="SaveInterval" type="button" style="float:left;margin-left:60px;"><span data-tr="Save">Save</span></button>
+              <button id="AddInterval"><span>+</span></button>
+              <button id="ResetInterval" style="float:right;margin-right:60px;"><span data-tr="Reset">Reset</span></button>
+            </th>
+          </tr>
+        </tfoot>
+        <tbody id="IntervalData"></tbody>
+      </table>
+    </div>
+
+    <div id="Configuration" class="MenuSelectDiv">
+      <h1><span data-tr="Configuration">Configuration</span></h1>
+      <section class="ChannelsConfig" aria-label="Channels.json">
+      <label for="ChannelsText"><strong>Channels.json</strong></label>
+      <textarea id="ChannelsText" spellcheck="false"></textarea>
+      <div class="ConfigButtons">
+        <button id="SaveChannels" type="button"><span data-tr="Save">Save</span></button>
+        <button id="ResetChannels" type="button"><span data-tr="Reset">Reset</span></button>
+        <button id="RestartMultiTimer" type="button" hidden><span data-tr="RestartMultiTimer">Restart MultiTimer</span></button>
+      </div>
+
+      </section>
+
+      <button id="SourcesToggleBtn" type="button" aria-controls="SourcesConfigPanel" aria-expanded="false">Sources.json …</button>
+      <section id="SourcesConfigPanel" class="SourcesConfig" aria-label="Sources.json" hidden>
+        <label for="SourcesText"><strong>Sources.json</strong></label>
+        <p id="SourcesMessage" role="status"></p>
+        <textarea id="SourcesText" spellcheck="false" readonly></textarea>
+        <div>
+          <button id="SourcesSaveBtn" type="button" disabled><span data-tr="Save">Save</span></button>
+          <button id="SourcesReloadBtn" type="button"><span data-tr="Reset">Reset</span></button>
+        </div>
+      </section>
+    </div>
+
+    <div id="Allocation" class="MenuSelectDiv">
+      <table>
+        <thead>
+          <caption><h1><span data-tr="Allocation">Allocation</span></h1></caption>
+          <tr>
+            <th><button type="button" class="SortHeader" data-allocation-sort="Name"><span data-tr="Name">Name</span></button></th>
+            <th><button type="button" class="SortHeader" data-allocation-sort="PhysPos">PhysPos</button></th>
+            <th><button type="button" class="SortHeader" data-allocation-sort="GPIO">GPIO</button></th>
+          </tr>
+        </thead>
+        <tbody id="AllocationData"></tbody>
+      </table>
+    </div>
+
+  </div>
+</body>
+</html>

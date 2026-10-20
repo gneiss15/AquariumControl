@@ -1,0 +1,13 @@
+{
+  "Version": 1,
+  "Monitors": [
+    {
+      "Id": "LaptopPower",
+      "SwitchFunction": "LaptopSw",
+      "Source": "LaptopBattery",
+      "StatusKind": "LaptopPower",
+      "FeedbackField": "AcOnline",
+      "GraceSeconds": 60
+    }
+  ]
+}

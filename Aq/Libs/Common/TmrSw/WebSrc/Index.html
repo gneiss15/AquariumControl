@@ -1,0 +1,175 @@
+<!-- Index.html, Version: 2.07 -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html;charset=UTF-8">
+<title>TmrSw</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="Index.css">
+<!-- EspUpdateCommonHead -->
+<script type="application/javascript" src="Index.js"></script>
+<!--
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
+<link rel="icon" type="image/png" href="/fish.png">
+-->
+</head>
+<body>
+
+<svg class="IconSymbols" aria-hidden="true">
+ <symbol id="IconDrag" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path></symbol>
+ <symbol id="IconTrash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M8 10v8M12 10v8M16 10v8M6 7l1 14h10l1-14"></path></symbol>
+</svg>
+
+<div id="ResDiv" style="display:none">
+</div>
+
+<div id="MainDiv">
+ 
+ <!-- Menu -->
+ <div id="DeviceName" class="DeviceName">?</div>
+ <div class="TopBar">
+  <label class="VisuallyHidden" for="PageSelector">Page</label>
+  <select id="PageSelector" class="PageSelector" onchange="MSelect(parseInt(this.value))">
+   <option value="0" data-tr="Times">Times</option>
+   <option value="1" data-tr="Configuration">Configuration</option>
+   <option id="PowerPageOption" value="3" data-tr="Power" hidden>Power</option>
+   <option value="2">Fw-Update</option>
+  </select>
+  <div class="PageInfo">
+   <span>Version <span id="VersionSummary">FW ? · FS ?</span></span>
+   <span id="PowerMeterSummary" hidden></span>
+   <span><span data-tr="Updated">Updated</span> <span id="UpdatedValue">--:--</span></span>
+  </div>
+  <div class="MenuDdLi LanguageMenu">
+   <a class="LanguageButton" id="MLang" tabindex="0">EN</a>
+   <div class="MenuDdDiv" id="LanguageMenu"></div>
+  </div>
+ </div>
+ <!-- /Menu -->
+
+ <!-- Times -->
+ <div id="Times" class="MenuSelectDiv">
+  <table>
+   <thead><caption><h1><span name='Switch-Times'/></h1></caption>
+    <tr>
+     <th>#</th>
+     <th><span name="Active"/></th>
+     <th><span name="Time"/></th>
+     <th><span name="Sun"/></th>
+     <th><span name="Mon"/></th>
+     <th><span name="Tue"/></th>
+     <th><span name="Wed"/></th>
+     <th><span name="Thr"/></th>
+     <th><span name="Fri"/></th>
+     <th><span name="Sat"/></th>
+     <th><span name="OnOff"/></th>
+     <th><span/></th>
+    </tr>
+   <tfoot>
+    <tr>
+     <th colspan=12>
+      <button type="button" onClick="SubmitTimes();return false;" style="float:left;margin-left:60px;" id="TimeSaveBtn"><span name='Save'/></button>
+      <button onClick="AddTimeRow()">+</button>
+      <button onClick="LoadTimes()" style="float:right;margin-right:60px;"><span name='Reset'/></button>
+     </th>
+    </tr>
+   <tbody id="SwitchData">
+  </table>
+ </div>
+ <!-- /Times -->
+
+ <!-- Config -->
+ <div id="Config" class="MenuSelectDiv">
+  <table>
+   <thead><caption><h1><span name='Configuration'/></h1></caption>
+   <tfoot>
+    <tr>
+     <th colspan=11>
+      <button id="ConfigSaveBtn" type="button" onClick="SubmitConfig();return false;" style="float:left;margin-left:60px;"><span name='Save'/></button>
+      <button onClick="LoadConfig()" style="float:right;margin-right:60px;"><span name='Reset'/></button>
+     </th>
+    </tr>
+   <tbody id="ConfigData">
+  </table>
+  <div class="ChannelsConfig">
+   <label for="ChannelsText"><b>Channels.json</b></label>
+   <textarea id="ChannelsText" spellcheck="false"></textarea>
+   <div>
+    <button id="ChannelsSaveBtn" type="button" onClick="SubmitChannels();return false;"><span name='Save'/></button>
+    <button type="button" onClick="LoadChannels();return false;"><span name='Reset'/></button>
+   </div>
+  </div>
+
+      <button id="SourcesToggleBtn" type="button" aria-controls="SourcesConfigPanel" aria-expanded="false">Sources.json …</button>
+      <section id="SourcesConfigPanel" class="SourcesConfig" aria-label="Sources.json" hidden>
+        <label for="SourcesText"><strong>Sources.json</strong></label>
+        <p id="SourcesMessage" role="status"></p>
+        <textarea id="SourcesText" spellcheck="false" readonly></textarea>
+        <div>
+          <button id="SourcesSaveBtn" type="button" disabled><span name="Save">Save</span></button>
+          <button id="SourcesReloadBtn" type="button"><span name="Reset">Reset</span></button>
+        </div>
+      </section>
+ </div>
+ <!-- /Config -->
+
+ <!-- Power -->
+ <div id="Power" class="MenuSelectDiv">
+  <div class="PowerPanel">
+   <h1 data-tr="Power">Power</h1>
+   <div class="PowerValueRow">
+    <span data-tr="Voltage">Voltage</span>
+    <strong id="PowerVoltage">--.- V</strong>
+   </div>
+   <div class="PowerValueRow">
+    <span data-tr="Current">Current</span>
+    <strong id="PowerCurrent">-.--- A</strong>
+   </div>
+   <div class="PowerValueRow">
+    <span data-tr="ActivePower">Active power</span>
+    <strong id="PowerActivePower">--.- W</strong>
+   </div>
+   <div id="PowerMeterState" class="PowerMeterState"></div>
+   <button type="button" onclick="TogglePowerCalibration()">Kalibrierung ...</button>
+   <div id="PowerCalibration" hidden>
+    <h2>Kalibrierung</h2>
+    <div>Aktuell: VoltageCal <span id="CalVoltageValue">?</span> · CurrentCal <span id="CalCurrentValue">?</span> · PowerCal <span id="CalPowerValue">?</span></div>
+    <p><b>1. Spannung</b><br>
+     Multimeter: <input id="CalVoltageRef" type="number" min="1" step="0.1"> V
+     <button type="button" onclick="CalibrateVoltage()">Kalibrieren</button></p>
+    <p><b>2. Last</b><br>
+     Referenzleistung: <input id="CalLoadPower" type="number" min="0.1" step="0.1"> W<br>
+     Referenzspannung: <input id="CalLoadVoltage" type="number" min="1" step="0.1" value="230"> V
+     <button type="button" onclick="CalibrateLoad()">Leistung + Strom kalibrieren</button></p>
+    <p><b>Optional / Expertenmodus</b><br>
+     Referenzstrom: <input id="CalCurrentRef" type="number" min="0.001" step="0.001"> A
+     <button type="button" onclick="CalibrateCurrent()">Strom direkt kalibrieren</button></p>
+    <fieldset class="PowerCalibrationDirect">
+     <legend>Kalibrierwerte direkt eingeben</legend>
+     <label for="CalDirectVoltage">VoltageCal</label>
+      <input id="CalDirectVoltage" type="number" min="1" max="4294967295" step="1"><br>
+     <label for="CalDirectCurrent">CurrentCal</label>
+      <input id="CalDirectCurrent" type="number" min="1" max="4294967295" step="1"><br>
+     <label for="CalDirectPower">PowerCal</label>
+      <input id="CalDirectPower" type="number" min="1" max="4294967295" step="1"><br>
+     <button type="button" onclick="SaveDirectPowerCalibration()">Werte direkt speichern</button>
+    </fieldset>
+    <div id="PowerCalibrationStatus"></div>
+   </div>
+  </div>
+ </div>
+ <!-- /Power -->
+
+ <!-- Update -->
+ <div id="Update" class="MenuSelectDiv">
+  <!-- EspUpdateCommonBody -->
+  <button class="EspUpdateControl" onClick="ResetDevice()" style="float:center;margin-top:20px;"><span name="ResetDevice"></span></button>
+ </div>
+ <!-- /Update -->
+
+</div><!-- id="MainDiv" -->
+</body>
+<script>
+ document.addEventListener("loaded",SetupOnLoaded());
+</script>
+</html>

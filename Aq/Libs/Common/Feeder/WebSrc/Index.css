@@ -1,0 +1,271 @@
+/* Index.css, Version: 1.09 */
+/*
+ Shortcuts:
+ Dd:DropDown
+*/
+body {
+ margin:0;
+ font-family:sans-serif;
+}
+
+div {
+ text-align:center;
+}
+
+input[type=number] {
+ text-align:right;
+}
+
+.MenuSelectDiv {
+ display:none;
+ padding:6px 12px;
+ overflow-x:auto;
+ border:1px solid #ccc;
+ border-top:none;
+}
+
+.TopBar {
+ display:flex;
+ align-items:center;
+ gap:6px;
+ min-height:48px;
+ padding:4px 6px;
+ background-color:#f1f1f1;
+ border:1px solid #ccc;
+ box-sizing:border-box;
+}
+.DeviceName {
+ padding:4px 6px;
+ background-color:#f1f1f1;
+ border:1px solid #ccc;
+ border-bottom:0;
+ box-sizing:border-box;
+ font-size:1.15em;
+ font-weight:bold;
+ line-height:1.2;
+}
+.VisuallyHidden {
+ position:absolute;
+ width:1px;
+ height:1px;
+ overflow:hidden;
+ clip:rect(0 0 0 0);
+ clip-path:inset(50%);
+ white-space:nowrap;
+}
+.PageSelector {
+ flex:1 1 auto;
+ width:100%;
+ min-width:0;
+ height:38px;
+ padding:4px 8px;
+ font-size:1.1em;
+ font-weight:bold;
+}
+.PageInfo {
+ display:flex;
+ flex:0 0 auto;
+ flex-direction:column;
+ justify-content:center;
+ min-height:38px;
+ color:#555;
+ font-size:.72em;
+ line-height:1.15;
+ text-align:right;
+ white-space:nowrap;
+}
+.LanguageMenu {
+ position:relative;
+ flex:0 0 auto;
+}
+.LanguageButton {
+ display:inline-flex;
+ align-items:center;
+ height:38px;
+ padding:0 12px;
+ color:white;
+ background-color:#3385ff;
+ border:1px solid #0066ff;
+ box-sizing:border-box;
+ font-size:1.05em;
+ font-weight:bold;
+ text-decoration:none;
+ cursor:pointer;
+}
+.MenuDdDiv {
+ display:none;
+ position:absolute;
+ right:0;
+ background-color:#f9f9f9;
+ box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);
+ z-index:1;
+}
+.MenuDdLi:hover .MenuDdDiv, .MenuDdLi:focus-within .MenuDdDiv {
+ display:block;
+}
+.MenuDdA {
+ display:block;
+ color:black;
+ padding:10px 12px;
+ text-align:left;
+ text-decoration:none;
+ cursor:pointer;
+}
+.MenuDdA.active {
+ background-color:#04AA6D;
+ color:white;
+}
+.MenuDdA:hover {
+ background-color:#555;
+ color:white;
+}
+
+table, th, td {
+ padding:4px;
+}
+table {
+ margin-left:auto;
+ margin-right:auto;
+ border-collapse:collapse;
+}
+#Feedings table, #ServoSteps table {
+ text-align:center;
+}
+#Config table {
+ text-align:left;
+ border:0px;
+}
+#Config input[type=text], #Config input[type=password], #Config select {
+ font-size:100%;
+ width:20em;
+}
+#Config input[type=number] {
+ width:6em;
+}
+
+
+#Feedings th, #Feedings td, #ServoSteps, #ServoSteps td {
+ border:1px solid black;
+}
+#Feedings tr:nth-child(even), #ServoSteps tr:nth-child(even) {
+ background-color:#f2f2f2;
+}
+#Feedings th, #ServoSteps th {
+ padding-top:10px;
+ background-color:#04AA6D;
+ color:white;
+ min-width:0;
+}
+#Feedings tfoot th, #ServoSteps tfoot th {
+ border:0px;
+ background-color:white;
+ padding-top:10px;
+ padding-bottom:10px;
+}
+
+button {
+ font-size:1.2em;
+ font-weight:bold;
+ background-color:#04AA6D;
+ border-radius:6px;
+ padding:5px 20px;
+}
+
+.Dragging {
+ opacity:.35;
+}
+.IconSymbols {
+ position:absolute;
+ width:0;
+ height:0;
+ overflow:hidden;
+}
+.Icon {
+ display:block;
+ width:1.2em;
+ height:1.2em;
+ fill:none;
+ stroke:currentColor;
+ stroke-width:2;
+ stroke-linecap:round;
+ stroke-linejoin:round;
+}
+.RowNumber {
+ white-space:nowrap;
+}
+.DragHandle {
+ display:inline-flex;
+ margin-right:2px;
+ padding:2px;
+ border:0;
+ border-radius:3px;
+ background:transparent;
+ color:#555;
+ cursor:grab;
+ vertical-align:middle;
+ touch-action:none;
+}
+.DragHandle:active {
+ cursor:grabbing;
+}
+.DragHandle:hover {
+ background-color:#ddd;
+}
+.Delete {
+ display:inline-flex;
+ padding:3px;
+ border:0;
+ border-radius:3px;
+ background:transparent;
+ color:#333;
+ cursor:pointer;
+}
+.Delete:hover {
+ color:#000;
+ background-color:#eee;
+}
+
+#Feedings th,
+#Feedings td {
+ padding-left:2px;
+ padding-right:2px;
+}
+#Feedings input[type=time] {
+ width:6.5em;
+ min-width:0;
+ box-sizing:border-box;
+}
+#Feedings input[type=checkbox] {
+ margin:0;
+}
+#Feedings select {
+ width:3.25em;
+}
+#ServoSteps input[type=number] {
+ width:6em;
+ box-sizing:border-box;
+}
+
+@media (max-width:1000px) {
+ .MenuSelectDiv {
+  padding-left:2px;
+  padding-right:2px;
+ }
+ #Feedings tfoot button,
+ #ServoSteps tfoot button {
+  float:none !important;
+  margin:4px !important;
+ }
+}
+
+.HomeInputTestStatus {
+ display:inline-block;
+ min-width:32em;
+ max-width:100%;
+ padding:10px;
+ box-sizing:border-box;
+ border:1px solid #ccc;
+ background-color:#f7f7f7;
+ text-align:left;
+ white-space:pre-wrap;
+}

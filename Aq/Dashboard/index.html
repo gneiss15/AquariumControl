@@ -1,0 +1,166 @@
+<!-- index.html, Version: 1.29 -->
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Aquarium Dashboard</title>
+  <link rel="stylesheet" href="Index.css">
+</head>
+<body>
+  <header class="AppHeader">
+    <h1 id="DashboardTitle" data-tr="DashboardTitle">Aquarium Dashboard</h1>
+    <div class="HeaderActions">
+      <div class="HeaderInfo">
+        <span id="DashboardVersionLine">Version ?</span>
+        <span id="LastDashboardUpdate" aria-live="polite" data-tr="NoDataYet">Noch keine Daten</span>
+      </div>
+      <button id="FeedbackSoundToggle" class="SecondaryButton" type="button" aria-pressed="false" data-tr="AlarmSoundOn">Warnton aktivieren</button>
+      <button id="FeedbackSoundAcknowledge" class="SecondaryButton" type="button" data-tr="AlarmAcknowledge" hidden>Warnton quittieren</button>
+      <button id="ReloadButton" class="IconButton" type="button" data-tr-title="ReloadDashboard" title="Dashboard neu laden" aria-label="Dashboard neu laden">↻</button>
+      <div class="MenuDdLi LanguageMenu">
+        <a class="LanguageButton" id="MLang" tabindex="0">DE</a>
+        <div class="MenuDdDiv" id="LanguageMenu"></div>
+      </div>
+    </div>
+  </header>
+
+  <div id="ConnectionBanner" class="ConnectionBanner" role="status" aria-live="polite" hidden>
+    <span id="ConnectionMessage">Verbindung wird geprüft …</span>
+    <button id="ConnectionRetryButton" class="SecondaryButton" type="button" data-tr="CheckNow">Jetzt prüfen</button>
+  </div>
+
+  <nav id="TabBar" class="TabBar" aria-label="Dashboard-Bereiche">
+    <label class="VisuallyHidden" for="PageSelector">Dashboard-Bereich</label>
+    <select id="PageSelector" class="PageSelector" aria-label="Dashboard-Bereich auswählen">
+      <option value="Overview" data-tr="Overview">Übersicht</option>
+      <option value="Times" data-tr="Times">Zeiten</option>
+      <option value="HeatProfiles" data-tr="HeatProfiles">Heizprofile</option>
+      <option value="Assignments" data-tr="DeviceAssignments">Gerätezuordnung</option>
+    </select>
+    <div id="TabTools" class="TabTools" hidden>
+      <span id="FrameScaleLabel" class="FrameScaleLabel">Auto</span>
+      <button id="FrameReloadButton" class="IconButton TabReloadButton" type="button" data-tr-title="ReloadDevicePage" title="Geräteseite neu laden" aria-label="Geräteseite neu laden">↻</button>
+    </div>
+  </nav>
+
+  <main id="MainContent">
+    <section id="Overview" class="TabPage Active" aria-labelledby="DashboardTitle">
+      <div id="DashboardMessage" class="DashboardMessage" hidden></div>
+      <div id="DeviceGrid" class="DeviceGrid" aria-live="polite"></div>
+    </section>
+    <section id="Assignments" class="TabPage">
+      <div class="TimesToolbar">
+        <button id="AssignmentReload" class="SecondaryButton" type="button" data-tr="Reload">Neu laden</button>
+        <button id="AssignmentResume" class="SecondaryButton" type="button" data-tr="ResumeAssignment" hidden>Verteilung fortsetzen</button>
+      </div>
+      <p id="AssignmentMode"></p>
+      <div id="AssignmentMessage" class="DashboardMessage" role="status" hidden></div>
+      <table class="TimesTable AssignmentsTable">
+        <thead><tr><th data-tr="Function">Funktion</th><th>IP / Port</th><th data-tr="PhysicalDevice">Gerät (MAC)</th><th data-tr="CapabilityId">Fähigkeiten</th><th data-tr="Status">Status</th></tr></thead>
+        <tbody id="AssignmentRows"></tbody>
+      </table>
+      <button id="FeedbackEditorToggle" class="SecondaryButton" type="button" aria-controls="FeedbackEditorPanel" aria-expanded="false" data-tr="FeedbackMonitoring">Rückmeldeüberwachung</button>
+      <section id="FeedbackEditorPanel" class="DeviceEditorBox" hidden>
+        <h2 data-tr="FeedbackMonitoring">Rückmeldeüberwachung</h2>
+        <p data-tr="FeedbackEditorNote">Schaltfunktion, unabhängige Rückmeldequelle, Telegrammkennung, boolesches Rückmeldefeld und Toleranzzeit in Sekunden festlegen. Fehlende oder unbekannte Werte gelten nicht als AUS und lösen keinen Warnton aus.</p>
+        <textarea id="FeedbackEditorText" spellcheck="false" aria-label="FeedbackMonitors.json"></textarea>
+        <div id="FeedbackEditorMessage" role="status"></div>
+        <button id="FeedbackEditorSave" class="SecondaryButton" type="button" data-tr="Save">Speichern</button>
+        <button id="FeedbackEditorReload" class="SecondaryButton" type="button" data-tr="Reload">Neu laden</button>
+      </section>
+      <button id="DeviceSwapToggle" class="SecondaryButton" type="button" aria-controls="DeviceSwapPanel" aria-expanded="false" data-tr="DeviceSwap">Gerätetausch</button>
+      <section id="DeviceSwapPanel" class="DeviceSwapBox" aria-labelledby="DeviceSwapTitle" hidden>
+        <h2 id="DeviceSwapTitle" data-tr="DeviceSwap">Gerätetausch</h2>
+        <div class="DeviceSwapRow">
+          <label class="DeviceSwapFunction" for="AssignmentFirst"><span data-tr="SwapEndpointLabel">HW-Endpunkt:</span><select id="AssignmentFirst"></select></label>
+          <span class="DeviceSwapConnector" data-tr="SwapsWith">tauscht mit</span>
+          <label class="DeviceSwapFunction" for="AssignmentSecond"><span data-tr="SwapEndpointLabel">HW-Endpunkt:</span><select id="AssignmentSecond"></select></label>
+        </div>
+        <p><label><input id="AssignmentDetached" type="checkbox"><span data-tr="ConsumersDetached">Verbraucher von beiden Ausgängen getrennt; Geräte bleiben versorgt.</span></label></p>
+        <button id="AssignmentSwap" class="SecondaryButton" type="button" data-tr="SwapFunctions" disabled>Funktionen tauschen</button>
+        <p data-tr="AssignmentFinishNote">Verbraucher erst nach bestätigter Übernahme wieder anschließen. Anzeigenamen der Geräte im Heimnetz bei Bedarf separat ändern.</p>
+        <p class="AssignmentFsNote" data-tr="AssignmentFsNote">Nach dem Tausch sind zuvor erzeugte FS-Binaries veraltet. Vor einem FS-Upload Gerätedaten vom PC aus abgleichen und im passenden Hardwareprojekt neu bauen. Am PC zuerst ins Prjs-Stammverzeichnis wechseln und ausführen: python3 Aq/tools/ReadDeviceStates.py --apply. Danach in jedem betroffenen Hardwareprojekt (z. B. Aq/TmrSwA8T und Aq/TmrSwShelly) ./EspCompile.sh ausführen.</p>
+        <button id="DeviceEditorToggle" class="SecondaryButton" type="button" aria-controls="DeviceEditorPanel" aria-expanded="false" data-tr="DeviceEditor">Geräte bearbeiten …</button>
+        <section id="DeviceEditorPanel" class="DeviceEditorBox" hidden>
+          <h3 data-tr="DeviceEditor">Geräte bearbeiten …</h3>
+          <p data-tr="DeviceEditorNote">Geräte hinzufügen/entfernen oder Stammdaten ändern. Bestehende Funktionen und MACs werden hier nicht getauscht. Entfernen ist nur ohne verwendete Zeitpläne oder Temperaturreferenzen möglich.</p>
+          <textarea id="DeviceEditorText" spellcheck="false" aria-label="Devices.json"></textarea>
+          <div id="DeviceEditorMessage" role="status"></div>
+          <button id="DeviceEditorSave" class="SecondaryButton" type="button" data-tr="SaveDistribute" disabled>Speichern / verteilen</button>
+          <button id="DeviceEditorReload" class="SecondaryButton" type="button" data-tr="Reload">Neu laden</button>
+        </section>
+      </section>
+    </section>
+    <section id="Times" class="TabPage" aria-label="Zentrale Zeitkonfiguration">
+      <div class="TimesToolbar">
+        <label for="TimeSetSelector" data-tr="Device">Gerät</label>
+        <select id="TimeSetSelector"></select>
+        <label for="TimeKindSelector" data-tr="Kind">Art</label>
+        <select id="TimeKindSelector"></select>
+        <button id="TimeAddButton" class="SecondaryButton" type="button" data-tr="AddEntry">Eintrag hinzufügen</button>
+        <button id="TimeSaveButton" class="SecondaryButton" type="button" data-tr="SaveDistribute">Speichern / verteilen</button>
+        <button id="TimeReloadButton" class="SecondaryButton" type="button" data-tr="Reload">Neu laden</button>
+      </div>
+      <div id="TimeMessage" class="DashboardMessage" hidden></div>
+      <div class="TimesTableWrap">
+        <table class="TimesTable">
+          <thead><tr><th><button class="TableSortButton" type="button" data-sort="position">#</button></th><th><button class="TableSortButton" type="button" data-sort="device" data-tr="Device">Gerät</button></th><th><button class="TableSortButton" type="button" data-sort="data" data-tr="Data">Daten</button></th><th><button class="TableSortButton" type="button" data-sort="status" data-tr="Status">Status</button></th><th></th></tr></thead>
+          <tbody id="TimesData"></tbody>
+        </table>
+      </div>
+    </section>
+    <section id="HeatProfiles" class="TabPage" aria-label="Zentrale Heizprofile">
+      <div class="TimesToolbar">
+        <strong data-tr="ProfileFile">HeatProfiles.json</strong>
+        <button id="HeatProfileAddButton" class="SecondaryButton" type="button" data-tr="AddProfile">Profil hinzufügen</button>
+        <button id="HeatProfilesSaveButton" class="SecondaryButton" type="button" data-tr="SaveDistribute">Speichern / verteilen</button>
+        <button id="HeatProfilesReloadButton" class="SecondaryButton" type="button" data-tr="Reload">Neu laden</button>
+      </div>
+      <div id="HeatProfilesMessage" class="DashboardMessage" hidden></div>
+      <div id="HeatProfilesNotice" class="DashboardMessage Success" role="status" aria-live="polite" hidden></div>
+      <div id="HeatProfilesEditor" class="HeatProfilesEditor"></div>
+      <section class="ChannelProfilesSection" aria-labelledby="ChannelProfilesTitle">
+        <h2 id="ChannelProfilesTitle" data-tr="ChannelProfiles">Heizprofil-Zuordnungen</h2>
+        <div class="ChannelAssignmentToolbar">
+          <select id="ChannelAssignmentSelector" aria-label="Kanal auswählen"></select>
+          <button id="ChannelAssignmentAddButton" class="SecondaryButton" type="button" data-tr="AddChannelAssignment">Gerät hinzufügen</button>
+          <button id="ChannelProfilesSaveButton" class="SecondaryButton" type="button" data-tr="SaveDistribute">Speichern / verteilen</button>
+        </div>
+        <div id="ChannelProfilesEditor" class="ChannelProfilesEditor"></div>
+      </section>
+    </section>
+    <section id="ConfigTabs"></section>
+  </main>
+
+  <template id="DeviceCardTemplate">
+    <article class="DeviceCard">
+      <header class="DeviceHeader">
+        <h2 class="DeviceName" data-tr="Device">Gerät</h2>
+        <span class="ConnectionBadge Offline" data-tr="Offline">Offline</span>
+      </header>
+
+      <div class="ErrorPanel" hidden>
+        <strong data-tr="Error">Fehler</strong>
+        <ul class="ErrorList"></ul>
+      </div>
+
+      <div class="MeasurementList" hidden></div>
+      <div class="ChannelList"></div>
+    </article>
+  </template>
+
+  <div id="DetailOverlay" class="DetailOverlay" hidden>
+    <section class="DetailDrawer" role="dialog" aria-modal="true" aria-labelledby="DetailTitle">
+      <header class="DetailHeader">
+        <h2 id="DetailTitle" data-tr="Details">Details</h2>
+        <button id="DetailCloseButton" class="IconButton" type="button" data-tr-title="CloseDetails" aria-label="Details schließen">×</button>
+      </header>
+      <div id="DetailBody" class="DetailBody"></div>
+    </section>
+  </div>
+
+  <script type="module" src="Dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+// Info.txt, Version: 1.03
+
+MultiTimer-Quellstand zum Raspberry Pi übertragen
+
+1. Im Prjs-Verzeichnis das interaktive Kopierskript starten:
+
+   bash Aq/MultiTimer/CopyToRasPi.sh
+
+   Das Skript fragt vor dem lokalen PreBuild und vor jedem Pi-Zugriff nach
+   Zustimmung. Bei Ablehnung bleiben Build und Pi unverändert.
+
+2. Bei Zustimmung werden die statischen Anwendungsdateien und Quellen
+   übertragen. Die laufenden Pi-Dateien Config.json, Channels.json,
+   SwitchTimes.json und SwitchTimes.sync.json bleiben unangetastet. Config.json
+   bleibt die lokale Geräteeinstellung; Channels.json, SwitchTimes.json und
+   SwitchTimes.sync.json werden über das Dashboard synchronisiert. Keine dieser
+   Laufzeitdateien wird in den Build zurückkopiert.
+
+3. Auf dem Raspberry Pi bauen und den Dienst neu starten:
+
+   export RASPI_PRJS_DIR="${RASPI_PRJS_DIR:-/home/pi/Prjs}"
+   cd "$RASPI_PRJS_DIR/MultiTimer"
+   make
+   ./Install.sh
+
+   Install.sh übernimmt beim ersten Übergang die neue Unit und die Wartungsjobs.
+   Bei späteren reinen Codeupdates genügt nach make ein Neustart mit
+   sudo systemctl restart MultiTimer.service.
+
+4. Optional kann der aktive Laufzeitstand vor oder nach dem Codeupdate nur
+   heruntergeladen und angesehen werden:
+
+   bash Aq/MultiTimer/tools/DownloadData.sh
+
+   Rohdateien liegen danach unter Aq/MultiTimer/generated/Instances/GN-Pi/raspi/, formatierte Kopien
+   unter Aq/MultiTimer/generated/Instances/GN-Pi/raspi-readable/. Das Skript öffnet BCO
+   mit dem lokalen Stand links und dem Pi-Download rechts. Die native Root-Config
+   heißt in der Vergleichskopie NativeConfig.json. Lokale Build-/Laufzeitdateien
+   und Raspberry-Pi-Dateien werden nicht verändert.

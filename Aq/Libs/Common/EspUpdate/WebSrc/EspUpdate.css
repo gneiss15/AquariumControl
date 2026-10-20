@@ -1,0 +1,74 @@
+/* EspUpdate.css, Version: 1.05 */
+#Update table {
+ border:1px solid black;
+ font-size:1.5em;
+ font-weight:bold;
+}
+#Update tr {
+ height:20px;
+}
+#Update th,
+#Update td {
+ padding:20px;
+}
+#Update .EspCombinedUpdate table {
+ border:3px solid #04AA6D;
+}
+#Update input[type=file] {
+ max-width:32em;
+ color:transparent;
+}
+#Update input[type=file]::file-selector-button {
+ color:ButtonText;
+}
+#Update .EspUpdateFileSelectRow th,
+#Update .EspUpdateFileSelectRow td {
+ padding-bottom:0;
+}
+#Update .EspUpdateFileNameRow td {
+ padding-top:0;
+ text-align:center;
+}
+#Update .EspUpdateFileName {
+ font-size:small;
+ font-weight:normal;
+ line-height:normal;
+}
+#Update .EspUpdateFileName:empty {
+ display:none;
+}
+#Update .EspStartRescueButton {
+ display:flex;
+ width:max-content;
+ flex-direction:column;
+ align-items:center;
+ justify-content:center;
+ margin:20px auto 12px;
+ text-align:center;
+ gap:.15em;
+}
+#Update .EspStartRescueButton small {
+ font-size:small;
+ font-weight:normal;
+ line-height:normal;
+}
+#EspUpdateProgress {
+ border:2px solid #04AA6D;
+ margin:20px auto;
+ max-width:36em;
+ padding:15px;
+ font-size:1.2em;
+ font-weight:bold;
+}
+#EspUpdateProgress progress {
+ width:100%;
+}
+#EspUpdateFileProgress {
+ margin-top:10px;
+}
+#EspUpdateStatus {
+ margin-top:10px;
+}
+#EspUpdateStatus.Error {
+ color:red;
+}

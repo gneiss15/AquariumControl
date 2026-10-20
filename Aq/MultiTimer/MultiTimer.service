@@ -1,0 +1,20 @@
+# MultiTimer.service, Version: 1.04
+
+[Unit]
+Description=MultiTimer aquarium timer
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=@RASPI_PRJS_DIR@/MultiTimer
+ExecStart=@RASPI_PRJS_DIR@/MultiTimer/StartService.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

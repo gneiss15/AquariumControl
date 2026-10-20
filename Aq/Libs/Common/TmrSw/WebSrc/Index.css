@@ -1,0 +1,323 @@
+/* Index.css, Version: 1.14 */
+/*
+ Shortcuts:
+ Dd:DropDown
+*/
+body {
+ margin:0;
+ font-family:sans-serif;
+}
+
+div {
+ text-align:center;
+}
+
+input[type=number] {
+ text-align:right;
+}
+
+.MenuSelectDiv {
+ display:none;
+ padding:6px 12px;
+ overflow-x:auto;
+ border:1px solid #ccc;
+ border-top:none;
+}
+
+.TopBar {
+ display:flex;
+ align-items:center;
+ gap:6px;
+ min-height:48px;
+ padding:4px 6px;
+ background-color:#f1f1f1;
+ border:1px solid #ccc;
+ box-sizing:border-box;
+}
+.DeviceName {
+ padding:4px 6px;
+ background-color:#f1f1f1;
+ border:1px solid #ccc;
+ border-bottom:0;
+ box-sizing:border-box;
+ font-size:1.15em;
+ font-weight:bold;
+ line-height:1.2;
+}
+.VisuallyHidden {
+ position:absolute;
+ width:1px;
+ height:1px;
+ overflow:hidden;
+ clip:rect(0 0 0 0);
+ clip-path:inset(50%);
+ white-space:nowrap;
+}
+.PageSelector {
+ flex:1 1 auto;
+ width:100%;
+ min-width:0;
+ height:38px;
+ padding:4px 8px;
+ font-size:1.1em;
+ font-weight:bold;
+}
+.PageInfo {
+ display:flex;
+ flex:0 0 auto;
+ flex-direction:column;
+ justify-content:center;
+ min-height:38px;
+ color:#555;
+ font-size:.72em;
+ line-height:1.15;
+ text-align:right;
+ white-space:nowrap;
+}
+.LanguageMenu {
+ position:relative;
+ flex:0 0 auto;
+}
+.LanguageButton {
+ display:inline-flex;
+ align-items:center;
+ height:38px;
+ padding:0 12px;
+ color:white;
+ background-color:#3385ff;
+ border:1px solid #0066ff;
+ box-sizing:border-box;
+ font-size:1.05em;
+ font-weight:bold;
+ text-decoration:none;
+ cursor:pointer;
+}
+.MenuDdDiv {
+ display:none;
+ position:absolute;
+ right:0;
+ background-color:#f9f9f9;
+ box-shadow:0px 8px 16px 0px rgba(0,0,0,0.2);
+ z-index:1;
+}
+.MenuDdLi:hover .MenuDdDiv, .MenuDdLi:focus-within .MenuDdDiv {
+ display:block;
+}
+.MenuDdA {
+ display:block;
+ color:black;
+ padding:10px 12px;
+ text-align:left;
+ text-decoration:none;
+ cursor:pointer;
+}
+.MenuDdA.active {
+ background-color:#04AA6D;
+ color:white;
+}
+.MenuDdA:hover {
+ background-color:#555;
+ color:white;
+}
+
+table, th, td {
+ padding:4px;
+}
+table {
+ margin-left:auto;
+ margin-right:auto;
+ border-collapse:collapse;
+}
+#Times table {
+ text-align:center;
+}
+#Config table {
+ text-align:left;
+ border:0px;
+}
+#Config input[type=text], #Config input[type=password], #Config select {
+ font-size:100%;
+ width:20em;
+}
+#Config input[type=number] {
+ width:6em;
+}
+
+
+#Times th, #Times td {
+ border:1px solid black;
+}
+#Times tr:nth-child(even) {
+ background-color:#f2f2f2;
+}
+#Times th {
+ padding-top:10px;
+ background-color:#04AA6D;
+ color:white;
+ min-width:0;
+}
+#Times tfoot th {
+ border:0px;
+ background-color:white;
+ padding-top:10px;
+ padding-bottom:10px;
+}
+
+button {
+ font-size:1.2em;
+ font-weight:bold;
+ background-color:#04AA6D;
+ border-radius:6px;
+ padding:5px 20px;
+}
+
+button:disabled,
+button[disabled] {
+ font-size:1.2em;
+ font-weight:bold;
+ background-color:#cccccc;
+ border-radius:6px;
+ padding:5px 20px;
+}
+
+.Dragging {
+ opacity:.35;
+}
+.IconSymbols {
+ position:absolute;
+ width:0;
+ height:0;
+ overflow:hidden;
+}
+.Icon {
+ display:block;
+ width:1.2em;
+ height:1.2em;
+ fill:none;
+ stroke:currentColor;
+ stroke-width:2;
+ stroke-linecap:round;
+ stroke-linejoin:round;
+}
+.RowNumber {
+ white-space:nowrap;
+}
+.DragHandle {
+ display:inline-flex;
+ margin-right:2px;
+ padding:2px;
+ border:0;
+ border-radius:3px;
+ background:transparent;
+ color:#555;
+ cursor:grab;
+ vertical-align:middle;
+ touch-action:none;
+}
+.DragHandle:active {
+ cursor:grabbing;
+}
+.DragHandle:hover {
+ background-color:#ddd;
+}
+.Delete {
+ display:inline-flex;
+ padding:3px;
+ border:0;
+ border-radius:3px;
+ background:transparent;
+ color:#333;
+ cursor:pointer;
+}
+.Delete:hover {
+ color:#000;
+ background-color:#eee;
+}
+
+#Times th,
+#Times td {
+ padding-left:2px;
+ padding-right:2px;
+}
+#Times input[type=time] {
+ width:6.5em;
+ min-width:0;
+ box-sizing:border-box;
+}
+#Times input[type=checkbox] {
+ margin:0;
+}
+
+.PowerPanel {
+ width:min(100%,30em);
+ margin:12px auto;
+ padding:12px 16px;
+ box-sizing:border-box;
+ border:1px solid #ccc;
+ border-radius:6px;
+}
+.PowerPanel h1 {
+ margin:0 0 12px;
+}
+.PowerValueRow {
+ display:grid;
+ grid-template-columns:minmax(0,1fr) auto;
+ align-items:center;
+ gap:16px;
+ min-height:2.4em;
+ border-bottom:1px solid #ddd;
+ text-align:left;
+}
+.PowerValueRow strong {
+ min-width:7em;
+ color:#0066aa;
+ font-size:1.15em;
+ text-align:right;
+ white-space:nowrap;
+}
+.PowerMeterState {
+ margin-top:10px;
+ color:#287b35;
+ font-size:.9em;
+ font-weight:bold;
+}
+.PowerMeterState.Invalid {
+ color:#b00020;
+}
+
+@media (max-width:1000px) {
+ .MenuSelectDiv {
+  padding-left:2px;
+  padding-right:2px;
+ }
+ #Times tfoot button {
+  float:none !important;
+  margin:4px !important;
+ }
+}
+
+.ChannelsConfig {
+  margin: 16px auto 4px;
+}
+#ChannelsText {
+  display: block;
+  width: 100%;
+  height: 14em;
+  min-height: 8em;
+  margin: 8px auto;
+  box-sizing: border-box;
+  font-family: monospace;
+  font-size: .95em;
+  text-align: left;
+  white-space: pre;
+}
+.ChannelsConfig button {
+  margin: 0 8px;
+}
+
+.ChannelsConfig, .SourcesConfig { margin-top: 1rem; padding: 0.75rem; border: 1px solid #819097; border-radius: 0.5rem; }
+.SourcesConfig textarea { display: block; width: 100%; min-height: 12rem; resize: vertical; box-sizing: border-box; font-family: monospace; }
+.SourcesConfig textarea[readonly] { opacity: 0.75; }
+.SourcesConfig button { margin-top: 0.5rem; }
+
+#SourcesToggleBtn { margin-top: 1rem; }

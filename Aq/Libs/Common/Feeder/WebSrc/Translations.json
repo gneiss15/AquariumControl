@@ -1,0 +1,274 @@
+{
+  "Lang": [
+    "EN",
+    "DE"
+  ],
+  "Updated": [
+    "Updated",
+    "Aktualisiert"
+  ],
+  "Feedings": [
+    "Feedings",
+    "Fütterungen"
+  ],
+  "Feed-Times": [
+    "Feed-Times",
+    "Fütterungszeiten"
+  ],
+  "Active": [
+    "Active",
+    "Aktiv"
+  ],
+  "Time": [
+    "Time",
+    "Zeit"
+  ],
+  "Sun": [
+    "Sun",
+    "So"
+  ],
+  "Mon": [
+    "Mon",
+    "Mo"
+  ],
+  "Tue": [
+    "Tue",
+    "Di"
+  ],
+  "Wed": [
+    "Wed",
+    "Mi"
+  ],
+  "Thr": [
+    "Thr",
+    "Do"
+  ],
+  "Fri": [
+    "Fri",
+    "Fr"
+  ],
+  "Sat": [
+    "Sat",
+    "Sa"
+  ],
+  "Portions": [
+    "Portions",
+    "Portionen"
+  ],
+  "Save": [
+    "Save",
+    "Speichern"
+  ],
+  "Reset": [
+    "Reset",
+    "Rücksetzen"
+  ],
+  "Manual Feed": [
+    "Manual Feed",
+    "Manuelle Fütterung"
+  ],
+  "Stop Feed": [
+    "Stop Feed",
+    "Fütterung Stoppen"
+  ],
+  "FeedTimesNok": [
+    "Changing Feed-Times failed!",
+    "Änderung der Fütterungszeiten fehlgeschlagen!"
+  ],
+  "FeedTimesOk": [
+    "Saved",
+    "Gespeichert"
+  ],
+  "ManualFeedNok": [
+    "Manual-Feed failed!",
+    "Manuelle Fütterung fehlgeschlagen!"
+  ],
+  "ManualFeedOk": [
+    "Feeding...",
+    "Fütterung..."
+  ],
+  "ManualFeedDone": [
+    "Done",
+    "Fertig"
+  ],
+  "ServoStepsNok": [
+    "Changing Servo-Steps failed!",
+    "Änderung der Servo-Steps fehlgeschlagen!"
+  ],
+  "ServoStepsOk": [
+    "Saved",
+    "Gespeichert"
+  ],
+  "Configuration": [
+    "Configuration",
+    "Konfiguration"
+  ],
+  "ResetDevice": [
+    "Reset Device",
+    "Gerät neu starten"
+  ],
+  "ResetNok": [
+    "Resetting Device failed!",
+    "Gerät neu starten fehlgeschlagen!"
+  ],
+  "ResetOk": [
+    "Device Resetted...",
+    "Gerät startet neu..."
+  ],
+  "AlternateSSID": [
+    "alternative if connection to WlanSsid can't be established",
+    "Alternative wenn Verbindung mit WlanSsid nicht hergestellt werden kann"
+  ],
+  "see": [
+    "see",
+    "siehe"
+  ],
+  "TZ_Link": [
+    "Table of time zones",
+    "Tabelle mit Zeitzonen"
+  ],
+  "ConfigNok": [
+    "Changing Configuration failed!",
+    "Änderung der Konfiguration fehlgeschlagen!"
+  ],
+  "ConfigOk": [
+    "Saved, rebooting...",
+    "Gespeichert, Neustart..."
+  ],
+  "Reload": [
+    "Reload",
+    "Neu Laden"
+  ],
+  "Reload Now": [
+    "Reload Now",
+    "Jetzt neu Laden"
+  ],
+  "ReloadTxt1": [
+    "If You don`t have changed 'WifiMode' inside 'Configuration', You may simply Reload.",
+    "Solange Du 'WifiMode' innerhalb 'Konfiguration' nicht geändert hast, kannst du einfach neu Laden."
+  ],
+  "ReloadTxt2": [
+    "Reloading in ",
+    "Seite wird in "
+  ],
+  "ReloadTxt3": [
+    " seconds.",
+    " Sekunden neu geladen."
+  ],
+  "ErrorApPw": [
+    "Error:\nAccess-Point password must be either:\n- at least 8 characters long\nor\n- empty for an open/unsecure WLAN (not recommended)",
+    "Fehler:\nAccess-Point-Passwort muss entweder sein:\n- Mindestens 8 Zeichen lang\noder\n- leer für ein offenes/unsicheres WLAN (nicht empfohlen)"
+  ],
+  "ErrorApSsid": [
+    "Error:\nIf an access point password is specified, an access point SSID must also be specified",
+    "Fehler:\nWenn ein Access-Point-Passwort angegeben wird, muss auch eine Access-Point-SSID angegeben werden"
+  ],
+  "ErrorWlanSsid": [
+    "Error:\nWLAN SSID must be specified if station mode is activated",
+    "Fehler:\nWLAN-SSID muss angegeben werden, wenn der Station-Modus aktivieren ist"
+  ],
+  "ErrorNtpServer": [
+    "Error:\nNtpServer-Address must be specified if station mode is activated",
+    "Fehler:\nNtpServer-Adresse muss angegeben werden, wenn der Station-Modus aktiviert ist"
+  ],
+  "ErrorTZ": [
+    "Error:\nTime-Zone must be specified if station mode is activated",
+    "Fehler:\nZeitzone muss angegeben werden, wenn der Station-Modus aktiviert ist"
+  ],
+  "ErrorDallasPinConflict": [
+    "Error:\nDallas GPIO is already used by the servo or rotary encoder",
+    "Fehler:\nDer Dallas-GPIO wird bereits vom Servo oder Drehgeber verwendet"
+  ],
+  "ErrorTemperatureUnit": [
+    "Error:\nTemperature unit must be Celsius or Fahrenheit",
+    "Fehler:\nDie Temperatureinheit muss Celsius oder Fahrenheit sein"
+  ],
+  "ServoSteps": [
+    "ServoSteps",
+    "ServoSchritte"
+  ],
+  "Servo-Steps": [
+    "Servo-Steps",
+    "Servo-Schritte"
+  ],
+  "FirmwareRevision": [
+    "Firmware revision",
+    "Firmware-Revision"
+  ],
+  "LittleFsRevision": [
+    "LittleFS revision",
+    "LittleFS-Revision"
+  ],
+  "MoveRow": [
+    "Move row",
+    "Zeile verschieben"
+  ],
+  "DeleteRow": [
+    "Delete row",
+    "Zeile löschen"
+  ],
+  "DuplicateActiveTimeRows": [
+    "Active rows with the same time and overlapping weekdays:",
+    "Aktive Zeilen mit gleicher Zeit und überschneidenden Wochentagen:"
+  ],
+  "ErrorInvalidData": [
+    "Invalid feed-time data",
+    "Ungültige Fütterzeitdaten"
+  ],
+  "ErrorDuplicateActiveTime": [
+    "Active feed times overlap",
+    "Aktive Fütterungszeiten überschneiden sich"
+  ],
+  "ErrorNotEnoughSpace": [
+    "Not enough space to save the times",
+    "Nicht genügend Speicher zum Speichern der Zeiten"
+  ],
+  "ErrorWriteFailed": [
+    "Writing the feed times failed",
+    "Schreiben der Fütterungszeiten fehlgeschlagen"
+  ],
+  "HomeInputTest": [
+    "HOME test",
+    "HOME-Test"
+  ],
+  "HomeInputTestIntro": [
+    "Determines HOME polarity and pull-up, then verifies two complete rotations.",
+    "Ermittelt HOME-Polarität und Pull-up und prüft anschließend zwei vollständige Umdrehungen."
+  ],
+  "HomeInputTestStart": [
+    "Start test",
+    "Test starten"
+  ],
+  "HomeInputTestStop": [
+    "Cancel test",
+    "Test abbrechen"
+  ],
+  "State": [
+    "State",
+    "Status"
+  ],
+  "Transitions": [
+    "transitions",
+    "Flanken"
+  ],
+  "VerificationRotations": [
+    "Verification rotations",
+    "Prüfumdrehungen"
+  ],
+  "HomeInputTestComplete": [
+    "Test successful. Copy the two detected values to HwConfig.FeederSimple.h and rebuild.",
+    "Test erfolgreich. Die beiden ermittelten Werte in HwConfig.FeederSimple.h übernehmen und neu bauen."
+  ],
+  "HomeInputTestRequestFailed": [
+    "HOME test request failed",
+    "HOME-Test-Anforderung fehlgeschlagen"
+  ],
+  "Error": [
+    "Error",
+    "Fehler"
+  ],
+  "Last_Entry_No_Comma!": [
+    "",
+    ""
+  ]
+}

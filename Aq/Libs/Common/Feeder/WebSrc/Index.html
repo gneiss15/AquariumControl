@@ -1,0 +1,154 @@
+<!-- Index.html, Version: 1.09 -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html;charset=UTF-8">
+<title>Feeder</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/png" href="/fish.png">
+<link rel="stylesheet" href="Index.css">
+<!-- EspUpdateCommonHead -->
+<script type="application/javascript" src="Index.js"></script>
+<!--
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
+-->
+</head>
+<body>
+
+<svg class="IconSymbols" aria-hidden="true">
+ <symbol id="IconDrag" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path></symbol>
+ <symbol id="IconTrash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M8 10v8M12 10v8M16 10v8M6 7l1 14h10l1-14"></path></symbol>
+</svg>
+
+<div id="ResDiv" style="display:none">
+</div>
+
+<div id="MainDiv">
+ 
+ <!-- Menu -->
+ <div id="DeviceName" class="DeviceName">?</div>
+ <div class="TopBar">
+  <label class="VisuallyHidden" for="PageSelector">Page</label>
+  <select id="PageSelector" class="PageSelector" onchange="MSelect(parseInt(this.value))">
+   <option value="0" data-tr="Feedings">Feedings</option>
+   <option value="1" data-tr="Configuration">Configuration</option>
+   <option value="2" data-tr="ServoSteps">ServoSteps</option>
+   <option value="3">Fw-Update</option>
+   <option id="HomeInputTestMenuOption" value="4" hidden data-tr="HomeInputTest">HOME-Test</option>
+  </select>
+  <div class="PageInfo">
+   <span>Version <span id="VersionSummary">FW ? · FS ?</span></span>
+   <span><span data-tr="Updated">Updated</span> <span id="UpdatedValue">--:--</span></span>
+  </div>
+  <div class="MenuDdLi LanguageMenu">
+   <a class="LanguageButton" id="MLang" tabindex="0">EN</a>
+   <div class="MenuDdDiv" id="LanguageMenu"></div>
+  </div>
+ </div>
+ <!-- /Menu -->
+
+ <!-- Feedings -->
+ <div id="Feedings" class="MenuSelectDiv">
+  <table>
+   <thead><caption><h1><span name='Feed-Times'></span></h1></caption>
+    <tr>
+     <th>#</th>
+     <th><span name="Active">Active</span></th>
+     <th><span name="Time">Time</span></th>
+     <th><span name="Sun"></span></th>
+     <th><span name="Mon"></span></th>
+     <th><span name="Tue"></span></th>
+     <th><span name="Wed"></span></th>
+     <th><span name="Thr"></span></th>
+     <th><span name="Fri"></span></th>
+     <th><span name="Sat"></span></th>
+     <th><span name="Portions"></span></th>
+     <th></th>
+    </tr>
+   <tfoot>
+    <tr>
+     <th colspan=12>
+      <button id="FeedTimesSaveButton" type="button" onClick="SubmitFeedings();return false;" style="float:left;margin-left:60px;"><span name='Save'></span></button>
+      <button onClick="AddFeedingRow()">+</button>
+      <button onClick="LoadFeedings()" style="float:right;margin-right:60px;"><span name='Reset'></span></button>
+     </th>
+    </tr>
+    <tr>
+     <th colspan=12>
+       <button onClick="ManualFeed()" style="float:center"><span name='Manual Feed'></span></button>
+       <button onClick="StopFeed()" style="float:center"><span name='Stop Feed'></span></button>
+     </th>
+    </tr>
+   <tbody id="FeedData">
+  </table>
+ </div>
+ <!-- /Feedings -->
+ 
+ <!-- Config -->
+ <div id="Config" class="MenuSelectDiv">
+  <form id="ConfigForm" onsubmit="return false">
+  <table>
+   <thead><caption><h1><span name='Configuration'></span></h1></caption>
+   <tfoot>
+    <tr>
+     <th colspan=11>
+      <button id="ConfigSaveButton" type="button" onClick="SubmitConfig();return false;" style="float:left;margin-left:60px;"><span name='Save'></span></button>
+      <button type="button" onClick="LoadConfig()" style="float:right;margin-right:60px;"><span name='Reset'></span></button>
+     </th>
+    </tr>
+   <tbody id="ConfigData">
+  </table>
+  </form>
+ </div>
+ <!-- /Config -->
+ 
+ <!-- ServoSteps -->
+ <div id="ServoSteps" class="MenuSelectDiv">
+  <table>
+   <thead><caption><h1><span name='Servo-Steps'></span></h1></caption>
+    <tr>
+     <th></th>
+     <th><span name="Position">Position<br>[0...180°]</span></th>
+     <th><span name="Speed">Speed (Time for full Turn)<br>[20...3000ms]</span></th>
+     <th><span name="Hold">Hold Time after Position reached<br>[0...10000ms]</span></th>
+     <th></th>
+    </tr>
+   <tfoot>
+    <tr>
+     <th colspan=5>
+      <button id="ServoStepsSaveButton" type="button" onClick="SubmitServoSteps();return false;" style="float:left;margin-left:60px;"><span name='Save'></span></button>
+      <button onClick="AddServoStep()">+</button>
+      <button onClick="LoadServoSteps()" style="float:right;margin-right:60px;"><span name='Reset'></span></button>
+     </th>
+    </tr>
+   <tbody id="ServoStepData">
+  </table>
+ </div>
+ <!-- /ServoSteps -->
+
+ <!-- HOME input test -->
+ <div id="HomeInputTest" class="MenuSelectDiv">
+  <h1><span name="HomeInputTest"></span></h1>
+  <p data-tr="HomeInputTestIntro">Determines HOME polarity and pull-up, then verifies two complete rotations.</p>
+  <p>
+   <button id="HomeInputTestStartButton" type="button" onclick="StartHomeInputTest();return false;"><span name="HomeInputTestStart"></span></button>
+   <button id="HomeInputTestStopButton" type="button" onclick="StopHomeInputTest();return false;"><span name="HomeInputTestStop"></span></button>
+  </p>
+  <pre id="HomeInputTestStatus" class="HomeInputTestStatus">--</pre>
+ </div>
+ <!-- /HOME input test -->
+
+ <!-- Update -->
+ <div id="Update" class="MenuSelectDiv">
+  <!-- EspUpdateCommonBody -->
+  <button class="EspUpdateControl" onClick="ResetDevice()" style="float:center;margin-top:20px;"><span name="ResetDevice"></span></button>
+ </div>
+ <!-- /Update -->
+
+</div><!-- id="MainDiv" -->
+</body>
+<script>
+ document.addEventListener("loaded",SetupOnLoaded());
+</script>
+</html>
+

@@ -1,0 +1,226 @@
+{
+  "Lang": [
+    "EN",
+    "DE"
+  ],
+  "Updated": [
+    "Updated",
+    "Aktualisiert"
+  ],
+  "Times": [
+    "Times",
+    "Zeiten"
+  ],
+  "Switch-Times": [
+    "Switch-Times",
+    "Schaltzeiten"
+  ],
+  "Active": [
+    "Active",
+    "Aktiv"
+  ],
+  "Time": [
+    "Time",
+    "Zeit"
+  ],
+  "Sun": [
+    "Sun",
+    "So"
+  ],
+  "Mon": [
+    "Mon",
+    "Mo"
+  ],
+  "Tue": [
+    "Tue",
+    "Di"
+  ],
+  "Wed": [
+    "Wed",
+    "Mi"
+  ],
+  "Thr": [
+    "Thr",
+    "Do"
+  ],
+  "Fri": [
+    "Fri",
+    "Fr"
+  ],
+  "Sat": [
+    "Sat",
+    "Sa"
+  ],
+  "OnOff": [
+    "On/Off",
+    "An/Aus"
+  ],
+  "Save": [
+    "Save",
+    "Speichern"
+  ],
+  "Reset": [
+    "Reset",
+    "Rücksetzen"
+  ],
+  "SwitchTimesNok": [
+    "Changing Switch-Times failed!",
+    "Änderung der Schaltzeiten fehlgeschlagen!"
+  ],
+  "SwitchTimesOk": [
+    "Saved",
+    "Gespeichert"
+  ],
+  "Configuration": [
+    "Configuration",
+    "Konfiguration"
+  ],
+  "ConfigNok": [
+    "Changing Configuration failed!",
+    "Änderung der Konfiguration fehlgeschlagen!"
+  ],
+  "ConfigOk": [
+    "Saved, rebooting...",
+    "Gespeichert, Neustart..."
+  ],
+  "Reload": [
+    "Reload",
+    "Neu Laden"
+  ],
+  "Reload Now": [
+    "Reload Now",
+    "Jetzt neu Laden"
+  ],
+  "ReloadTxt1": [
+    "If You don`t have changed 'WifiMode' inside 'Configuration', You may simply Reload.",
+    "Solange Du 'WifiMode' innerhalb 'Konfiguration' nicht geändert hast, kannst du einfach neu Laden."
+  ],
+  "ReloadTxt2": [
+    "Reloading in ",
+    "Seite wird in "
+  ],
+  "ReloadTxt3": [
+    " seconds.",
+    " Sekunden neu geladen."
+  ],
+  "ErrorApSsid": [
+    "Error:\nIf an access point password is specified, an access point SSID must also be specified",
+    "Fehler:\nWenn ein Access-Point-Passwort angegeben wird, muss auch eine Access-Point-SSID angegeben werden"
+  ],
+  "ErrorWlanSsid": [
+    "Error:\nWLAN SSID must be specified if station mode is activated",
+    "Fehler:\nWLAN-SSID muss angegeben werden, wenn der Station-Modus aktivieren ist"
+  ],
+  "ErrorNtpServer": [
+    "Error:\nNtpServer-Address must be specified if station mode is activated",
+    "Fehler:\nNtpServer-Adresse muss angegeben werden, wenn der Station-Modus aktiviert ist"
+  ],
+  "ErrorTZ": [
+    "Error:\nTime-Zone must be specified if station mode is activated",
+    "Fehler:\nZeitzone muss angegeben werden, wenn der Station-Modus aktiviert ist"
+  ],
+  "ResetDevice": [
+    "Reset Device",
+    "Gerät neu starten"
+  ],
+  "ResetNok": [
+    "Resetting Device failed!",
+    "Gerät neu starten fehlgeschlagen!"
+  ],
+  "ResetOk": [
+    "Device Resettet...",
+    "Gerät startet neu..."
+  ],
+  "AlternateSSID": [
+    "alternative if connection to WlanSsid can't be established",
+    "Alternative wenn Verbindung mit WlanSsid nicht hergestellt werden kann"
+  ],
+  "see": [
+    "see",
+    "siehe"
+  ],
+  "TZ_Link": [
+    "Table of time zones",
+    "Tabelle mit Zeitzonen"
+  ],
+  "FirmwareRevision": [
+    "Firmware revision",
+    "Firmware-Revision"
+  ],
+  "LittleFsRevision": [
+    "LittleFS revision",
+    "LittleFS-Revision"
+  ],
+  "MoveRow": [
+    "Move row",
+    "Zeile verschieben"
+  ],
+  "DeleteRow": [
+    "Delete row",
+    "Zeile löschen"
+  ],
+  "DuplicateActiveTimeRows": [
+    "Active rows with the same time and overlapping weekdays:",
+    "Aktive Zeilen mit gleicher Zeit und überschneidenden Wochentagen:"
+  ],
+  "ErrorInvalidData": [
+    "Invalid switch-time data",
+    "Ungültige Schaltzeitdaten"
+  ],
+  "ErrorDuplicateActiveTime": [
+    "Active switch times overlap",
+    "Aktive Schaltzeiten überschneiden sich"
+  ],
+  "ErrorNotEnoughSpace": [
+    "Not enough space to save the times",
+    "Nicht genügend Speicher zum Speichern der Zeiten"
+  ],
+  "ErrorWriteFailed": [
+    "Writing the switch times failed",
+    "Schreiben der Schaltzeiten fehlgeschlagen"
+  ],
+  "Power": [
+    "Power",
+    "Messwerte"
+  ],
+  "Voltage": [
+    "Voltage",
+    "Spannung"
+  ],
+  "Current": [
+    "Current",
+    "Strom"
+  ],
+  "ActivePower": [
+    "Active power",
+    "Wirkleistung"
+  ],
+  "PowerMeterValid": [
+    "Measurement valid",
+    "Messung gültig"
+  ],
+  "PowerMeterNotValid": [
+    "Measurement not yet valid",
+    "Messung noch nicht gültig"
+  ],
+  "Last_Entry_No_Comma!": [
+    "",
+    ""
+  ],
+  "InvalidJson": [
+    "Invalid JSON",
+    "Ungültiges JSON"
+  ],
+  "SourcesLocked": [
+    "Editing locked – use Dashboard.",
+    "Bearbeitung gesperrt – bitte Dashboard verwenden."
+  ],
+  "SourcesLocal": [
+    "Dashboard unavailable: local source mapping can be edited. Dashboard mapping takes over when synchronization resumes.",
+    "Dashboard nicht erreichbar: lokale Quellenzuordnung editierbar. Nach erneuter Synchronisierung gilt wieder die Dashboard-Zuordnung."
+  ],
+  "SourcesError": [
+    "Source mapping: ",
+    "Quellenzuordnung: "
+  ]
+}

@@ -1,0 +1,53 @@
+<!-- EspUpdate.html, Version: 1.09 -->
+<form class="EspUpdateForm EspCombinedUpdate" method="POST" enctype="multipart/form-data" action="/CombinedUpdate/" onsubmit="return SubmitEspUpdateForm(this)">
+ <table>
+  <tr>
+   <th colspan="2">Update package</th>
+  </tr>
+  <tr class="EspUpdateFileSelectRow">
+   <th>Package</th>
+   <td><input class="EspUpdateControl" type="file" accept=".update.signed" data-suffix=".update.signed" name="update" required onchange="EspUpdateFileChanged(this)"></td>
+  </tr>
+  <tr class="EspUpdateFileNameRow">
+   <td colspan="2"><span class="EspUpdateFileName"></span></td>
+  </tr>
+  <tr>
+   <th colspan="2"><input class="EspUpdateButton EspUpdateControl" type="submit" value="Update"></th>
+  </tr>
+ </table>
+</form>
+<br>
+<form class="EspUpdateForm EspCombinedUpdate" method="POST" enctype="multipart/form-data" action="/CombinedUpdate/" onsubmit="return SubmitEspUpdateForm(this)">
+ <table>
+  <tr>
+   <th colspan="2">Update Firmware and/or Filesystem</th>
+  </tr>
+  <tr class="EspUpdateFileSelectRow">
+   <th>Firmware</th>
+   <td><input class="EspUpdateControl" type="file" accept=".bin.signed,.bin.gz.signed" data-suffixes=".bin.signed,.bin.gz.signed" name="firmware" onchange="EspUpdateFileChanged(this)"></td>
+  </tr>
+  <tr class="EspUpdateFileNameRow">
+   <td colspan="2"><span class="EspUpdateFileName"></span></td>
+  </tr>
+  <tr class="EspUpdateFileSelectRow">
+   <th>LittleFS</th>
+   <td><input class="EspUpdateControl" type="file" accept=".littlefs.signed" data-suffix=".littlefs.signed" name="filesystem" onchange="EspUpdateFileChanged(this)"></td>
+  </tr>
+  <tr class="EspUpdateFileNameRow">
+   <td colspan="2"><span class="EspUpdateFileName"></span></td>
+  </tr>
+  <tr>
+   <th colspan="2"><input class="EspUpdateButton EspUpdateControl" type="submit" value="Update"></th>
+  </tr>
+ </table>
+</form>
+
+<div id="EspUpdateProgress" hidden>
+ <div id="EspUpdateUploadText">Upload: 0 %</div>
+ <progress id="EspUpdateUploadBar" max="100" value="0"></progress>
+ <div id="EspUpdateFileProgress" hidden>
+  <div id="EspUpdateFileText">Dateien: 0 / 0</div>
+  <progress id="EspUpdateFileBar" max="1" value="0"></progress>
+ </div>
+ <div id="EspUpdateStatus"></div>
+</div>

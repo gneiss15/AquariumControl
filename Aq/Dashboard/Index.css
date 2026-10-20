@@ -1,0 +1,1235 @@
+/* Index.css, Version: 1.54 */
+
+:root {
+  color-scheme: light dark;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --Background: #eef3f5;
+  --Surface: #ffffff;
+  --SurfaceMuted: #f5f8f9;
+  --Text: #17252a;
+  --TextMuted: #617177;
+  --Border: #d5e0e3;
+  --Accent: #087f8c;
+  --AccentStrong: #05636d;
+  --Success: #1f7a45;
+  --Warning: #9a6700;
+  --Danger: #b42318;
+  --Shadow: 0 8px 20px rgba( 23, 37, 42, 0.08 );
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  color: var( --Text );
+  background: var( --Background );
+}
+
+body.DetailOpen {
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.AppHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.25rem;
+  padding: 0.45rem clamp( 0.65rem, 1.6vw, 1rem );
+  background: var( --Surface );
+  border-bottom: 1px solid var( --Border );
+}
+
+.AppHeader h1 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: clamp( 1.15rem, 2.2vw, 1.55rem );
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.HeaderActions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.LanguageMenu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.LanguageButton {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  color: white;
+  background-color: #3385ff;
+  border: 1px solid #0066ff;
+  box-sizing: border-box;
+  font-size: 1.05em;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.MenuDdDiv {
+  display: none;
+  position: absolute;
+  right: 0;
+  background-color: #f9f9f9;
+  box-shadow: 0px 8px 16px 0px rgba( 0, 0, 0, 0.2 );
+  z-index: 30;
+}
+
+.MenuDdLi:hover .MenuDdDiv,
+.MenuDdLi:focus-within .MenuDdDiv {
+  display: block;
+}
+
+.MenuDdA {
+  display: block;
+  color: black;
+  padding: 10px 12px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.MenuDdA.active {
+  background-color: #04AA6D;
+  color: white;
+}
+
+.MenuDdA:hover {
+  background-color: #555;
+  color: white;
+}
+
+.HeaderInfo {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 2.65rem;
+  color: var( --TextMuted );
+  font-size: 0.7rem;
+  line-height: 1.15;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.IconButton {
+  display: inline-grid;
+  width: 2.65rem;
+  height: 2.65rem;
+  place-items: center;
+  padding: 0;
+  color: var( --Text );
+  background: var( --Surface );
+  border: 1px solid var( --Border );
+  border-radius: 0.55rem;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.ConnectionBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.45rem 0.65rem 0;
+  padding: 0.15rem 0.65rem;
+  color: var( --Warning );
+  background: color-mix( in srgb, var( --Warning ) 9%, var( --Surface ) );
+  border: 1px solid color-mix( in srgb, var( --Warning ) 30%, var( --Border ) );
+  border-radius: 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.ConnectionBanner[hidden] {
+  display: none;
+}
+
+.ConnectionBanner.Offline {
+  color: var( --Danger );
+  background: color-mix( in srgb, var( --Danger ) 9%, var( --Surface ) );
+  border-color: color-mix( in srgb, var( --Danger ) 30%, var( --Border ) );
+}
+
+.ConnectionBanner.Recovering {
+  color: var( --Success );
+  background: color-mix( in srgb, var( --Success ) 9%, var( --Surface ) );
+  border-color: color-mix( in srgb, var( --Success ) 30%, var( --Border ) );
+}
+
+.TabBar {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.35rem;
+  padding: 0.1rem 0.55rem;
+  background: var( --Surface );
+  border-bottom: 1px solid var( --Border );
+}
+
+.VisuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect( 0 0 0 0 );
+  clip-path: inset( 50% );
+  white-space: nowrap;
+}
+
+.PageSelector {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 1.85rem;
+  padding: 0.05rem 0.65rem;
+  color: var( --Text );
+  background: var( --Surface );
+  border: 1px solid var( --Border );
+  border-radius: 0.55rem;
+  font-weight: 700;
+}
+
+.TabTools {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.TabTools[hidden] {
+  display: none;
+}
+
+.TabReloadButton {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 0.55rem;
+}
+
+.FrameScaleLabel {
+  color: var( --TextMuted );
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+main {
+  padding: 0.55rem clamp( 0.55rem, 1.5vw, 0.9rem ) 0.9rem;
+}
+
+main.ConfigMode {
+  padding: 0;
+}
+
+.TabPage {
+  display: none;
+}
+
+.TabPage.Active {
+  display: block;
+}
+
+.DashboardMessage {
+  margin-bottom: 0.6rem;
+  padding: 0.4rem 0.8rem;
+  color: var( --Danger );
+  background: color-mix( in srgb, var( --Danger ) 10%, var( --Surface ) );
+  border: 1px solid color-mix( in srgb, var( --Danger ) 30%, var( --Border ) );
+  border-radius: 0.6rem;
+}
+
+.DashboardMessage.HeatSyncSummary {
+  color: var( --Text );
+  background: var( --SurfaceMuted );
+  border-color: var( --Border );
+}
+
+.DashboardMessage.Success {
+  color: var( --Success );
+  background: color-mix( in srgb, var( --Success ) 10%, var( --Surface ) );
+  border-color: color-mix( in srgb, var( --Success ) 30%, var( --Border ) );
+}
+
+.DeviceGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+.AquariumGroup {
+  order: 10;
+  min-width: 0;
+  padding: 0.4rem;
+  background: var( --Surface );
+  border: 1px solid var( --Border );
+  border-radius: 0.65rem;
+  box-shadow: var( --Shadow );
+}
+
+.AquariumGroupTitle {
+  margin: 0 0 0.2rem;
+  padding: 0.15rem 0.35rem;
+  color: var( --Text );
+  background: var( --SurfaceMuted );
+  border-radius: 0.4rem;
+  font-size: 1rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.GroupStatusList {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.GroupStatusList .DeviceHeader {
+  min-height: 1.65rem;
+  padding: 0.1rem 0.15rem;
+  border-bottom: 0;
+}
+
+.GroupStatusList .DeviceName {
+  font-size: 0.86rem;
+}
+
+.GroupStatusDivider {
+  margin: 0.25rem 0;
+  border: 0;
+  border-top: 3px solid var( --Accent );
+}
+
+.GroupOutputList {
+  display: grid;
+  align-content: start;
+}
+
+.GroupOutputGap {
+  min-height: 1.65rem;
+}
+
+.DeviceCard.GroupOutputCard {
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.GroupOutputCard .MeasurementList {
+  padding: 0.1rem 0.15rem;
+  background: transparent;
+  border: 0;
+}
+
+.GroupOutputCard .ChannelList {
+  padding: 0 0.15rem;
+}
+
+@media ( min-width: 30rem ) {
+  .DeviceGrid {
+    grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+    align-items: start;
+  }
+}
+
+@media ( min-width: 75rem ) {
+  .DeviceGrid {
+    grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+    align-items: start;
+  }
+
+}
+
+@media ( min-width: 30rem ) and ( pointer: coarse ) and ( orientation: portrait ) {
+  .DeviceGrid {
+    grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+  }
+}
+
+@media ( min-width: 60rem ) and ( pointer: coarse ) and ( orientation: landscape ) {
+  .DeviceGrid {
+    grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
+  }
+}
+
+.DeviceCard {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var( --Surface );
+  border: 1px solid var( --Border );
+  border-radius: 0.65rem;
+  box-shadow: var( --Shadow );
+}
+
+.DeviceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-height: 2.15rem;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var( --Border );
+}
+
+.DeviceName {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ConnectionBadge {
+  flex: 0 0 auto;
+  padding: 0.22rem 0.48rem;
+  color: var( --TextMuted );
+  background: var( --SurfaceMuted );
+  border: 1px solid var( --Border );
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.ConnectionBadge.Live {
+  color: var( --Success );
+  border-color: color-mix( in srgb, var( --Success ) 40%, var( --Border ) );
+}
+
+.ConnectionBadge.Polling {
+  color: var( --Warning );
+  border-color: color-mix( in srgb, var( --Warning ) 40%, var( --Border ) );
+}
+
+.ConnectionBadge.Offline {
+  color: var( --Danger );
+  border-color: color-mix( in srgb, var( --Danger ) 35%, var( --Border ) );
+}
+
+.ErrorPanel {
+  margin: 0.45rem 0.55rem 0;
+  padding: 0.2rem 0.6rem;
+  color: var( --Danger );
+  background: color-mix( in srgb, var( --Danger ) 8%, var( --Surface ) );
+  border-left: 3px solid var( --Danger );
+  font-size: 0.76rem;
+}
+
+.ErrorList {
+  margin: 0.2rem 0 0;
+  padding-left: 1rem;
+}
+
+.MeasurementList {
+  padding: 0.2rem 0.5rem;
+  background: var( --SurfaceMuted );
+  border-bottom: 1px solid var( --Border );
+}
+
+.MeasurementList[hidden] {
+  display: none;
+}
+
+.MeasurementRow {
+  display: grid;
+  grid-template-columns: minmax( 0, 1fr ) auto;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.65rem;
+}
+
+.MeasurementName {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.MeasurementValue {
+  color: var( --AccentStrong );
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.MeasurementValue.Invalid {
+  color: var( --Danger );
+}
+
+.PowerMeterRow {
+  display: grid;
+  grid-template-columns: minmax( 0, 1fr ) auto;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.55rem;
+  color: var( --AccentStrong );
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.55rem;
+}
+
+.PowerMeterName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.PowerMeterValue {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.PowerMeterRow.Invalid {
+  color: var( --Danger );
+}
+
+.ChannelList {
+  padding: 0.15rem 0.45rem 0.25rem;
+}
+
+.ChannelRow {
+  display: grid;
+  grid-template-columns: minmax( 0, 1fr ) auto;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+  min-height: 1.9rem;
+  padding: 0.15rem 0.05rem;
+  border-bottom: 1px solid var( --Border );
+}
+
+.ChannelRow.HasMarker {
+  grid-template-columns: minmax( 0, 1fr ) auto auto;
+}
+
+.ChannelRow:last-child {
+  border-bottom: 0;
+}
+
+.ChannelDetailsButton {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0.15rem 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+}
+
+.ChannelDetailsButton:active {
+  background: var( --SurfaceMuted );
+}
+
+.ChannelName {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ChannelState {
+  min-width: 2.7rem;
+  text-align: right;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.ChannelState.Action {
+  min-height: 1.55rem;
+  padding: 0.25rem 0.5rem;
+  background: var( --SurfaceMuted );
+  border: 1px solid var( --Border );
+  border-radius: 999px;
+  text-align: center;
+}
+
+.ChannelState.Action:active {
+  transform: translateY( 1px );
+}
+
+.ChannelState.Busy {
+  opacity: 0.55;
+}
+
+.ChannelState.On {
+  color: var( --Success );
+}
+
+.ChannelState.Off {
+  color: var( --TextMuted );
+}
+
+.ChannelState.Unknown {
+  color: var( --Warning );
+}
+
+.ChannelMarker {
+  width: 0.65rem;
+  font-size: 0.65rem;
+  text-align: center;
+}
+
+.ChannelMarker.Override {
+  color: var( --Warning );
+}
+
+.ChannelMarker.Error {
+  color: var( --Danger );
+}
+
+.EmptyChannels {
+  padding: 0.55rem 0.3rem;
+  color: var( --TextMuted );
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.PrimaryButton,
+.SecondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.05rem;
+  padding: 0.15rem 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.PrimaryButton {
+  color: #ffffff;
+  background: var( --Accent );
+  border: 1px solid var( --Accent );
+}
+
+.SecondaryButton {
+  color: var( --Text );
+  background: var( --Surface );
+  border: 1px solid var( --Border );
+}
+
+.PrimaryButton:disabled,
+.SecondaryButton:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.CompactButton {
+  min-height: 1.75rem;
+  padding: 0.05rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.ConfigPage {
+  height: calc( 100vh - 5.60rem );
+  height: calc( 100dvh - 5.60rem );
+  min-height: 18rem;
+}
+
+.ConfigViewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.ConfigViewport.HorizontalScroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.ConfigCanvas {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.ConfigFrame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  max-width: none;
+  background: #ffffff;
+  border: 0;
+  transform-origin: 0 0;
+}
+
+.ConfigPlaceholder {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  padding: 1rem;
+  color: var( --TextMuted );
+  text-align: center;
+}
+
+.DetailOverlay {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  background: rgba( 0, 0, 0, 0.42 );
+}
+
+.DetailOverlay[hidden] {
+  display: none;
+}
+
+.DetailDrawer {
+  width: min( 28rem, 92vw );
+  height: 100%;
+  overflow-y: auto;
+  color: var( --Text );
+  background: var( --Surface );
+  box-shadow: -12px 0 32px rgba( 0, 0, 0, 0.25 );
+}
+
+.DetailHeader {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.85rem;
+  padding: 0.15rem 0.65rem 0.15rem 0.85rem;
+  background: var( --Surface );
+  border-bottom: 1px solid var( --Border );
+}
+
+.DetailHeader h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.DetailBody {
+  padding: 0.45rem 0.85rem 1rem;
+}
+
+.DetailRow {
+  display: grid;
+  grid-template-columns: minmax( 8rem, 0.8fr ) minmax( 0, 1.2fr );
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var( --Border );
+}
+
+.DetailLabel {
+  color: var( --TextMuted );
+  font-size: 0.8rem;
+}
+
+.DetailValue {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.DetailRow.Good .DetailValue {
+  color: var( --Success );
+}
+
+.DetailRow.Warning .DetailValue {
+  color: var( --Warning );
+}
+
+.DetailRow.Error .DetailValue {
+  color: var( --Danger );
+}
+
+
+.DetailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var( --Border );
+}
+
+.DetailActions h3 {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.DetailActionButton {
+  flex: 1 1 9rem;
+}
+
+@media ( pointer: coarse ) {
+  .PageSelector,
+  .PrimaryButton,
+  .SecondaryButton {
+    min-height: 2.35rem;
+  }
+
+  .ChannelRow {
+    min-height: 2.35rem;
+  }
+
+  .ChannelState.Action {
+    min-height: 2.05rem;
+    padding-inline: 0.7rem;
+  }
+}
+
+.GroupOutputList .ChannelRow {
+  min-height: 1.65rem;
+  padding-block: 0.05rem;
+  border-bottom: 0;
+}
+
+.GroupOutputList .ChannelDetailsButton {
+  padding-block: 0.05rem;
+}
+
+.GroupOutputList .ChannelState.Action {
+  min-height: 1.55rem;
+  padding-block: 0.1rem;
+}
+
+.GroupOutputList .PowerMeterRow {
+  min-height: 1.4rem;
+  line-height: 1.4rem;
+}
+
+@media ( max-width: 700px ) {
+  .ConnectionBanner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ConfigPage {
+    height: calc( 100vh - 5.60rem );
+    height: calc( 100dvh - 5.60rem );
+  }
+
+  .DetailOverlay {
+    align-items: flex-end;
+  }
+
+  .DetailDrawer {
+    width: 100%;
+    height: min( 78vh, 34rem );
+    height: min( 78dvh, 34rem );
+    border-radius: 0.85rem 0.85rem 0 0;
+  }
+
+  .DetailRow {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+
+  .DetailValue {
+    text-align: left;
+  }
+}
+
+@media ( prefers-color-scheme: dark ) {
+  :root {
+    --Background: #10191c;
+    --Surface: #172328;
+    --SurfaceMuted: #1d2c31;
+    --Text: #edf5f6;
+    --TextMuted: #a7b8bd;
+    --Border: #33464c;
+    --Accent: #18a6b5;
+    --AccentStrong: #6dd2dc;
+    --Success: #5fc98b;
+    --Warning: #e6b450;
+    --Danger: #ff8378;
+    --Shadow: 0 8px 20px rgba( 0, 0, 0, 0.24 );
+  }
+}
+
+.TimesToolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+
+.TimesToolbar select,
+.TimesToolbar button {
+  min-height: 1.75rem;
+}
+
+.TimesTableWrap {
+  overflow-x: auto;
+}
+
+.TimesTable {
+  width: 100%;
+  border-collapse: collapse;
+  background: var( --Surface );
+}
+
+.TimesTable th,
+.TimesTable td {
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var( --Border );
+  vertical-align: middle;
+}
+
+.TableSortButton {
+  border: 0;
+  padding: 0.15rem;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  background: transparent;
+  cursor: pointer;
+}
+
+.TableSortButton[aria-sort="ascending"]::after { content: " ▲"; }
+.TableSortButton[aria-sort="descending"]::after { content: " ▼"; }
+
+.TimeDataInput {
+  width: 100%;
+  min-width: 18rem;
+  padding: 0.05rem 0.4rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.TimeDataEditor {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  min-width: 34rem;
+}
+
+.TimeField {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.TimeField > span:first-child { font-size: 0.82rem; }
+.TimeField input[type="time"] { min-width: 6.5rem; }
+.TimeField input[type="time"], .TimeField select { min-height: 1.8rem; }
+.TimeField-portion select { width: 4rem; }
+
+.TimeDays { align-items: flex-start; }
+.TimeDays > span:first-child { padding-top: 0.18rem; }
+.TimeDayChecks { display: flex; flex-wrap: wrap; gap: 0.15rem 0.35rem; }
+.TimeDayOption { display: inline-flex; align-items: center; gap: 0.1rem; font-size: 0.78rem; }
+.TimeDayOption input { margin: 0; }
+
+.ChannelProfilesSection {
+  margin-top: 1.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var( --Border );
+}
+
+.ChannelAssignmentToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.ChannelAssignmentToolbar select { min-width: min(24rem, 100%); }
+
+.ChannelProfilesEditor {
+  display: grid;
+  gap: 0;
+  margin-bottom: 0.65rem;
+}
+
+.ChannelProfilesHeader,
+.ChannelProfileRow {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) minmax(12rem, 1.2fr) minmax(14rem, 1.4fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem;
+}
+
+.ChannelProfilesHeader {
+  border-bottom: 2px solid var( --Border );
+}
+
+.ChannelProfileRow {
+  border: 1px solid var( --Border );
+  border-radius: 0.35rem;
+}
+
+.ChannelProfileRow .TimeField { display: grid; gap: 0.15rem; }
+.ChannelProfileRow .TimeField > span { display: none; }
+.ChannelProfileRow .TimeField select { width: 100%; }
+.ChannelProfileDelete { align-self: center; }
+
+@media (max-width: 48rem) {
+  .ChannelProfilesHeader,
+  .ChannelProfileRow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.TimeOrderButtons {
+  display: inline-flex;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.HeatProfilesEditor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.65rem;
+}
+
+.HeatProfileCard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  border: 1px solid var( --Border );
+  border-radius: 0.45rem;
+  padding: 0.65rem;
+}
+
+.HeatProfileCard legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+}
+
+.HeatProfileField {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.HeatProfileField input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 1.9rem;
+}
+
+.HeatProfileField:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.HeatProfileField input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+}
+
+.HeatProfileCard > button {
+  justify-self: start;
+}
+
+.TimeStatusCell { width: 2.6rem; text-align: center; white-space: nowrap; }
+.TimeStatusPending { color: var( --Warning ); }
+.TimeStatusSynced { color: var( --Success ); }
+.TimeStatusIndicator { width: 1rem; height: 1rem; margin: 0; accent-color: currentColor; }
+.TimeStatusIndicator:disabled { opacity: 1; cursor: default; }
+.HeatSyncPending { color: var( --Danger ); font-weight: 700; }
+
+@media ( max-width: 64rem ) {
+  .TimesTableWrap { overflow: visible; }
+  .TimesTable:not(.AssignmentsTable),
+  .TimesTable:not(.AssignmentsTable) tbody { display: block; width: 100%; }
+  .TimesTable:not(.AssignmentsTable) thead { display: none; }
+  .TimesTable:not(.AssignmentsTable) tbody tr {
+    display: grid;
+    grid-template-columns: minmax( 0, 1fr ) auto auto;
+    margin-bottom: 0.45rem;
+    border: 1px solid var( --Border );
+    border-radius: 0.45rem;
+  }
+  .TimesTable:not(.AssignmentsTable) tbody td {
+    min-width: 0;
+    padding: 0.3rem 0.4rem;
+    border: 0;
+  }
+  .TimesTable:not(.AssignmentsTable) tbody td:nth-child( 1 ) { display: none; }
+  .TimesTable:not(.AssignmentsTable) tbody td:nth-child( 2 ) {
+    grid-column: 1;
+    grid-row: 1;
+    overflow-wrap: anywhere;
+    font-weight: 700;
+  }
+  .TimesTable:not(.AssignmentsTable) tbody td:nth-child( 3 ) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    border-top: 1px solid var( --Border );
+  }
+  .TimesTable:not(.AssignmentsTable) tbody td:nth-child( 4 ) { grid-column: 2; grid-row: 1; }
+  .TimesTable:not(.AssignmentsTable) tbody td:nth-child( 5 ) { grid-column: 3; grid-row: 1; }
+  .TimeDataEditor { width: 100%; min-width: 0; gap: 0.3rem 0.5rem; }
+  .TimeField input[type="time"] { width: 5rem; min-width: 0; }
+  .TimeStatusCell { width: 2.2rem; }
+}
+
+@media ( max-width: 30rem ) {
+  .TimeDataEditor { display: grid; grid-template-columns: repeat( 2, minmax( 0, 1fr ) ); }
+  .TimeDataEditor .TimeDays { grid-column: 1 / -1; }
+  .TimeField input[type="time"] { width: 4.5rem; }
+  .TimeDays { min-width: 0; }
+  .TimeDayChecks { gap: 0.1rem 0.25rem; }
+  .TimeDayOption { font-size: 0.72rem; }
+}
+
+@media ( min-width: 30.01rem ) and ( max-width: 64rem ) and ( orientation: portrait ) {
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) {
+    width: 100%;
+    grid-template-columns: minmax( 15rem, 1fr ) minmax( 10rem, 1fr ) max-content minmax( 5rem, 1fr ) 2.2rem auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+  }
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) > td:nth-child( 2 ) {
+    grid-column: 1;
+    grid-row: 1;
+    white-space: nowrap;
+  }
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) > td:nth-child( 3 ),
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeDataEditor { display: contents; }
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) > td:nth-child( 4 ) { grid-column: 5; grid-row: 1; }
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) > td:nth-child( 5 ) { grid-column: 6; grid-row: 1; }
+  .TimeDataEditor {
+    display: grid;
+    grid-template-columns: max-content max-content minmax( 0, 1fr ) max-content;
+    gap: 0.2rem 0.35rem;
+  }
+  .TimeField > span:first-child { font-size: 0.75rem; }
+  .TimeField input[type="time"] { width: 4.4rem; font-size: 0.8rem; padding-inline: 0.1rem; }
+  .TimeField select { max-width: 9.5rem; }
+  .TimeDayChecks { flex-wrap: nowrap; gap: 0.1rem 0.18rem; }
+  .TimeField-time { grid-column: 1; grid-row: 1; }
+  .TimeField-enabled { grid-column: 2; grid-row: 1; }
+  .TimeField-start { grid-column: 1; grid-row: 1; }
+  .TimeField-period { grid-column: 2; grid-row: 1; }
+  .TimeField-onTime { grid-column: 3; grid-row: 1; }
+  .TimeDataEditor:has( .TimeField-period ) .TimeField-enabled { grid-column: 4; }
+  .TimeDays { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
+  .TimeField-channel,
+  .TimeField-portion { grid-column: 3; grid-row: 1; }
+  .TimeDataEditor:has( .TimeField-period ) .TimeField-channel { grid-column: 4; grid-row: 2; }
+  .TimeField-active { grid-column: 4; grid-row: 1; }
+
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-time { grid-column: 1; grid-row: 2; }
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-enabled { grid-column: 2; grid-row: 2; }
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeDays { grid-column: 4 / -1; grid-row: 2; }
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-channel { grid-column: 2 / 4; grid-row: 1; justify-self: end; }
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-active { grid-column: 3; grid-row: 2; }
+  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-portion { grid-column: 2; grid-row: 1; }
+}
+
+/* Assignment management is separate from the fixed tablet overview layout. */
+.AssignmentsTable { width: 100%; table-layout: auto; }
+.AssignmentsTable td, .AssignmentsTable th { overflow-wrap: normal; }
+.AssignmentsTable th:first-child { width: 100%; }
+.AssignmentsTable td:first-child { min-width: 15rem; }
+.AssignmentsTable td:nth-child(2), .AssignmentsTable td:nth-child(4),
+.AssignmentsTable th:nth-child(2), .AssignmentsTable th:nth-child(4) { white-space: nowrap; }
+.AssignmentsTable td:nth-child(3) { min-width: 14rem; overflow-wrap: anywhere; }
+#Assignments { padding: 0.5rem; }
+
+#Assignments [hidden] { display: none !important; }
+
+.DeviceSwapBox {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var( --Border );
+  border-radius: 0.65rem;
+  background: var( --Surface );
+}
+.DeviceSwapBox h2 { text-align: center; margin: 0 0 0.8rem; font-size: 1.1rem; }
+.DeviceSwapRow { display: flex; align-items: center; flex-wrap: wrap; gap: 0.65rem; }
+.DeviceSwapFunction { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+.DeviceSwapFunction select { min-width: 0; max-width: 100%; min-height: 1.75rem; }
+.DeviceSwapConnector { white-space: nowrap; }
+.DeviceSwapBox p:last-child { margin-bottom: 0; color: var( --TextMuted ); }
+@media ( max-width: 36rem ) {
+  .DeviceSwapFunction { width: 100%; }
+  .DeviceSwapFunction select { flex: 1; }
+}
+
+.DeviceSwapBox .AssignmentFsNote { color: var( --Warning ); font-weight: 600; }
+
+#DeviceSwapToggle { margin-top: 1rem; }
+.DeviceEditorBox { margin-top: 1rem; padding: 0.75rem; border: 1px solid var(--Border); border-radius: 0.5rem; }
+.DeviceEditorBox h3 { text-align: center; }
+#DeviceEditorText { width: 100%; min-height: 16rem; box-sizing: border-box; font-family: monospace; white-space: pre; resize: vertical; }
+
+/* Column sizing is active only while tables use their desktop table layout. */
+.ResizableColumns { table-layout: fixed; }
+.ResizableColumns th { position: relative; padding-right: 0.9rem; }
+.ResizableColumns td { overflow-wrap: anywhere; }
+.ColumnResizeHandle { position: absolute; right: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; touch-action: none; z-index: 1; }
+.ColumnResizeHandle:hover, .ColumnResizeHandle:focus { background: var(--Border); outline: none; }
+.ColumnMeasure { position: fixed; left: -100000px; top: 0; visibility: hidden; table-layout: auto !important; min-width: 0 !important; }
+.ColumnMeasure th, .ColumnMeasure td { width: auto !important; min-width: 0 !important; white-space: nowrap !important; }
+#Assignments { overflow-x: auto; }
+.ResizableColumns.AssignmentsTable th:first-child { width: auto; }
+.ResizableColumns.AssignmentsTable td { min-width: 0; white-space: normal; }
+
+@media (max-width: 64rem) {
+  .TimesTable.ResizableColumns:not(.AssignmentsTable) { width: 100% !important; }
+  .TimesTable.ResizableColumns:not(.AssignmentsTable) > colgroup { display: none; }
+}
+
+.ColumnSortButton { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; padding: 0.1rem 0.2rem; }
+.ColumnSortButton::after { content: attr(data-direction); display: inline-block; width: 1rem; margin-left: 0.2rem; }
+
+.FeedbackRow { gap: .5rem; font-size: .85em; }
+.FeedbackRow > :last-child { text-align: right; }
+
+.HeaderActions { flex-wrap: wrap; max-width: 75%; }
+#FeedbackEditorText { width: 100%; min-height: 16rem; box-sizing: border-box; font-family: monospace; }
+#FeedbackEditorPanel h2 { text-align: center; }
+#FeedbackSoundAcknowledge[hidden] { display: none; }
+.FeedbackRow .Error { color: var(--Danger); font-weight: 700; }

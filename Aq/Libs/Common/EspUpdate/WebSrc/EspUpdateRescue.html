@@ -1,0 +1,54 @@
+<!-- EspUpdateRescue.html, Version: 1.03 -->
+<form class="EspUpdateForm EspRescueUpdate" onsubmit="return SubmitEspRescueUpdateForm(this)">
+ <table>
+  <tr>
+   <th colspan="2">Firmware Update via Rescue</th>
+  </tr>
+  <tr class="EspUpdateFileSelectRow">
+   <th>Firmware</th>
+   <td><input class="EspUpdateControl" type="file" accept=".bin_signed" data-suffix=".bin_signed" data-artifact="1" name="firmware" onchange="EspUpdateFileChanged(this)"></td>
+  </tr>
+  <tr class="EspUpdateFileNameRow">
+   <td colspan="2"><span class="EspUpdateFileName"></span></td>
+  </tr>
+  <tr class="EspUpdateFileSelectRow">
+   <th>Filesystem</th>
+   <td><input class="EspUpdateControl" type="file" accept=".littlefs_signed" data-suffix=".littlefs_signed" data-artifact="2" name="filesystem" onchange="EspUpdateFileChanged(this)"></td>
+  </tr>
+  <tr class="EspUpdateFileNameRow">
+   <td colspan="2"><span class="EspUpdateFileName"></span></td>
+  </tr>
+  <tr>
+   <th colspan="2"><input class="EspUpdateButton EspUpdateControl" type="submit" value="Update via Rescue"></th>
+  </tr>
+ </table>
+</form>
+
+<button class="EspUpdateControl EspStartRescueButton" type="button" onclick="EspStartRescue()">
+ <span>Start Rescue</span>
+ <small>Version: <span id="EspRescueTargetVersion">?</span></small>
+</button>
+<button class="EspUpdateControl" type="button" onclick="EspToggleRescueUpdate()">Update Rescue ...</button>
+<div id="EspRescueSelfUpdate" hidden>
+ <p><b>Warning:</b> Rescue is the recovery system. Update it only with a matching signed Rescue artifact.</p>
+ <form class="EspUpdateForm" onsubmit="return SubmitEspRescueSelfUpdateForm(this)">
+  <table>
+   <tr class="EspUpdateFileSelectRow">
+    <th>Rescue</th>
+    <td><input class="EspUpdateControl" type="file" accept=".rescue_signed" data-suffix=".rescue_signed" data-artifact="5" name="rescue" onchange="EspUpdateFileChanged(this)" required></td>
+   </tr>
+   <tr class="EspUpdateFileNameRow">
+    <td colspan="2"><span class="EspUpdateFileName"></span></td>
+   </tr>
+   <tr>
+    <th colspan="2"><input class="EspUpdateButton EspUpdateControl" type="submit" value="Update Rescue"></th>
+   </tr>
+  </table>
+ </form>
+</div>
+
+<div id="EspUpdateProgress" hidden>
+ <div id="EspUpdateUploadText">Bereit</div>
+ <progress id="EspUpdateUploadBar" max="100" value="0"></progress>
+ <div id="EspUpdateStatus"></div>
+</div>

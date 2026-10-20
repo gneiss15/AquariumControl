@@ -1,0 +1,28 @@
+<!-- EspUpdateEsp32.html, Version: 1.01 -->
+<form class="EspUpdateForm" method="POST" enctype="multipart/form-data" action="/FwUpdate/" onsubmit="return SubmitEspUpdateForm(this)">
+ <table>
+  <tr>
+   <th colspan="2">Firmware Update</th>
+  </tr>
+  <tr class="EspUpdateFileSelectRow">
+   <th>Firmware</th>
+   <td><input class="EspUpdateControl" type="file" accept=".bin" data-suffix=".bin" name="firmware" required onchange="EspUpdateFileChanged(this)"></td>
+  </tr>
+  <tr class="EspUpdateFileNameRow">
+   <td colspan="2"><span class="EspUpdateFileName"></span></td>
+  </tr>
+  <tr>
+   <th colspan="2"><input class="EspUpdateButton EspUpdateControl" type="submit" value="Update"></th>
+  </tr>
+ </table>
+</form>
+
+<div id="EspUpdateProgress" hidden>
+ <div id="EspUpdateUploadText">Upload: 0 %</div>
+ <progress id="EspUpdateUploadBar" max="100" value="0"></progress>
+ <div id="EspUpdateFileProgress" hidden>
+  <div id="EspUpdateFileText">Dateien: 0 / 0</div>
+  <progress id="EspUpdateFileBar" max="1" value="0"></progress>
+ </div>
+ <div id="EspUpdateStatus"></div>
+</div>

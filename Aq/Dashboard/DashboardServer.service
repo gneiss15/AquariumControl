@@ -1,0 +1,21 @@
+# DashboardServer.service, Version: 1.04
+
+[Unit]
+Description=Aquarium dashboard web server
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=@RASPI_PRJS_DIR@/Dashboard
+ExecStart=@RASPI_PRJS_DIR@/Dashboard/DashboardServer 8090 @RASPI_PRJS_DIR@/Dashboard
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,182 @@
+{
+  "Lang": [
+    "EN",
+    "DE"
+  ],
+  "Updated": [
+    "Updated",
+    "Aktualisiert"
+  ],
+  "SwitchTimes": [
+    "Switch Times",
+    "Schaltzeiten"
+  ],
+  "Intervals": [
+    "Intervals",
+    "Intervalle"
+  ],
+  "Active": [
+    "Active",
+    "Aktiv"
+  ],
+  "Time": [
+    "Time",
+    "Zeit"
+  ],
+  "Start": [
+    "Start",
+    "Start"
+  ],
+  "Period": [
+    "Period",
+    "Periode"
+  ],
+  "OnTime": [
+    "On time",
+    "Einschaltdauer"
+  ],
+  "Sun": [
+    "Sun",
+    "So"
+  ],
+  "Mon": [
+    "Mon",
+    "Mo"
+  ],
+  "Tue": [
+    "Tue",
+    "Di"
+  ],
+  "Wed": [
+    "Wed",
+    "Mi"
+  ],
+  "Thu": [
+    "Thu",
+    "Do"
+  ],
+  "Fri": [
+    "Fri",
+    "Fr"
+  ],
+  "Sat": [
+    "Sat",
+    "Sa"
+  ],
+  "Channel": [
+    "Channel",
+    "Kanal"
+  ],
+  "On": [
+    "On",
+    "Ein"
+  ],
+  "Save": [
+    "Save",
+    "Speichern"
+  ],
+  "Reset": [
+    "Reset",
+    "Rücksetzen"
+  ],
+  "MoveRow": [
+    "Move row",
+    "Zeile verschieben"
+  ],
+  "DeleteRow": [
+    "Delete row",
+    "Zeile löschen"
+  ],
+  "SaveFailed": [
+    "Save failed",
+    "Speichern fehlgeschlagen"
+  ],
+  "Saved": [
+    "Saved",
+    "Gespeichert"
+  ],
+  "IntervalRow": [
+    "Interval row",
+    "Intervallzeile"
+  ],
+  "InvalidStartTime": [
+    "invalid start time",
+    "ungültige Startzeit"
+  ],
+  "PeriodGreaterZero": [
+    "period must be greater than 00:00",
+    "Periode muss größer als 00:00 sein"
+  ],
+  "OnTimeGreaterZero": [
+    "on-time must be greater than 00:00",
+    "Einschaltdauer muss größer als 00:00 sein"
+  ],
+  "OnTimeShorterPeriod": [
+    "on-time must be shorter than period",
+    "Einschaltdauer muss kürzer als die Periode sein"
+  ],
+  "DuplicateActiveTimeRows": [
+    "Active rows with the same time, channel and overlapping weekdays:",
+    "Aktive Zeilen mit gleicher Zeit, gleichem Kanal und überschneidenden Wochentagen:"
+  ],
+  "ErrorDuplicateActiveTime": [
+    "Active times overlap",
+    "Aktive Zeiten überschneiden sich"
+  ],
+  "ErrorNotEnoughSpace": [
+    "Not enough space to save the times",
+    "Nicht genügend Speicher zum Speichern der Zeiten"
+  ],
+  "ErrorWriteFailed": [
+    "Writing the times failed",
+    "Schreiben der Zeiten fehlgeschlagen"
+  ],
+  "Configuration": [
+    "Configuration",
+    "Konfiguration"
+  ],
+  "InvalidJson": [
+    "invalid JSON",
+    "ungültiges JSON"
+  ],
+  "RestartRequired": [
+    "Restart required to apply Channels.json",
+    "Neustart erforderlich, um Channels.json zu übernehmen"
+  ],
+  "Allocation": [
+    "Allocation",
+    "Belegung"
+  ],
+  "Name": [
+    "Name",
+    "Name"
+  ],
+  "RestartMultiTimer": [
+    "Restart MultiTimer",
+    "MultiTimer neu starten"
+  ],
+  "RestartingMultiTimer": [
+    "MultiTimer is restarting...",
+    "MultiTimer wird neu gestartet..."
+  ],
+  "RestartFailed": [
+    "Restart failed",
+    "Neustart fehlgeschlagen"
+  ],
+  "SourcesLocked": [
+    "Editing locked – use Dashboard.",
+    "Bearbeitung gesperrt – bitte Dashboard verwenden."
+  ],
+  "SourcesLocal": [
+    "Dashboard unavailable: local source mapping can be edited. Dashboard mapping takes over when synchronization resumes.",
+    "Dashboard nicht erreichbar: lokale Quellenzuordnung editierbar. Nach erneuter Synchronisierung gilt wieder die Dashboard-Zuordnung."
+  ],
+  "SourcesError": [
+    "Source mapping: ",
+    "Quellenzuordnung: "
+  ],
+  "ExternalConfigurationChange": [
+    "Configuration changed in Dashboard. Unsaved edits are retained; reload after saving or discarding them.",
+    "Konfiguration im Dashboard geändert. Ungespeicherte Eingaben bleiben erhalten; nach Speichern oder Verwerfen neu laden."
+  ]
+}

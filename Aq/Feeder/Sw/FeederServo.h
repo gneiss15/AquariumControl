@@ -1,0 +1,133 @@
+// FeederServo.h, Version: 2.43
+//****************************************************************
+
+#ifndef FeederServoH  // sentry
+#define FeederServoH
+
+//****************************************************************
+// Includes
+//****************************************************************
+
+#include <GnBasics.h>
+#include "Libs/Common/Feeder/FeederDriveBase.h"
+#ifdef ESP32
+  #include <WiFi.h>
+  #include <WiFiType.h>
+ #else
+  #include <ESP8266WiFi.h>
+#endif
+#include <LittleFS.h>
+#include <ArduinoJson.h>
+
+//****************************************************************
+// typedefs
+//****************************************************************
+
+typedef struct _TServoStep
+ {
+  double   position_Grad;
+  int32_t  soll_Clks;
+  int32_t  speed_Clks;
+  int32_t  hold_Counts;
+ }
+ TServoStep;
+ 
+typedef struct _TJsonServoStep
+ {
+  double    position_Grad;
+  uint32_t  speed_ms;
+  uint32_t  hold_ms;
+  int32_t   positionTicks;
+ }
+ TJsonServoStep;
+
+//****************************************************************
+// Sw Configuration
+//****************************************************************
+
+#define Servo_MinPw_us             500   //  500µs = linker  Anschlag = 0°
+#define Servo_MaxPw_us            2500   // 2500µs = rechter Anschlag = 180°
+#define Servo_Period_us          20000   // 20000us
+
+#define Servo_FullTurn_Grad        180.
+
+//****************************************************************
+// TFeederServo
+//****************************************************************
+
+class TFeederServo : public TSingleton<TFeederServo>, public TFeederDrive
+ {
+  friend class TSingleton<TFeederServo>;
+ private:
+                      TFeederServo
+                       (
+                        int32_t periodUs = Servo_Period_us,         // Periodendauer des Servo-Signals (20ms)
+                        int32_t minPulseWidthUs = Servo_MinPw_us, 
+                        int32_t maxPulseWidthUs = Servo_MaxPw_us
+                       );
+                      ~TFeederServo(void) override;
+
+ private:
+  int32_t             Position_Grad2Soll_Clks( double position_Grad );
+  int32_t             Speed_ms2Speed_Clks( uint32_t speed_ms );
+  int32_t             Hold_ms2Hold_Counts( uint32_t hold_ms );
+
+  double              Soll_Clks2Position_Grad( int32_t soll_Clks );
+  uint32_t            Speed_Clks2Speed_ms( int32_t speed_Clks );
+  uint32_t            Hold_Counts2Hold_ms( int32_t hold_Counts );
+
+  bool                Save(void);
+  bool                Load( String const & jsonStr );
+
+ private: // initialised in constructor
+  bool                FRunning;
+  int                 FPinNr;
+
+  int32_t             FPeriodClks;
+  int32_t             FMinPulseWidthClks;
+  int32_t             FMaxPulseWidthClks;
+  int32_t             FActPulseWidthClks;
+                      // helper vars for faster calculation
+  int32_t             FdPulseWidthClks;
+  int32_t             FdPulseWidthClks_Mul_PeriodClks;
+
+  TServoStep *        FServoSteps;
+  bool                FServoStepsMigrationRequired;
+
+ private: // internal use only
+  int16_t             FPinMask;
+  TServoStep const *  FActStep;
+  int32_t             FNextLoadValueClks;
+  int32_t             FHoldCounter;
+  int32_t             FRepeats;
+  uint8_t             FPendingRepeats;
+
+  int32_t             FPwmCycles;
+
+ public:
+  bool                Running(void) const override;
+  bool                Set( String const & jsonStr )               { return Load( jsonStr ) && Save(); }
+  bool                SetSettings( String const & Json ) override { return Set( Json ); }
+  bool                SetupSettings(void);
+  bool                SetupHardware(void);
+                      // setup & load data
+  void                Setup(void) override;
+  bool                Attach( int pinNr );
+  void                Detach(void);
+  bool                Feed( uint8_t Repeats = 1 ) override;
+  bool                Stop(void) override;
+  bool                PinUsed( int Pin ) const override;
+  char const *        CapabilitiesJson(void) const override       { return ",\"ServoSteps\""; }
+  void                TimeSynchronized(void) override;
+
+ private:
+  void                Loop(void) override;
+  bool                StartFeed( uint8_t Repeats );
+  static IRAM_ATTR
+    void              FeederServoIrq(void);
+ };
+
+#define FeederServo TFeederServo::Instance()
+
+//****************************************************************
+#endif // sentry

@@ -1,0 +1,24 @@
+# rsync-filter.txt, Version: 1.05
+# --- 1. GLOBALE AUSNAHMEN (überall blockiert) ---
+- rsync-filter.txt
+- CopyToRasPi.sh
+- ToDo.txt
+
+# --- 2. SPEZIFISCHE AUSNAHMEN (nur in bestimmten Pfaden) ---
+# Schließt alle .txt-Dateien NUR direkt in MultiTimer/ aus (nicht in Subdirs)
+- /MultiTimer/*.zip
+- /MultiTimer/*.txt
+- /MultiTimer/MultiTimer
+- /MultiTimer/build/***
+- /MultiTimer/generated/***
+
+# --- 3. INCLUDES (Erlaubte Ordner) ---
++ /Dashboard/***
++ /MultiTimer/***
+
++ /Libs/
++ /Libs/GnBasicLib/***
+
+# --- 4. ALLES ANDERE BLOCKIEREN ---
+- *
+

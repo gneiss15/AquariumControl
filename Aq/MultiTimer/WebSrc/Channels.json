@@ -1,0 +1,87 @@
+{
+  "Profiles": [],
+  "Channels": [
+    {
+      "Id": "LichtAq1Haupt",
+      "Role": "Timer",
+      "PhysPos": "Main 4",
+      "InputPin": 11,
+      "OutputPin": 16,
+      "InputActiveHigh": false,
+      "OutputActiveHigh": false,
+      "InputPullup": true
+    },
+    {
+      "Id": "LichtAq1Hinten",
+      "Role": "Timer",
+      "PhysPos": "Main 3",
+      "InputPin": 8,
+      "OutputPin": 26,
+      "InputActiveHigh": false,
+      "OutputActiveHigh": false,
+      "InputPullup": true
+    },
+    {
+      "Id": "LichtAq1Vorne",
+      "Role": "Timer",
+      "PhysPos": "Main 2",
+      "InputPin": 7,
+      "OutputPin": 20,
+      "InputActiveHigh": false,
+      "OutputActiveHigh": false,
+      "InputPullup": true
+    },
+    {
+      "Id": "LichtAq2Haupt",
+      "Role": "Timer",
+      "PhysPos": "Main 5",
+      "InputPin": 25,
+      "OutputPin": 23,
+      "InputActiveHigh": false,
+      "OutputActiveHigh": false,
+      "InputPullup": true
+    },
+    {
+      "Id": "LichtAq2Hinten",
+      "Role": "Timer",
+      "PhysPos": "Main 1",
+      "InputPin": 12,
+      "OutputPin": 21,
+      "InputActiveHigh": false,
+      "OutputActiveHigh": false,
+      "InputPullup": true
+    },
+    {
+      "Id": "HeizungBodenAq1",
+      "Role": "HeaterFloor",
+      "PhysPos": "Main 8",
+      "InputPin": 24,
+      "OutputPin": 17,
+      "InputActiveHigh": false,
+      "OutputActiveHigh": false,
+      "InputPullup": true,
+      "Profile": "HeatProfileAq1"
+    },
+    {
+      "Id": "HeizungBodenAq2",
+      "Role": "HeaterFloor",
+      "PhysPos": "Main 6",
+      "InputPin": 9,
+      "OutputPin": 22,
+      "InputActiveHigh": false,
+      "OutputActiveHigh": false,
+      "InputPullup": true,
+      "Profile": "HeatProfileAq2"
+    },
+    {
+      "Id": "Luft",
+      "Role": "Timer",
+      "PhysPos": "Main 7",
+      "InputPin": 10,
+      "OutputPin": 27,
+      "InputActiveHigh": false,
+      "OutputActiveHigh": false,
+      "InputPullup": true
+    }
+  ]
+}

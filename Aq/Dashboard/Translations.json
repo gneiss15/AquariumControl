@@ -1,0 +1,774 @@
+{
+  "Lang": [
+    "EN",
+    "DE"
+  ],
+  "DashboardTitle": [
+    "Aquarium Dashboard",
+    "Aquarium Dashboard"
+  ],
+  "Updated": [
+    "Updated",
+    "Aktualisiert"
+  ],
+  "NoDataYet": [
+    "No data yet",
+    "Noch keine Daten"
+  ],
+  "Overview": [
+    "Overview",
+    "Übersicht"
+  ],
+  "Group.Aq1": [
+    "Aquarium 1",
+    "Aquarium 1"
+  ],
+  "Group.Aq2": [
+    "Aquarium 2",
+    "Aquarium 2"
+  ],
+  "Group.Aq3": [
+    "Aquarium 3",
+    "Aquarium 3"
+  ],
+  "Group.System": [
+    "System",
+    "System"
+  ],
+  "Times": [
+    "Times",
+    "Zeiten"
+  ],
+  "HeatProfiles": [
+    "Heat profiles",
+    "Heizprofile"
+  ],
+  "ProfileFile": [
+    "HeatProfiles.json",
+    "HeatProfiles.json"
+  ],
+  "Revision": [
+    "Revision",
+    "Revision"
+  ],
+  "NoParticipants": [
+    "No devices synchronized yet",
+    "Noch keine Geräte synchronisiert"
+  ],
+  "HeatProfilesLoadFailed": [
+    "Could not load heat profiles",
+    "Heizprofile konnten nicht geladen werden"
+  ],
+  "ProfilesSaved": [
+    "Heat profiles saved; distribution was started.",
+    "Heizprofile gespeichert; Verteilung wurde angestoßen."
+  ],
+  "ProfilesUnchanged": [
+    "No profile changes detected; nothing was distributed.",
+    "Keine Profiländerung erkannt; es wurde nichts verteilt."
+  ],
+  "DeviceType": [
+    "Device",
+    "Gerät"
+  ],
+  "Kind": [
+    "Kind",
+    "Art"
+  ],
+  "AddEntry": [
+    "Add entry",
+    "Eintrag hinzufügen"
+  ],
+  "SaveDistribute": [
+    "Save / distribute",
+    "Speichern / verteilen"
+  ],
+  "Reload": [
+    "Reload",
+    "Neu laden"
+  ],
+  "Device": [
+    "Device",
+    "Gerät"
+  ],
+  "Type": [
+    "Type",
+    "Typ"
+  ],
+  "Data": [
+    "Data",
+    "Daten"
+  ],
+  "Status": [
+    "Status",
+    "Status"
+  ],
+  "Error": [
+    "Error",
+    "Fehler"
+  ],
+  "Details": [
+    "Details",
+    "Details"
+  ],
+  "CloseDetails": [
+    "Close details",
+    "Details schließen"
+  ],
+  "ReloadDashboard": [
+    "Reload dashboard",
+    "Dashboard neu laden"
+  ],
+  "ReloadDevicePage": [
+    "Reload device page",
+    "Geräteseite neu laden"
+  ],
+  "CheckNow": [
+    "Check now",
+    "Jetzt prüfen"
+  ],
+  "LayoutEdit": [
+    "Edit layout",
+    "Layout bearbeiten"
+  ],
+  "LayoutSave": [
+    "Save",
+    "Speichern"
+  ],
+  "LayoutSaving": [
+    "Saving …",
+    "Speichert …"
+  ],
+  "Reset": [
+    "Reset",
+    "Zurücksetzen"
+  ],
+  "Columns": [
+    "Columns",
+    "Spalten"
+  ],
+  "NewAutomatic": [
+    "New / automatic",
+    "Neu / automatisch"
+  ],
+  "Live": [
+    "Live",
+    "Live"
+  ],
+  "Polling": [
+    "Polling",
+    "Polling"
+  ],
+  "Offline": [
+    "Offline",
+    "Offline"
+  ],
+  "On": [
+    "On",
+    "Ein"
+  ],
+  "Off": [
+    "OFF",
+    "AUS"
+  ],
+  "MeasurementInvalid": [
+    "Measurements not yet valid",
+    "Messwerte noch nicht gültig"
+  ],
+  "PowerLight": [
+    "Power Light",
+    "Leistung Licht"
+  ],
+  "PowerHeater": [
+    "Power Heater",
+    "Leistung Heizung"
+  ],
+  "PowerShelly1": [
+    "Power Shelly1",
+    "Leistung Shelly1"
+  ],
+  "PowerShelly2": [
+    "Power Shelly2",
+    "Leistung Shelly2"
+  ],
+  "Power": [
+    "Power",
+    "Leistung"
+  ],
+  "NoChannels": [
+    "No channels configured.",
+    "Keine Kanäle konfiguriert."
+  ],
+  "NoStatusData": [
+    "No status data available.",
+    "Keine Statusdaten verfügbar."
+  ],
+  "Channel": [
+    "Channel",
+    "Kanal"
+  ],
+  "Configuration": [
+    "Configuration",
+    "Konfiguration"
+  ],
+  "LoadingConfiguration": [
+    "Configuration loads when opened.",
+    "Konfiguration wird beim Öffnen geladen."
+  ],
+  "Actions": [
+    "Actions",
+    "Aktionen"
+  ],
+  "ShortPress": [
+    "Short press",
+    "Kurz drücken"
+  ],
+  "LongPress": [
+    "Long press",
+    "Lang drücken"
+  ],
+  "ConfirmAgain": [
+    "Confirm again",
+    "Nochmals bestätigen"
+  ],
+  "Connection": [
+    "Connection",
+    "Verbindung"
+  ],
+  "System": [
+    "System",
+    "System"
+  ],
+  "State": [
+    "State",
+    "Zustand"
+  ],
+  "Automatic": [
+    "Automatic",
+    "Automatik"
+  ],
+  "Input": [
+    "Input",
+    "Eingang"
+  ],
+  "ManualOverride": [
+    "Manual override",
+    "Manuelle Vorgabe"
+  ],
+  "NextFeeding": [
+    "Next feeding",
+    "Nächste Fütterung"
+  ],
+  "NextChange": [
+    "Next change",
+    "Nächste Änderung"
+  ],
+  "TimeSync": [
+    "Time synchronization",
+    "Zeitsynchronisation"
+  ],
+  "Synchronized": [
+    "Synchronized",
+    "Synchron"
+  ],
+  "NotSynchronized": [
+    "Not synchronized",
+    "Nicht synchron"
+  ],
+  "Pending": [
+    "pending",
+    "ausstehend"
+  ],
+  "NotSynced": [
+    "nicht synchron",
+    "not synchronized"
+  ],
+  "Synced": [
+    "synchronized",
+    "synchron"
+  ],
+  "SyncCompleted": [
+    "Synchronization completed.",
+    "Synchronisierung erfolgreich."
+  ],
+  "Interval": [
+    "Interval",
+    "Intervall"
+  ],
+  "SwitchTime": [
+    "Switch time",
+    "Schaltzeit"
+  ],
+  "OverrideEnd": [
+    "Override end",
+    "Override-Ende"
+  ],
+  "Change": [
+    "Change",
+    "Änderung"
+  ],
+  "UntilNextEvent": [
+    "until next event",
+    "bis zum nächsten Ereignis"
+  ],
+  "Portion": [
+    "portion",
+    "Portion"
+  ],
+  "Portions": [
+    "Portions",
+    "Portionen"
+  ],
+  "Device.GN-Pi System": [
+    "GN-Pi System",
+    "GN-Pi System"
+  ],
+  "Device.FeederAq1": [
+    "Feeder Aq1",
+    "Futterautomat Aq1"
+  ],
+  "Device.FeederAq2": [
+    "Feeder Aq2",
+    "Futterautomat Aq2"
+  ],
+  "Device.FeederAq3": [
+    "Feeder Aq3",
+    "Futterautomat Aq3"
+  ],
+  "Device.MultiTimer Aq1 & 2": [
+    "Timer Aq1 & Aq2",
+    "Zeitschaltuhr Aq1 & Aq2"
+  ],
+  "Device.LightTimerAq3": [
+    "Lighting Aq3",
+    "Beleuchtung Aq3"
+  ],
+  "Device.HeaterMainAq1": [
+    "Heating Aq1",
+    "Heizung Aq1"
+  ],
+  "Device.HeaterMainAq2": [
+    "Heating Aq2",
+    "Heizung Aq2"
+  ],
+  "Device.HeaterMainAq3": [
+    "Heating Aq3",
+    "Heizung Aq3"
+  ],
+  "Channel.LichtAq1Haupt": [
+    "Light Main",
+    "Licht Haupt"
+  ],
+  "Channel.LichtAq1Hinten": [
+    "Light Rear",
+    "Licht Hinten"
+  ],
+  "Channel.LichtAq1Vorne": [
+    "Light Front",
+    "Licht Vorne"
+  ],
+  "Channel.LichtAq2Haupt": [
+    "Light Main",
+    "Licht Haupt"
+  ],
+  "Channel.LichtAq2Hinten": [
+    "Light Rear",
+    "Licht Hinten"
+  ],
+  "Channel.LichtAq3Haupt": [
+    "Light Main",
+    "Licht Haupt"
+  ],
+  "Channel.HeizungBodenAq1": [
+    "Heater Floor",
+    "Heizung Boden"
+  ],
+  "Channel.HeizungBodenAq2": [
+    "Heater Floor",
+    "Heizung Boden"
+  ],
+  "Channel.HeaterMainAq1": [
+    "Heater Main",
+    "Heizung Haupt"
+  ],
+  "Channel.HeaterMainAq2": [
+    "Heater Main",
+    "Heizung Haupt"
+  ],
+  "Channel.HeaterMainAq3": [
+    "Heater Main",
+    "Heizung Haupt"
+  ],
+  "Channel.Shelly1.Schaltausgang": [
+    "Shelly1",
+    "Shelly1"
+  ],
+  "Channel.Shelly2.Schaltausgang": [
+    "Shelly2",
+    "Shelly2"
+  ],
+  "Channel.Luft": [
+    "Air",
+    "Luft"
+  ],
+  "Channel.Fütterung": [
+    "Feeding",
+    "Fütterung"
+  ],
+  "AddProfile": [
+    "Add profile",
+    "Profil hinzufügen"
+  ],
+  "Profile": [
+    "Profile",
+    "Profil"
+  ],
+  "ProfileInUse": [
+    "Still used by",
+    "Noch verwendet von"
+  ],
+  "InvalidNumber": [
+    "invalid number",
+    "ungültige Zahl"
+  ],
+  "Required": [
+    "required",
+    "erforderlich"
+  ],
+  "Delete": [
+    "Delete",
+    "Löschen"
+  ],
+  "Measurement": [
+    "Measurement field",
+    "Messwertfeld"
+  ],
+  "TempId": [
+    "Source",
+    "Quelle"
+  ],
+  "FloorOn": [
+    "Floor on",
+    "Boden Ein"
+  ],
+  "FloorOff": [
+    "Floor off",
+    "Boden Aus"
+  ],
+  "MainOn": [
+    "Main on",
+    "Haupt Ein"
+  ],
+  "MainOff": [
+    "Main off",
+    "Haupt Aus"
+  ],
+  "NoTempOn": [
+    "On without temperature",
+    "Ein ohne Temperatur"
+  ],
+  "Duplicate": [
+    "duplicate",
+    "doppelt"
+  ],
+  "ThresholdsInvalid": [
+    "On threshold must be below off threshold",
+    "Einschalttemperatur muss unter Ausschalttemperatur liegen"
+  ],
+  "Time": [
+    "Time",
+    "Zeit"
+  ],
+  "Active": [
+    "Active",
+    "Aktiv"
+  ],
+  "Start": [
+    "Start",
+    "Start"
+  ],
+  "Period": [
+    "Period",
+    "Periode"
+  ],
+  "OnTime": [
+    "On-time",
+    "Ein-Zeit"
+  ],
+  "Days": [
+    "Days",
+    "Tage"
+  ],
+  "Weekday.Mon": [
+    "Mon",
+    "Mo"
+  ],
+  "Weekday.Tue": [
+    "Tue",
+    "Di"
+  ],
+  "Weekday.Wed": [
+    "Wed",
+    "Mi"
+  ],
+  "Weekday.Thu": [
+    "Thr",
+    "Do"
+  ],
+  "Weekday.Fri": [
+    "Fri",
+    "Fr"
+  ],
+  "Weekday.Sat": [
+    "Sat",
+    "Sa"
+  ],
+  "Weekday.Sun": [
+    "Sun",
+    "So"
+  ],
+  "OnOff": [
+    "On/Off",
+    "An/Aus"
+  ],
+  "ChannelProfiles": [
+    "Channel assignments",
+    "Kanalzuordnungen"
+  ],
+  "AddChannelAssignment": [
+    "Add device/channel",
+    "Gerät/Kanal hinzufügen"
+  ],
+  "SelectChannel": [
+    "Select device/channel",
+    "Gerät/Kanal auswählen"
+  ],
+  "Role": [
+    "Role",
+    "Funktion"
+  ],
+  "Role.Timer": [
+    "Timer",
+    "Timer"
+  ],
+  "Role.HeaterMain": [
+    "Heater main",
+    "Heizung Haupt"
+  ],
+  "Role.HeaterFloor": [
+    "Heater floor",
+    "Heizung Boden"
+  ],
+  "SelectProfile": [
+    "Select profile",
+    "Profil auswählen"
+  ],
+  "HeatProfile": [
+    "Heat profile",
+    "Heizprofil"
+  ],
+  "NoHeaterChannels": [
+    "No channel assignments are configured",
+    "Keine Kanalzuordnungen konfiguriert"
+  ],
+  "ProfileRequired": [
+    "Heat profile required",
+    "Heizprofil erforderlich"
+  ],
+  "ChannelsSaved": [
+    "Channel assignments saved; distribution was started.",
+    "Kanalzuordnungen gespeichert; Verteilung wurde angestoßen."
+  ],
+  "ChannelsUnchanged": [
+    "No channel assignment changes detected; nothing was distributed.",
+    "Keine Kanaländerung erkannt; es wurde nichts verteilt."
+  ],
+  "DeviceAssignments": [
+    "Device assignments",
+    "Gerätezuordnung"
+  ],
+  "ResumeAssignment": [
+    "Continue distribution",
+    "Verteilung fortsetzen"
+  ],
+  "Function": [
+    "Function",
+    "Funktion"
+  ],
+  "PhysicalDevice": [
+    "Device (MAC)",
+    "Gerät (MAC)"
+  ],
+  "FirstFunction": [
+    "First function",
+    "Erste Funktion"
+  ],
+  "SecondFunction": [
+    "Second function",
+    "Zweite Funktion"
+  ],
+  "ConsumersDetached": [
+    "Consumers unplugged from both outputs; devices remain powered.",
+    "Verbraucher von beiden Ausgängen getrennt; Geräte bleiben versorgt."
+  ],
+  "SwapFunctions": [
+    "Swap functions",
+    "Funktionen tauschen"
+  ],
+  "AssignmentFinishNote": [
+    "Reconnect consumers only after confirmed completion. Change device display names in your home network separately if desired.",
+    "Verbraucher erst nach bestätigter Übernahme wieder anschließen. Anzeigenamen der Geräte im Heimnetz bei Bedarf separat ändern."
+  ],
+  "AssignmentReady": [
+    "Ready",
+    "Bereit"
+  ],
+  "AssignmentNotReady": [
+    "Update or source assignment required",
+    "Update oder Quellenübernahme erforderlich"
+  ],
+  "AssignmentPending": [
+    "Assignments and access data are being distributed; swapped devices restart. Await confirmation.",
+    "Zuordnung und Zugangsdaten werden verteilt; getauschte Geräte starten neu. Bestätigung abwarten."
+  ],
+  "AssignmentComplete": [
+    "Assignments confirmed by all participants.",
+    "Zuordnung von allen Teilnehmern bestätigt."
+  ],
+  "AssignmentError": [
+    "Assignment failed: ",
+    "Zuordnung fehlgeschlagen: "
+  ],
+  "DeviceSwap": [
+    "Device swap",
+    "Gerätetausch"
+  ],
+  "SwapFunctionLabel": [
+    "Function:",
+    "Funktion:"
+  ],
+  "SwapsWith": [
+    "swaps with",
+    "tauscht mit"
+  ],
+  "AssignmentFsNote": [
+    "Previously built FS images are obsolete after a swap. Before an FS upload, read back device data from the PC and rebuild in the matching hardware project. On the PC, first change to the Prjs root and run: python3 Aq/tools/ReadDeviceStates.py --apply. Then run ./EspCompile.sh in each affected hardware project (e.g. Aq/TmrSwA8T and Aq/TmrSwShelly).",
+    "Nach dem Tausch sind zuvor erzeugte FS-Binaries veraltet. Vor einem FS-Upload Gerätedaten vom PC aus abgleichen und im passenden Hardwareprojekt neu bauen. Am PC zuerst ins Prjs-Stammverzeichnis wechseln und ausführen: python3 Aq/tools/ReadDeviceStates.py --apply. Danach in jedem betroffenen Hardwareprojekt (z. B. Aq/TmrSwA8T und Aq/TmrSwShelly) ./EspCompile.sh ausführen."
+  ],
+  "DeviceEditor": [
+    "Edit devices …",
+    "Geräte bearbeiten …"
+  ],
+  "DeviceEditorNote": [
+    "Add/remove devices or edit metadata. Existing functions and MACs cannot be swapped here. Removal requires no active schedules or temperature references.",
+    "Geräte hinzufügen/entfernen oder Stammdaten ändern. Bestehende Funktionen und MACs werden hier nicht getauscht. Entfernen ist nur ohne verwendete Zeitpläne oder Temperaturreferenzen möglich."
+  ],
+  "CapabilityId": [
+    "Capabilities",
+    "Fähigkeiten"
+  ],
+  "FeederDeviceSwap": [
+    "Feeder (whole device)",
+    "Feeder (Gesamtgerät)"
+  ],
+  "SwapEndpointLabel": [
+    "HW endpoint:",
+    "HW-Endpunkt:"
+  ],
+  "TemperatureSource": [
+    "Temperature source",
+    "Temperaturgeber"
+  ],
+  "FeedingFunction": [
+    "Feeding",
+    "Fütterung"
+  ],
+  "EndpointFirmwareUpdateRequired": [
+    "Firmware update required for channel swaps",
+    "Firmwareupdate für Kanaltausch erforderlich"
+  ],
+  "SensorAssignmentsChecked": [
+    "Connections and assignments of both temperature sources checked; devices remain powered.",
+    "Anschluss und Zuordnung beider Temperaturgeber geprüft; Geräte bleiben versorgt."
+  ],
+  "SwitchCapability": [
+    "Switching",
+    "Schalten"
+  ],
+  "ResizeColumnHint": [
+    "Drag to resize; double-click to fit content",
+    "Ziehen zum Ändern der Breite; Doppelklick passt an den Inhalt an"
+  ],
+  "SensorStateUnknown": [
+    "Sensor state unknown",
+    "Sensorstatus unbekannt"
+  ],
+  "AlarmSoundOn": [
+    "Enable warning sound",
+    "Warnton aktivieren"
+  ],
+  "AlarmSoundOff": [
+    "Disable warning sound",
+    "Warnton ausschalten"
+  ],
+  "AlarmAcknowledge": [
+    "Acknowledge warning sound",
+    "Warnton quittieren"
+  ],
+  "AlarmSoundBlocked": [
+    "Could not enable audio. Check browser permission and device volume.",
+    "Ton konnte nicht aktiviert werden. Browserfreigabe und Gerätelautstärke prüfen."
+  ],
+  "FeedbackOK": [
+    "State confirmed",
+    "Zustand bestätigt"
+  ],
+  "FeedbackUnknown": [
+    "Feedback missing",
+    "Rückmeldung fehlt"
+  ],
+  "FeedbackPending": [
+    "Checking state",
+    "Zustand wird geprüft"
+  ],
+  "FeedbackMissingPower": [
+    "Feedback OFF despite ON",
+    "Rückmeldung AUS trotz EIN"
+  ],
+  "FeedbackUnexpectedPower": [
+    "Feedback ON despite OFF",
+    "Rückmeldung EIN trotz AUS"
+  ],
+  "FeedbackMonitoring": [
+    "Feedback monitoring",
+    "Rückmeldeüberwachung"
+  ],
+  "FeedbackSaved": [
+    "Monitoring saved.",
+    "Überwachung gespeichert."
+  ],
+  "FeedbackEditorNote": [
+    "Define switch function, independent feedback source, message kind, boolean feedback field and grace period in seconds. Missing or unknown values are not OFF and do not sound an alarm.",
+    "Schaltfunktion, unabhängige Rückmeldequelle, Telegrammkennung, boolesches Rückmeldefeld und Toleranzzeit in Sekunden festlegen. Fehlende oder unbekannte Werte gelten nicht als AUS und lösen keinen Warnton aus."
+  ],
+  "FeedbackInvalid": [
+    "Incorrect feedback",
+    "Rückmeldung inkorrekt"
+  ],
+  "FeedbackMismatch": [
+    "State not confirmed",
+    "Zustand nicht bestätigt"
+  ],
+  "Device.LaptopBattery": [
+    "Laptop",
+    "Laptop"
+  ],
+  "BatteryLevel": [
+    "Battery level",
+    "Akkustand"
+  ],
+  "AlarmSoundRelease": [
+    "Allow warning sound",
+    "Warnton freigeben"
+  ]
+}
