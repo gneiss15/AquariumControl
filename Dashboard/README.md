@@ -1,4 +1,4 @@
-<!-- README.md, Version: 2.10 -->
+<!-- README.md, Version: 2.11 -->
 # Aquarium Dashboard
 
 [Deutsch](README.DE.md)
@@ -140,11 +140,13 @@ Physical identity is `MAC@ServiceId`; an endpoint adds a fixed channel number: `
 
 The expandable device-assignment area provides whole-device and endpoint swaps. **Disconnect consumers from both affected devices before swapping; leave the controllers powered.** A device can only be replaced by a functionally compatible device. Function hostname and AP/FTP credentials follow the feeder function; hardware parameters remain with the physical device. Both ESPs restart.
 
-Endpoint swaps require exactly equal, nonempty capability masks: 1 = switching, 2 = temperature sensing, 3 = both. Current endpoints use 1 or 2. MultiTimer socket numbers are derived from `PhysPos: "Main X"`, never array order. A MultiTimer entry without an output is not a switching target.
+A hardware endpoint is an individual switching output or temperature source. Swap functions only between functionally compatible endpoints: outputs with outputs, temperature sources with temperature sources. For example, a MultiTimer output can exchange its function with another MultiTimer output or a NOUS/Shelly socket. The table shows each endpoint and its current function; MultiTimer output numbers correspond to sockets 1–8. Swapping a feeder temperature source leaves its feeding schedules unchanged.
 
 Names, roles, profiles, schedules and intervals follow the endpoint function. GPIOs, buttons, polarity, physical position, calibration, device hostname and credentials stay with the hardware. A stale temporary override is discarded when the function changes. Feeder feeding and temperature sensing remain distinct functions.
 
-A private journal preserves pending transfers across restarts. Further assignments and central schedule/profile edits are blocked until completion. Completion requires fresh confirmation from all participants; this is a recoverable distributed transfer, not a simultaneous physical switch. Channel and timing data are journaled together on the devices.
+Select the two endpoints and confirm the swap. Further assignments and central schedule/profile edits are blocked until all participating devices confirm the new assignment. An interrupted transfer resumes after a restart. HeatHistory records heating functions at their assigned device channels.
+
+After completion, open or reload the MultiTimer page. Returning to the page checks for configuration changes and reloads changed assignments and schedules. Unsaved edits are retained with a change notice.
 
 After a function swap, previous PC filesystem images are stale. Dashboard cannot update PC files. From the repository root, explicitly synchronize the device state before rebuilding the affected filesystem images:
 

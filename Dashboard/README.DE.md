@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 2.12 -->
+<!-- README.DE.md, Version: 2.13 -->
 # Aquarium Dashboard
 
 [English](README.md)
@@ -31,19 +31,21 @@ Der Dialog warnt vor veralteten PC-FS-Binaries. Dashboard synchronisiert keine P
 
 ## HW-Endpunkte und Kanaltausch
 
-Server 1.23/Data 2.69 erweitert Gerätezuordnung um einzelne HW-Endpunkte. Adresse: `MAC@Diensttyp/Kanalnummer`. `PhysPos: "Main X"` liefert die MT-Steckdosennummer 1..8 und den festen Anzeigenamen `MultiTimer1@X`; Nous/Shelly und die derzeitigen Feeder-Temperaturgeber verwenden Kanal 0. Die JSON-Reihenfolge bleibt davon unabhängig. Fähigkeiten sind bitcodiert: 0 keine, 1 Schalten, 2 Temperatur messen, 3 beides. Aktuell gibt es Endpunkte mit 1 oder 2; Tausch verlangt exakt identische, nichtleere Fähigkeiten. Ein MT-Eintrag ohne Ausgang ist kein Schaltziel.
+Ein Hardware-Endpunkt ist ein einzelner Schaltausgang oder Temperaturgeber. Im Bereich **Gerätetausch** lassen sich die Funktionen zweier funktionskompatibler Endpunkte tauschen, beispielsweise zwischen zwei MultiTimer-Ausgängen oder zwischen einem MultiTimer-Ausgang und einer NOUS-/Shelly-Steckdose. Schaltausgänge können nur gegen Schaltausgänge und Temperaturgeber nur gegen Temperaturgeber getauscht werden.
 
-In der aufklappbaren Gerätetausch-Box werden HW-Endpunkte einschließlich ihrer aktuellen Funktion ausgewählt. Die Tabelle unterscheidet Fütterungsfunktion und Temperaturgeber. MT↔MT, MT↔Nous/Shelly und Nous↔Shelly verwenden denselben Kanaltausch. Der Anlass ist beliebig. Beide Verbraucher vorher trennen, Geräte versorgt lassen. Während ausstehender Übernahme sind weitere Zuordnungsänderungen sowie zentrale Zeit-/Profiländerungen gesperrt.
+Die Tabelle zeigt die Endpunkte mit ihrer aktuellen Funktion. Bei MultiTimer entsprechen die Ausgangsnummern den Steckdosen 1 bis 8. Fütterung und Temperaturmessung eines Feeders sind getrennte Funktionen; beim Tausch eines Temperaturgebers bleiben die Fütterungspläne unverändert.
 
-Name, Rolle, Profil und Schaltzeiten/Intervalle wandern mit der Funktion; Gruppen- und Temperaturquellenzuordnung folgen ihr. GPIO, Taster, Polarität, PhysPos, Kalibrierung, Gerätehostname und Zugangsdaten bleiben an der Hardware. Die MT-Belegung und alle Kanal-Listboxen werden aus der aktualisierten Channels.json erzeugt. Reserven verwenden dieselbe Logik wie andere Timerfunktionen. Bei Funktionswechsel wird ein alter flüchtiger Override verworfen, der neue Zustand wird neu berechnet.
+**Vor dem Tausch die angeschlossenen Verbraucher von beiden betroffenen Ausgängen trennen; die Steuergeräte eingeschaltet lassen.** Die beiden Endpunkte auswählen und den Tausch bestätigen. Während der Übernahme sind weitere Zuordnungsänderungen sowie Änderungen an zentralen Zeiten und Profilen gesperrt. Der Vorgang ist abgeschlossen, wenn alle beteiligten Geräte die neue Zuordnung bestätigt haben. Ein unterbrochener Vorgang wird nach einem Neustart fortgesetzt.
 
-Der zentrale Journalstand enthält Endpoints und den vollständigen gewünschten Times-Stand gemeinsam. Nach Abbruch wird dieser wieder verteilt. MT speichert zusammengehörige Channels/Zeiten über ein dauerhaftes Redo-Journal; Nous/Shelly verwenden ein entsprechendes LittleFS-Journal für Channels, Zeiten und Intervalle. Startup-Recovery erfolgt vor der Hardwareinitialisierung. Das ist eine pro Teilnehmer wiederherstellbare Transaktion, kein gleichzeitiger physischer Wechsel aller Geräte. Abschluss verlangt die gleiche angewandte Zuordnungsrevision aller Teilnehmer. Alte Switch-Firmware wird vor dem Kanaltausch abgewiesen (`EndpointAssignments: 1` erforderlich).
+Funktionsname, Rolle, Profil, Schaltzeiten und Intervalle werden der neuen Hardware zugeordnet. Aquariumgruppen und Verweise auf Temperaturquellen folgen der Funktion. Hardwareeinstellungen, Kalibrierung, Gerätehostname und Zugangsdaten bleiben beim jeweiligen Gerät. Eine vorübergehende manuelle Übersteuerung wird beim Funktionswechsel aufgehoben; der Ausgangszustand wird anhand der neuen Funktion berechnet. HeatHistory erfasst Heizfunktionen am jeweils zugeordneten Gerätekanal.
 
-Temperaturgebertausch verteilt die neue Sources-Zuordnung; Fütterungspläne werden dabei nicht getauscht. Der weiterhin angebotene Feeder-Gesamtgerätetausch bleibt davon getrennt und übernimmt auch seine bisherigen Funktions-/Zugangsdaten. Nach Endpunktinitialisierung werden Schalter über den Kanaltausch bedient, nicht mehr über den alten Gesamtgeräte-Swap.
+Nach abgeschlossenem Tausch die MultiTimer-Seite öffnen oder neu laden. Beim Wechsel zur Seite bzw. beim erneuten Aktivieren prüft sie die Konfiguration und lädt geänderte Belegungen und Zeiten nach. Ungespeicherte Eingaben bleiben erhalten und werden mit einem Änderungshinweis versehen.
 
-Die bisherigen gerätebezogenen Schlüssel bleiben stabile Transport-/DevState-Schlüssel. Die Schaltfunktion ist nun separat am Endpunkt/Channels-Eintrag hinterlegt; keine Hostname-Abhängigkeit wird wieder eingeführt. PC-Abgleich und FS-Neubau nach einem Tausch bleiben ausdrücklich notwendig. HeatHistory 1.15 folgt Heizrollen an ihrem tatsächlichen Gerätekanal.
+Vor einem späteren Dateisystem-Upload müssen die PC-Daten mit der neuen Zuordnung abgeglichen und die betroffenen Dateisystem-Abbilder neu gebaut werden. Den Abgleich vom Repository-Stamm ausdrücklich starten:
 
-Eine bereits offene MT-Seite prüft beim Fokus/Sichtbarwerden bzw. beim Dashboard-Bereichswechsel einmal ihre Konfigurationsrevision. Geänderte Belegung/Zeiten werden neu geladen, ohne Polling-Timer. Ungespeicherte Eingaben werden erhalten und mit einem Änderungshinweis versehen. Erst nach bestätigtem Tausch zur MT-Seite wechseln; bei dauerhaft sichtbarer Seite alternativ manuell neu laden.
+```bash
+python3 tools/ReadDeviceStates.py --apply
+```
 
 ## Geräte-Editor
 
