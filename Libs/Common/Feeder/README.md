@@ -1,10 +1,12 @@
-<!-- Feeder/README.md, Version: 1.05 -->
+<!-- README.md, Version: 1.06 -->
 # Feeder Common
 
-Dieses Verzeichnis ist bewusst keine Arduino-Library. Die Projektdateien in `Feeder` und `FeederSimple` binden die gemeinsamen Header und CPP-Dateien über dünne Wrapper ein.
+[Deutsch](README.DE.md)
 
-Zeitplan, Konfiguration, Status-API, Temperatur, Zeitabgleich, WebSocket und die Laufwerkschnittstelle liegen gemeinsam hier. Die WLAN-/Webserver-Implementierung von `Feeder` bindet die gemeinsame Quelle ein; `FeederSimple` hat dafür eine projektspezifische Erweiterung mit seiner Diagnose-Webseite.
+This directory is not an Arduino library. Project files in `Feeder` and `FeederSimple` include the shared headers and C++ sources through thin wrappers.
 
-Die lesbaren Webquellen für beide Geräte liegen in `WebSrc/`. Beide PreBuild-Skripte erzeugen daraus beim Build die minifizierten Webdateien; FeederSimple entfernt dabei ausschließlich die servo-spezifische Datei `ServoSteps.json`.
+Schedules, configuration, status API, temperature sensing, time synchronization, WebSocket support and the drive interface are shared here. Feeder's WLAN/web-server implementation includes the common source; FeederSimple provides a project-specific extension for its diagnostic page.
 
-Hardwarezugriffe erfolgen ausschließlich über die projektspezifische Datei `FeederDrive.h` und die gemeinsame Schnittstelle `TFeederDrive`.
+Readable web sources for both devices are in `WebSrc/`. Both PreBuild scripts generate minified web files from them; FeederSimple omits the servo-specific `ServoSteps.json` file.
+
+Hardware access uses the project-specific `FeederDrive.h` and the shared `TFeederDrive` interface.

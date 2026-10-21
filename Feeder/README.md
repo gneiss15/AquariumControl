@@ -1,4 +1,4 @@
-<!-- Feeder/README.md, Version: 1.26 -->
+<!-- Feeder/README.md, Version: 1.27 -->
 # Feeder
 
 [Deutsch](README.DE.md)
@@ -109,12 +109,16 @@ The recommended rescue artifact is `generated/bin/wifi_kit_8_Arduino2/Feeder.Res
 
 ## Device identity and function swaps
 
-Current firmware supports persistent MAC/service IDs and function swaps through the dashboard. A firmware upload alone does not activate a swap. Update the dashboard and all participants first, then explicitly activate the MAC mapping in device assignment. For ESP devices, firmware is sufficient; no LittleFS/rescue upload is required. Hardware configuration and calibration remain with the physical device. Sequence, prerequisites and checks are described in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Each physical device is identified by its MAC address and service ID. Dashboard can swap functions between functionally compatible devices. Hardware configuration and calibration remain with the physical device. See [Dashboard – device identity and function swaps](../Dashboard/README.md#device-identity-and-function-swaps) for operation and [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md) for technical details.
 
 ## Device assignments and PC files
 
-Network identity is MAC@ServiceId; function names remain available for people and schedules. Operation and current version requirements: [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+A function swap alone does not require a filesystem upload. If a filesystem is to be uploaded later, synchronize PC data with the current device assignment before creating the image. Run the following command from the AquariumControl repository root:
 
-After a function swap, previous filesystem binaries are stale. The dashboard cannot update PC files. Explicitly run `python3 Aq/tools/ReadDeviceStates.py --apply` from the Prjs root: this performs a complete ESP readback and copies persistent data into `DevState/<current-function>` in the matching hardware project. Then rebuild affected filesystem images. Do not exchange images between hardware types.
+```bash
+python3 tools/ReadDeviceStates.py --apply
+```
 
-UDP status messages use version 2 and publish the optional temperature reading as `Status.Temperature`: `null` for an invalid reading, omitted when the sensor is disabled.
+Dashboard cannot access PC files. Afterwards, rebuild affected filesystem images; images from different hardware types are not interchangeable.
+
+UDP status messages use version 2 and publish optional temperature as `Status.Temperature`: `null` for an invalid reading, omitted when the sensor is disabled.

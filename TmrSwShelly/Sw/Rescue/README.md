@@ -1,15 +1,14 @@
-# Shelly Produktions-Rescue
+<!-- README.md, Version: 1.00 -->
+# Shelly production Rescue
 
-Eigenständige Produktionsquellen für den vom Benutzer nach abgeschlossener Migration
-freigegebenen Rescue. Einstieg im Projektstamm: `./EspRescueCompile.sh`.
+[Deutsch](README.DE.md)
 
-`main/` enthält tatsächliche Hardware-/SDK-Geometrieprüfung, Main-Aktivierungsprüfung
-und den bisherigen Diagnosedienst. `Runtime/` enthält dessen noch gelinkte Geometrie-/
-Unsicherheitsfunktionen sowie die Arduino-Kompatibilitätsschicht. Die Laufzeitlogik
-wurde beim Herauslösen unverändert übernommen; Stock-Rollback bleibt gesperrt.
-Die gemeinsamen Update-/Signaturquellen kommen aus Aq/Libs/Common.
+Standalone production sources for Rescue. Run the build from the TmrSwShelly project root:
 
-Die Ziel-Partitionstabelle wird ausschließlich aus ../../partitions.csv erzeugt;
-ihr eingebetteter Inhalt wurde bytegleich mit dem bisherigen Stand verglichen.
-Generierte private WLAN-Header und Schlüsselmetadaten bleiben unter generated/build/rescue;
-private Originaldateien liegen außerhalb von Prjs. Der Build lädt oder schreibt kein Gerät.
+```bash
+./EspRescueCompile.sh
+```
+
+`main/` contains hardware/SDK geometry checks, Main activation checks and the diagnostic service. `Runtime/` provides geometry/uncertainty checks and the Arduino compatibility layer. Stock rollback is blocked. Shared update/signature sources are in `../../../Libs/Common/`, relative to this directory.
+
+The target partition table is generated from `../../partitions.csv`. Generated private WLAN headers and key metadata are under `../../generated/build/rescue/`; private originals are outside the repository. The build does not upload or write to a device.

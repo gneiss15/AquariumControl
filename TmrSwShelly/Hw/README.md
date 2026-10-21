@@ -1,20 +1,18 @@
-# TmrSwShelly – Hardware
+<!-- README.md, Version: 1.00 -->
+# TmrSwShelly – hardware
 
-Dieses Projekt verwendet übernommene Shelly Plug M Gen3 mit eigener Firmware. Die Gerätehardware ist ein Kaufprodukt. Das Verfahren zur Übernahme wird im separaten Projekt [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) beschrieben.
+[Deutsch](README.DE.md)
 
-## Vorgesehene Ablage
+This project uses converted Shelly Plug M Gen3 devices with custom firmware. The hardware is a purchased product. Initial takeover is described in the separate [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) project.
 
-- `Schaltplaene/`: Schaltpläne, Anschluss- und Verdrahtungsunterlagen.
-- `PCB/`: Platinenentwürfe und zugehörige Fertigungsdaten, soweit vorhanden.
-- `Mechanik/`: CAD-Zeichnungen, Gehäuse- und Bauteilmodelle sowie STL-Dateien.
+## Directory layout
 
-## Stand der Dokumentation
+- `Schematics/`: circuit, connection and wiring documents.
+- `PCB/`: PCB designs and manufacturing data, where available.
+- `Mechanics/`: CAD drawings, enclosure/component models and STL files.
 
-Die konkreten Dateien und ausführlichen Beschreibungen folgen noch. Bilder,
-CAD-Daten, Materiallisten und Baubeschreibungen müssen noch zusammengestellt
-bzw. erstellt werden; dies erfordert noch erheblichen Dokumentationsaufwand.
-Die angelegten Unterverzeichnisse sind zunächst Platzhalter und bedeuten nicht,
-dass für jedes Projekt eigene Platinen oder bereits vollständige Bauunterlagen vorliegen.
+## Documentation status
 
-Die Hardwareunterlagen bleiben beim jeweiligen Projekt im selben Repository.
-Vor Veröffentlichung der konkreten Dateien werden Herkunft und Nutzungsrechte geprüft.
+Detailed files and descriptions will follow. Images, CAD data, bills of materials and assembly instructions still need to be collected or created. The directories are placeholders; their presence does not imply custom PCBs or complete construction documents.
+
+Hardware documentation is kept with its project in the same repository. Sources and usage rights are checked before specific files are published.

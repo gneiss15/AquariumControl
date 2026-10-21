@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 1.08 -->
+<!-- README.DE.md, Version: 1.09 -->
 # AquariumControl
 
 [English](README.md)
@@ -13,9 +13,9 @@ Die eigenen Projektdateien stehen unter [PolyForm Noncommercial 1.0.0](LICENSE.m
 
 - [Dashboard](Dashboard/README.DE.md): Aquariumübersicht, Schaltzeiten, Heizprofile, MAC-basierte Gerätezuordnung und Funktionstausch.
 - [MultiTimer](MultiTimer/README.DE.md): nativer Mehrkanal-Timer und Controller.
-- [Nous A8T](TmrSwA8T/README.md) und [Shelly](TmrSwShelly/README.md): Schaltgeräte-Firmware mit Leistungsmessung und Heizprofilen.
-- [Feeder](Feeder/README.DE.md) und [FeederSimple](FeederSimple/README.md): Futterautomaten und Temperatursender.
-- [HeatHistory](HeatHistory/README.md): passiver CSV-Rekorder und Diagramme auf Abruf, optional als PC-Benutzerdienst.
+- [Nous A8T](TmrSwA8T/README.DE.md) und [Shelly](TmrSwShelly/README.DE.md): Schaltgeräte-Firmware mit Leistungsmessung und Heizprofilen.
+- [Feeder](Feeder/README.DE.md) und [FeederSimple](FeederSimple/README.DE.md): Futterautomaten und Temperatursender.
+- [HeatHistory](HeatHistory/README.DE.md): passiver CSV-Rekorder und Diagramme auf Abruf, optional als PC-Benutzerdienst.
 - `Libs/`: gemeinsamer Code; `tools/`: Build-, Synchronisations- und Kalibrierwerkzeuge.
 
 Die Erstübernahme der Schaltgeräte wird separat in [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) gepflegt. Die kompatiblen Main-Anwendungen liegen hier in AquariumControl.

@@ -1,106 +1,65 @@
 # HeatHistory
 
-Dokumentversion: 1.18  
-Stand: 2026-10-18
+[Deutsch](README.DE.md)
 
-HeatHistory ist ein eigenständiges PC-Projekt. Es beobachtet die Aquarium-
-Heizungsregelung passiv und speichert pro Profil CSV-Verläufe auf dem PC.
-Konfigurationen werden nicht verändert.
+Document version: 1.19
+Updated: 2026-10-21
 
-## Profil- und Statusprüfung
+HeatHistory is a standalone PC application. It passively observes aquarium heating control and records CSV histories per profile on the PC. It does not change configuration.
 
-HeatHistory liest Profile und Kanalzuordnungen zentral vom Dashboard über
-`/api/heatprofiles`, `/api/times` und `/api/device-registry`. `TempId` benennt die logische Temperaturquelle. Die jeweils eindeutigen Kanäle für `HeaterFloor` und `HeaterMain` werden anhand ihrer Profilzuordnung über alle Geräte gesucht; sie sind nicht mehr fest an MT bzw. HeaterMainAqX gebunden. Die physische Temperaturquelle folgt bei Sensor-Tausch der Endpunkt-Zuordnung.
+## Profile and status validation
 
-Temperatur und Schaltzustände liest HeatHistory direkt aus den UDP-Statuspaketen
-der Geräte auf Port 44444. Es fragt dafür keine Geräte-Webseiten oder
-`/api/v1/status`-Endpunkte ab. Jedes Paket enthält Geräte-ID und Status; der
-Feeder ergänzt die Temperatur in Celsius. Standardmäßig wartet HeatHistory bis
-zu acht Sekunden auf aktuelle Pakete und akzeptiert Statusdaten bis zu 15
-Sekunden Alter. Diese Grenzen und die Dashboard-Adresse stehen in
-`config.json`. Der PC muss sich im selben Broadcast-Netz wie die Geräte befinden;
-eine lokale Firewall muss eingehenden UDP-Verkehr auf Port 44444 zulassen.
+HeatHistory reads central profiles and channel assignments from Dashboard through `/api/heatprofiles`, `/api/times` and `/api/device-registry`. `TempId` identifies the logical temperature source. The unique `HeaterFloor` and `HeaterMain` channels are found across all devices by their profile assignment. The physical temperature source follows endpoint assignment when sensors are swapped.
 
-Fehlen zentrale Profile/Kanalzuordnungen, ein benötigtes UDP-Paket oder eine
-gültige Temperatur bzw. ein Schaltzustand, pausiert HeatHistory nur das
-betroffene Aquarium und meldet den Fehler mit UTC-Zeitstempel. Nach
-erfolgreicher Prüfung wird das Logging automatisch fortgesetzt. HTTP-Fehler
-beim Dashboardabruf zeigen zusätzlich die Dauer des fehlgeschlagenen Requests.
+Temperature and switching states are read directly from device UDP status packets on port 44444, without querying device web pages or `/api/v1/status`. Each packet contains device ID and status; the feeder supplies temperature in Celsius. By default, HeatHistory waits up to eight seconds for current packets and accepts status up to 15 seconds old. These limits and Dashboard address are in `config.json`. The PC must be in the same broadcast network as the devices; its firewall must allow incoming UDP port 44444.
 
-Reine JSON-Formatierungsänderungen gelten nicht als Profiländerung. Ändert sich
-der semantische Profilinhalt, legt HeatHistory einen Snapshot und eine neue CSV
-an. Die erste Datenzeile des neuen Logs enthält den zum Startzeitpunkt aktuellen
-Zustand.
+Missing central profiles/assignments, required UDP packets, valid temperature or switching states pause only the affected aquarium. Errors include a UTC timestamp. Recording resumes automatically after successful validation. Dashboard HTTP errors also show the duration of the failed request.
 
-CSV-Header und -Reihenfolge sind fest:
+JSON formatting changes do not count as profile changes. A semantic profile change creates a snapshot and a new CSV. Its first data row contains the state at the time the log starts.
+
+The CSV header and column order are fixed:
 
 ```text
 Time;Temp;Floor;Main
 ```
 
-Es wird ein Datensatz geschrieben, wenn sich mindestens Temperatur, Floor-
-oder Main-Status gegenüber dem vorherigen Datensatz geändert hat.
+A row is written when temperature, Floor or Main state changes from the previous record.
 
-## Diagramme erzeugen
+## Generate charts
 
-Der Diagrammgenerator liest alle CSV-Logs unter `data/`, parst die ISO-
-Zeitstempel direkt als UTC und erstellt pro Log ein gemeinsames Diagramm mit
-Temperatur, `Floor` und `Main`. Temperatur erhält den großen oberen Bereich;
-die binären Ausgänge stehen darunter jeweils in einem eigenen kompakten
-Bereich. Alle drei Bereiche verwenden dieselbe Zeitachse und besitzen je eine
-linke Achse. Die Zustandsachsen zeigen `Aus` und `Ein`. Zoomen ist per Mausrad
-oder Auswahlrahmen möglich; Schwenken und Schnellwahl (1/6 Stunden, 1/7 Tage,
-Gesamtansicht) steuern alle drei Bereiche. Ein Doppelklick setzt den
-gemeinsamen Zeitbereich zurück.
+The chart generator reads all CSV logs under `data/`, parses ISO timestamps as UTC and creates one combined chart per log. Temperature occupies the large upper panel; binary `Floor` and `Main` states each have a compact panel below. All panels share a time axis and each has its own left axis. State axes show the German labels `Aus` (Off) and `Ein` (On). Mouse-wheel or box zoom, panning and presets (1/6 hours, 1/7 days, full range) control all three panels. Double-click resets the shared time range.
 
-Die CSV-Dateien bleiben unverändert; der Bericht bettet die Messdaten ein.
-Zum Rendern der interaktiven Diagramme lädt der Browser Plotly.js 4.1.1 vom
-Plotly-CDN. Beim Öffnen des Berichts ist deshalb eine Internetverbindung nötig.
-Der Python-Generator selbst benötigt keine zusätzlichen Python-Pakete.
+CSV files remain unchanged; the report embeds their measurements. The browser loads Plotly.js 4.1.1 from the Plotly CDN to render interactive charts, so opening a report requires Internet access. The Python generator requires no extra packages.
 
 ```bash
 python3 CreateCharts.py
 ```
 
-Der HTML-Bericht mit interaktiven Diagrammen wird standardmäßig als
-`data/HeatHistoryCharts.html` gespeichert und kann im Browser geöffnet oder
-gedruckt werden. Die Diagramm-Werkzeugleiste bietet außerdem Exportfunktionen.
-Abweichende Verzeichnisse lassen sich angeben:
+The interactive HTML report defaults to `data/HeatHistoryCharts.html`. Open or print it in a browser; the chart toolbar also offers export functions. Override paths with:
 
 ```bash
 python3 CreateCharts.py --data-dir data --output data/HeatHistoryCharts.html
 ```
 
-Die Zeitachse ist UTC. Da die CSV nur dann eine Zeile enthält, wenn sich
-Temperatur oder Schaltzustand ändern, verbindet das Temperaturdiagramm die
-gespeicherten Messpunkte; die Zustandskurven halten den letzten Wert bis zur
-nächsten Änderung.
+The time axis is UTC. Since CSV rows are written only when temperature or state changes, the temperature chart connects recorded measurements; state curves hold their last value until the next change.
 
-## Diagramme direkt im Browser
+## Charts directly in the browser
 
-`python3 HeatHistory.py` startet Logger und Diagrammserver gemeinsam in einem Prozess. Unter `http://localhost:8091/` werden bei jedem Aufruf/Neuladen die Diagramme aus dem aktuellen CSV-Bestand erzeugt, ohne vorherigen HTML-Build. Ein eigener HTTP-Thread arbeitet unabhängig von Dashboard-/UDP-Wartezeiten. `Ctrl+C` beendet beides.
+`python3 HeatHistory.py` starts the logger and chart server in one process. At `http://localhost:8091/`, every request/reload generates charts from the current CSV data without a preceding HTML build. A separate HTTP thread works independently of Dashboard/UDP waits. `Ctrl+C` stops both.
 
-Für Zugriff vom Tablet `python3 HeatHistory.py --host 0.0.0.0` verwenden und `http://<PC-IP>:8091/` öffnen; gegebenenfalls TCP-Port 8091 in der PC-Firewall freigeben. `--port` wählt den Port. Das Datenverzeichnis wird aus der Logger-Konfiguration übernommen. `--no-server` startet nur den Logger; `--once` startet keinen Server. Der separate `python3 CreateCharts.py --serve` bleibt optional verfügbar, darf jedoch nicht denselben Port wie der gemeinsame Prozess verwenden. Bei fehlenden/ungültigen Logs zeigt der Server HTTP 503; nach Behebung genügt Neuladen. Keine Rohdateien/Konfigurationen werden ausgeliefert. Plotly benötigt weiterhin das CDN.
+For tablet access, use `python3 HeatHistory.py --host 0.0.0.0` and open `http://<PC-IP>:8091/`; allow TCP port 8091 through the PC firewall if needed. `--port` selects a port. The data directory comes from logger configuration. `--no-server` runs only the logger; `--once` starts no server. The separate `python3 CreateCharts.py --serve` is also available, but must not use the combined process's port. Missing/invalid logs return HTTP 503; reload after resolving the issue. Raw files/configuration are not served. Plotly requires the CDN.
 
-## Installation als PC-Systemdienst
+## Install as a PC system service
 
-Am PC aus dem Projekt aufrufen:
+Run from the project directory on the PC:
 
 ```bash
 ./Install.sh
 ```
 
-Der Installer benötigt sudo und installiert nach `~/.local/share/HeatHistory`
-auf die interne PC-Platte. Vorhandene Konfiguration und Daten dort bleiben
-unverändert. Nur die beiden Python-Module und Versions.txt werden aktualisiert.
-Unter Prjs bleiben Quellen, Install.sh, Dokumentation und Tests; dort werden
-keine Laufzeitdaten gehalten. CreateCharts.py wird vom gemeinsamen Programm
-importiert und ist daher weiterhin erforderlich.
+The installer requires sudo and installs to `~/.local/share/HeatHistory` on the internal PC drive. Existing configuration and data there are preserved. Only the two Python modules and `Versions.txt` are updated. The source project retains sources, installer, documentation and tests, without runtime data. `CreateCharts.py` is imported by the combined program and is required.
 
-Ein bisheriger Benutzerdienst wird gestoppt und deaktiviert. Der neue systemweite
-`HeatHistory.service` startet beim Booten ohne Anmeldung, läuft jedoch unter
-dem aufrufenden Benutzer. Programm und Daten benötigen die Projekt-SSD nicht.
-Bei späteren Quelländerungen Install.sh erneut ausführen.
+The system-wide `HeatHistory.service` starts at boot without login, but runs as the invoking user. Program and data do not require the project SSD. Run `Install.sh` again after source changes.
 
 ```bash
 systemctl status HeatHistory.service
@@ -108,58 +67,40 @@ journalctl -u HeatHistory.service -f
 sudo systemctl restart HeatHistory.service
 ```
 
-Browser: http://localhost:8091/ (Tablet: http://<PC-IP>:8091/).
-Konfiguration: `~/.local/share/HeatHistory/config.json`.
-CSV, Profil-Snapshots und Zustandsdateien:
-`~/.local/share/HeatHistory/data/` bei der Standardkonfiguration.
-HeatHistory zeichnet nur HeatProfileAq<number> mit Measurement Temperature auf;
-Batterieprofile wie LaptopCharge gehören nicht zu den Aquarium-Heizverläufen.
+Browser: `http://localhost:8091/` (tablet: `http://<PC-IP>:8091/`).
+Configuration: `~/.local/share/HeatHistory/config.json`.
+CSV, profile snapshots and state files default to `~/.local/share/HeatHistory/data/`.
+HeatHistory records only `HeatProfileAq<number>` with `Measurement: Temperature`; battery profiles such as `LaptopCharge` are not aquarium heating histories.
 
 ## Start
 
-Voraussetzung ist Python 3.10 oder neuer. HeatHistory verwendet ausschließlich
-die Python-Standardbibliothek.
+Python 3.10 or later is required. HeatHistory uses only the Python standard library.
+
+From the repository root:
 
 ```bash
-cd Aq/HeatHistory
+cd HeatHistory
 cp config.example.json config.json
 python3 HeatHistory.py
 ```
 
-In `config.json` können Dashboard-Adresse, Pollintervall, UDP-Warte- und
-Gültigkeitsdauer sowie Ausgabeverzeichnis angepasst werden. Relative Pfade
-beziehen sich auf das HeatHistory-Projektverzeichnis. `Ctrl+C` beendet den Logger.
+`config.json` sets Dashboard address, polling interval, UDP wait/validity limits and output directory. Relative paths refer to the HeatHistory project directory. `Ctrl+C` stops the logger.
 
-Standardmäßig landen Logs und Profil-Snapshots unter `data/<Profil-ID>/`.
-Dieser Laufzeitbestand gehört zum PC und wird nicht in Firmware oder
-Geräte-Dateisysteme geschrieben.
+Logs and profile snapshots default to `data/<Profile-ID>/`. This PC runtime data is not written into firmware or device filesystems.
 
-## Aktueller Umfang
+## Features
 
-- Einmaliger Profil-/Statusdurchlauf: `python3 HeatHistory.py --once`
-- Interaktiver CSV-Diagrammbericht mit synchronisiertem Zoom: `python3 CreateCharts.py`
-- Dauerbetrieb mit konfigurierbarem Pollintervall
-- Per-Profil Fehlerzustand und automatische Wiederaufnahme
-- Semantische Profilrevisionen und Startzeile im jeweils neuen Log
-- Keine Profil-Synchronisation
+- One profile/status pass: `python3 HeatHistory.py --once`.
+- Interactive CSV chart report with synchronized zoom: `python3 CreateCharts.py`.
+- Continuous recording with configurable polling interval.
+- Per-profile error handling and automatic recovery.
+- Semantic profile revisions and an initial row in every new log.
+- No profile synchronization.
 
-## MAC-Zuordnung
+## MAC assignments
 
-HeatHistory 1.12 löst ausschließlich über MAC-Identitäten die benötigten Funktionen über die zentrale
-Geräteregistry auf physische UDP-IDs auf. Profile/CSV-Schlüssel bleiben funktional.
-Ausstehende Tausche oder fehlende Zuordnungen pausieren das Logging. Aktualisieren
-vor dem nächsten Tausch; es werden weiterhin keine Geräte-Webseiten abgefragt.
+HeatHistory resolves required functions to physical UDP IDs through MAC identities in the central device registry. Profile/CSV keys remain function-based. Pending swaps or missing assignments pause recording. Device web pages are not queried.
 
-UDP-Empfang: Ausschließlich Version 2 liest das im Profil mit
-`Measurement` gewählte numerische Statusfeld (Standard: `Temperature`). Fehlende,
-ungültige oder veraltete Werte pausieren wie bisher die Aufzeichnung. Das frühere
-Root-Feld `Temperature` wird nicht mehr ausgewertet. Ein explizites Standardfeld
-ändert die Profil-Signatur nicht; eine andere Messwertauswahl schon.
+UDP version 2 reads the named numeric status field selected by the profile's `Measurement` (default `Temperature`). Missing, invalid or stale values pause recording. Explicitly selecting the default field does not change the profile signature; selecting a different measurement does.
 
-Externe Quellen aus der Dashboard-Registry werden ebenfalls aufgelöst. Eine
-fehlende Einzelquelle blockiert nur das betroffene Profil. Das CSV-Format bleibt
-auf Aquarium-Heizprofile `HeatProfileAq<number>` mit Boden-/Hauptheizung ausgelegt;
-`LaptopCharge` wird damit nicht als Aquarium-Verlauf aufgezeichnet.
-
-Die Entfernung des Version-1-Empfangs ist für den nächsten Stand 1.20 vorgemerkt.
-Der laufende Dienst wurde dafür noch nicht neu gestartet.
+External sources in the Dashboard registry are also resolved. A missing source blocks only its affected profile. The CSV format is designed for aquarium heating profiles `HeatProfileAq<number>` with floor/main heating, so `LaptopCharge` is not recorded as an aquarium history.

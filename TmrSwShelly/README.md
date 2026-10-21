@@ -1,41 +1,35 @@
-<!-- README.md, Version: 1.51 -->
+<!-- README.md, Version: 1.52 -->
 # TmrSwShelly
 
-## Übernahme der Geräte
+[Deutsch](README.DE.md)
 
-Die Erstübernahme von Nous A8T und Shelly Plug M Gen3 wird im eigenständigen Repository [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) beschrieben. Dieses Projekt gehört zu [AquariumControl](../README.md) und stellt die Main-Anwendung nach der Übernahme bereit.
+## Initial takeover
 
-Produktionsprojekt für Shelly Plug M Gen3: gemeinsame TmrSw-Main mit Timer-/
-Heizungsrollen, gerätespezifischem LittleFS und unabhängigem Produktions-Rescue.
-Produktversionen stehen in `Versions.txt`. Eigene Gerätekonfigurationen und
-Signierdaten werden wie unter [Build und private Konfiguration](../BUILD-SECRETS.md)
-beschrieben bereitgestellt.
+Initial takeover of Nous A8T and Shelly Plug M Gen3 is described in the separate [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) repository. This project belongs to [AquariumControl](../README.md) and supplies the Main application after takeover.
 
-## Aktive Quellen
+Production project for Shelly Plug M Gen3: shared TmrSw Main with timer/heating roles, device-specific LittleFS and independent production Rescue. Product versions are in `Versions.txt`. Supply your own device configuration and signing material as described in [build and private configuration](../BUILD-SECRETS.md).
 
-- `Sw/`, `Sw/main/`: Main, Hardwareabstraktion und BL0942-Leistungsmessung.
-- `partitions.csv`: aktive Produktionsaufteilung.
-- `Sw/Rescue/`: eigenständiger nativer Produktions-Rescue samt benötigter Laufzeit,
-  Geometrie-/Aktivierungsprüfungen, Kompatibilitätsschicht und lokalen Verifikationstests.
-- `DevState/<Gerät>/`: persistente gerätespezifische Buildquelle.
+[Hardware documentation](Hw/README.md)
 
-## Build und Ausgaben
+## Active sources
 
-Aus dem Projektverzeichnis:
+- `Sw/`, `Sw/main/`: Main, hardware abstraction and BL0942 power measurement.
+- `partitions.csv`: active production partition layout.
+- `Sw/Rescue/`: standalone native production Rescue, including runtime, geometry/activation checks, compatibility layer and local verification tests.
+- `DevState/<Device>/`: persistent device-specific build source.
+
+## Build and outputs
+
+From the project directory:
 
 ```bash
 ./EspCompile.sh
 ./EspRescueCompile.sh
 ```
 
-Main verwendet Arduino-ESP32 3.3.11 als Quellkomponente mit ESP-IDF 5.5.1.
-Rescue verwendet einen nativen IDF-Build. Die Skripte erzeugen/signieren Artefakte;
-sie führen keinen Upload oder Flash-Aufruf aus. Main wird einmal je Projekt
-gebaut, LittleFS ohne Auswahl für alle DevState-Geräte.
-`--Device Shelly1` wählt beispielsweise eine einzelne Instanz.
+Main uses Arduino-ESP32 3.3.11 as a source component with ESP-IDF 5.5.1. Rescue uses a native IDF build. The scripts generate/sign artifacts; they do not upload or flash. Main is built once per project; without a selection, LittleFS is built for all DevState devices. For example, `--Device Shelly1` selects one instance.
 
-Vor jedem LittleFS-Build die aktuellen Gerätedateien zurücklesen und Config-
-Abweichungen klären (lokaler Stand links, Download rechts):
+Before every LittleFS build, read back current device files and resolve configuration differences (local data on the left, download on the right):
 
 ```bash
 ./tools/DownloadLittleFS.sh Shelly1
@@ -43,100 +37,54 @@ Abweichungen klären (lokaler Stand links, Download rechts):
 ./EspCompile.sh
 ```
 
-- Normaler Aufruf: inkrementell.
-- `--build`: eigenen Cache löschen und vollständig neu bauen.
-- `--clean`: nur eigenen Cache löschen und beenden.
-- `--full-clean`: zusätzlich nur eigene veröffentlichte Artefakte entfernen.
-- Main unterstützt `--status` mit Phasen und Compiler-Heartbeat.
+- Normal invocation: incremental.
+- `--build`: delete this build's cache and perform a full rebuild.
+- `--clean`: delete only this build's cache and exit.
+- `--full-clean`: also remove this build's published artifacts.
+- Main supports `--status` with phases and a compiler heartbeat.
 
-`EspBoardConfig.sh` bündelt Board, Partitionsgrößen und Bin-Unterordner.
-Main-Cache, Arduino-Abhängigkeiten und IDF-Metadaten liegen unter
-`generated/build/main/`; Rescue-Eingaben und Cache unter `generated/build/rescue/`.
-Die gemeinsame Binärausgabe liegt unter `generated/bin/esp32c3_Arduino2/`:
+`EspBoardConfig.sh` defines board, partition sizes and binary subdirectory. Main cache, Arduino dependencies and IDF metadata are under `generated/build/main/`; Rescue inputs and cache are under `generated/build/rescue/`. Shared binary output is under `generated/bin/esp32c3_Arduino2/`:
 
 - `TmrSwShelly.ino.bin_signed`: Main.
-- `<Gerät>.ino.littlefs_signed`: LittleFS.
+- `<Device>.ino.littlefs_signed`: LittleFS.
 - `TmrSwShelly.Rescue.rescue_signed`: Rescue.
 
-Geräte-LittleFS, lesbare Kopien und FTP-Readbacks liegen unter
-`generated/Instances/<Gerät>/`. Aktuelle Prüfergebnisse stehen dort in
-`main-build-verification.json`; Rescue-Prüfergebnisse liegen in seinem Buildordner.
-Generierte Geräte-Readbacks können private Daten enthalten und sind nicht im
-öffentlichen Repository enthalten.
+Device LittleFS, readable copies and FTP readbacks are under `generated/Instances/<Device>/`. Main verification results are in `main-build-verification.json` there; Rescue results are in its build directory. Generated device readbacks may contain private data and are not in the public repository.
 
-## Layout und Hardware
+## Layout and hardware
 
-SDK-Partitionstabellenoffset ist `0x10000`; Main liegt bei `0x3A0000/0x2A0000`,
-LittleFS bei `0x2C0000/0xE0000`, Rescue bei `0x640000/0x180000`.
-DeviceType ist `TmrSwShellyC3V1`. Generische Main-IDF-Flash-Ziele sind gesperrt,
-weil ihre Factory-Adresse Rescue treffen würde. Signierte Updates verwenden
-den Rescue-Webpfad.
+The SDK partition-table offset is `0x10000`; Main is at `0x3A0000/0x2A0000`, LittleFS at `0x2C0000/0xE0000`, and Rescue at `0x640000/0x180000`. DeviceType is `TmrSwShellyC3V1`. Generic Main IDF flash targets are blocked because their factory address would overwrite Rescue. Signed updates use the Rescue web path.
 
-Main prüft Chip/Revision, Flash-/Sicherheitszustand und tatsächliche SDK-Geometrie
-vor Netzwerk-/NVS-/Ausgangsinitialisierung. Relais GPIO0 active HIGH startet AUS;
-Taster GPIO7 active LOW verwendet INPUT_PULLUP. RGB ist active LOW: Rot GPIO18,
-Grün GPIO10, Blau GPIO19. WLAN-/NTP-Warten blinkt blau, Normalbetrieb zeigt den
-Relaiszustand grün. Rescue signalisiert SOS rot.
+Main checks chip/revision, flash/security state and actual SDK geometry before initializing networking, NVS or outputs. The active-high relay on GPIO0 starts OFF; the active-low button on GPIO7 uses INPUT_PULLUP. RGB is active-low: red GPIO18, green GPIO10, blue GPIO19. WLAN/NTP waiting blinks blue; normal operation shows relay state in green. Rescue signals SOS in red.
 
-BL0942 verwendet UART1, RX5/TX4, 9600 Baud. Kalibrierwerte stammen ausschließlich
-aus dem tatsächlichen Geräte-Factory-Datensatz. Eine Kalibrierung überschreibt nach
-Warnung dessen validierte Felder; Restdaten, Schutzstatus und Rücklesen werden geprüft.
-Stromausfall während eines Sektorwrites bleibt ein Risiko.
+BL0942 uses UART1, RX5/TX4 at 9600 baud. Calibration comes exclusively from the actual device's factory record. After a warning, calibration overwrites only validated fields; remaining data, protection state and readback are checked. Power failure during a sector write remains a risk.
 
-## Geräteidentität und Funktionstausch
+## Device identity and function swaps
 
-Jedes physische Gerät wird anhand seiner MAC-Adresse und Dienstkennung erkannt.
-Im Dashboard lassen sich Funktionen zwischen funktionskompatiblen Geräten bzw.
-einzelnen Schaltausgängen tauschen. Hardwarekonfiguration und Kalibrierung bleiben
-beim physischen Gerät. Die Bedienung beschreibt
-[Dashboard – Geräteidentität und Funktionstausch](../Dashboard/README.DE.md#geräteidentität-und-funktionstausch).
-Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Each physical device is identified by its MAC address and service ID. Dashboard can swap functions between functionally compatible devices or individual switching outputs. Hardware configuration and calibration stay with the physical device. See [Dashboard – device identity and function swaps](../Dashboard/README.md#device-identity-and-function-swaps) for operation and [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md) for technical details.
 
-## Gerätezuordnung und PC-Dateien
+## Device assignments and PC files
 
-Ein Funktionstausch allein erfordert keinen Dateisystem-Upload. Soll später ein
-Dateisystem neu aufgespielt werden, müssen vor dem Erstellen des Abbilds die
-PC-Daten mit der aktuellen Gerätezuordnung abgeglichen werden. Den folgenden
-Befehl im Stammverzeichnis des AquariumControl-Repositories ausführen:
+A function swap alone does not require a filesystem upload. If a filesystem is to be uploaded later, synchronize PC data with the current device assignment before creating the image. Run the following command from the AquariumControl repository root:
 
 ```bash
 python3 tools/ReadDeviceStates.py --apply
 ```
 
-Dashboard selbst hat keinen Zugriff auf die PC-Dateien. Nach dem Abgleich die
-betroffenen gerätespezifischen Dateisystem-Abbilder neu bauen. Abbilder sind nicht
-zwischen verschiedenen Hardwaretypen austauschbar.
+Dashboard itself cannot access PC files. After synchronization, rebuild the affected device-specific filesystem images. Images are not interchangeable between different hardware types.
 
-JSON-Editoren zeigen Objektarrays für Profile und Kanäle mit einer ausgerichteten
-Zeile pro Datensatz; Zusatzfelder bleiben erhalten. `Channels.json` nutzt die
-verfügbare Seitenbreite. Der `Sources.json`-Editor wird über seinen Button geöffnet
-und ist nur bei nicht erreichbarem Dashboard freigegeben. Der Server prüft dies
-beim Speichern erneut.
+JSON editors display profile/channel object arrays with one aligned line per record; extra fields are preserved. `Channels.json` uses the available page width. The `Sources.json` editor opens through its button and is enabled only while Dashboard is unreachable. The server checks this again when saving.
 
-Signierte Dateisystem-Abbilder tragen den Hostnamen aus der Konfiguration:
-Funktionsname bei konkreter Zuordnung, Hardware-Name bei Reservegeräten.
-`DevState/` und `generated/Instances/` verwenden die internen Funktionsschlüssel.
+Signed filesystem images use the hostname from configuration: the function name for assigned functions, or the hardware name for reserve devices. `DevState/` and `generated/Instances/` use internal function keys.
 
-## Kanaltausch aus dem Dashboard
+## Channel swaps through Dashboard
 
-Der einzelne Schaltausgang kann seine Funktion mit einem funktionskompatiblen
-Nous-/Shelly-Ausgang oder MultiTimer-Kanal tauschen. Kanalname, Rolle, Profil und
-Zeitplan folgen der Funktion; GPIO, Kalibrierung, Hostname und Zugangsdaten
-bleiben beim physischen Gerät.
+The single switching output can exchange its function with a functionally compatible Nous/Shelly output or MultiTimer channel. Channel name, role, profile and schedule follow the function; GPIOs, calibration, hostname and credentials stay with the physical device.
 
-Vor dem Tausch Verbraucher trennen und vor dem Wiederanschluss die bestätigte
-Übernahme abwarten. Kanalzuordnung, Schaltzeiten und Intervalle werden gemeinsam
-geprüft und gespeichert. Unterbrochene Änderungen werden beim Neustart vor der
-Hardwareinitialisierung abgeschlossen. Erst danach wird die neue Zuordnung
-bestätigt.
+Disconnect consumers before swapping and wait for confirmed completion before reconnecting. Channel assignments, switching times and intervals are validated and saved together. Interrupted changes are completed at startup before hardware initialization. The new assignment is confirmed only afterwards.
 
-## Messwerte und Status
+## Measurements and status
 
-Statusmeldungen und Messwertanforderungen verwenden UDP-Version 2. Messwerte
-stehen als benannte numerische Felder im Objekt `Status`. Profile wählen mit
-`Measurement` das auszuwertende Feld; ein leeres Feld bedeutet `Temperature`.
+Status messages and measurement requests use UDP version 2. Measurements are named numeric fields in the `Status` object. Profiles select a field through `Measurement`; an empty field means `Temperature`.
 
-Relais, Taster und die GPIO-Vorbereitung der RGB-LED verwenden die gemeinsame
-GnBasics-Schnittstelle. Vor dem Aktivieren des Relais wird der Ausgangspegel für
-AUS gesetzt; der Relaisstatus gilt erst nach erfolgreicher Initialisierung als
-bekannt. Die LED-Helligkeit wird über LEDC gesteuert.
+Relay, button and RGB LED GPIO preparation use the shared GnBasics interface. The OFF output level is set before enabling the relay; relay state is considered known only after successful initialization. LED brightness is controlled through LEDC.

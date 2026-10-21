@@ -1,46 +1,39 @@
-<!-- README.md, Version: 1.01 -->
-# Raumtemperatur-Sender für den Raspberry Pi
+<!-- README.md, Version: 1.02 -->
+# Raspberry Pi room-temperature sender
 
-Eigenständiger DS18B20-Sender mit Python 3 ohne Zusatzpakete. Das Programm liest
-über den Linux-OneWire-Treiber und sendet die Raumtemperatur alle fünf Sekunden
-per UDP-Broadcast. Es läuft unabhängig von MultiTimer und Dashboard als eigener
-Systemdienst. Produktversion: Versions.txt.
+[Deutsch](README.DE.md)
 
-## Hardware und Vorbereitung
+Standalone DS18B20 sender using Python 3 without extra packages. It reads through the Linux OneWire driver and broadcasts room temperature over UDP every five seconds. It runs independently of MultiTimer and Dashboard as its own system service. Product version: `Versions.txt`.
 
-Am vorhandenen Raspberry Pi 3 Model B wurde GPIO4 lesend geprüft: unbelegt,
-Eingang, kein Consumer/OneWire-Overlay. Das frühere OLED ist entfernt. Sensor
-außerhalb des Gehäuses platzieren, mit Abstand zu Pi/Netzteil und Warmluft.
+## Hardware and preparation
 
-Bei ausgeschaltetem Pi anschließen, Sensor-Pinbelegung anhand seines Datenblatts
-prüfen (Kabelfarben nicht als Belegung voraussetzen):
+Before connecting, ensure GPIO4 is free and no other driver or consumer uses it. Place the sensor outside the enclosure, away from the Pi, power supply and warm airflow.
 
-- VDD an 3,3 V, beispielsweise physischer Header-Pin 1.
-- GND an Masse, beispielsweise physischer Pin 6.
-- DQ an BCM GPIO4, physischer Pin 7.
-- 4,7-kΩ-Pull-up zwischen DQ und 3,3 V; kein Parasite-Power-Betrieb.
+With the Pi powered off, connect as follows. Check the sensor pinout against its datasheet; do not assume wire colors identify pins:
 
-Auf dem Pi in /boot/firmware/config.txt im passenden [all]-Abschnitt ergänzen,
-sofern kein entsprechender Eintrag existiert:
+- VDD to 3.3 V, for example physical header pin 1.
+- GND to ground, for example physical pin 6.
+- DQ to BCM GPIO4, physical pin 7.
+- A 4.7 kΩ pull-up between DQ and 3.3 V; no parasite-power operation.
+
+On the Pi, add this in the appropriate `[all]` section of `/boot/firmware/config.txt` unless an equivalent entry already exists:
 
 ```ini
 dtoverlay=w1-gpio,gpiopin=4
 ```
 
-Danach ist ein Pi-Neustart nötig. Weder Sender noch Installer ändern diese Datei
-oder starten den Pi neu. Während des Reboots stehen dessen Schaltkanäle nicht
-zur Verfügung. Die später geplante autonome PI-Regelung ist noch nicht umgesetzt.
+A Pi reboot is required afterwards. Neither sender nor installer edits this file or reboots the Pi. Its switching channels are unavailable during reboot. Autonomous PI control is not implemented.
 
-## Übertragen und vor dem Dienststart prüfen
+## Transfer and check before starting the service
 
-Am PC:
+On the PC, from the repository root:
 
 ```bash
-cd /mnt/SD_256GB/Prjs/Aq/RoomTemperature
+cd RoomTemperature
 ./CopyToRasPi.sh
 ```
 
-Am Pi, nach Anschluss und Treiberaktivierung:
+On the Pi, after connection and driver activation:
 
 ```bash
 cd ~/Prjs/RoomTemperature
@@ -48,56 +41,31 @@ python3 RoomTemperature.py --list
 python3 RoomTemperature.py --once
 ```
 
---once gibt ein Telegramm aus, sendet aber kein UDP. Exitcode 0 bedeutet gültiger
-Wert; 2 bedeutet ungültiger Sensorwert. Ohne Sensor sind null/Healthy=false korrekt.
-Die gefundene 28-…-Adresse in data/Config.json als SensorId eintragen. null erlaubt
-vorläufig automatische Auswahl bei genau einem gefundenen DS18B20. Mehrere
-Sensoren werden ohne explizite Auswahl abgelehnt. Der Bereich -20..60 °C ist für
-Raumtemperatur gewählt und verwirft insbesondere den 85-°C-Einschaltwert.
+`--once` prints a telegram without sending UDP. Exit code 0 means a valid measurement; 2 means an invalid sensor value. Without a sensor, null/Healthy=false is expected. Set the discovered `28-…` address as `SensorId` in `data/Config.json`. `null` permits automatic selection when exactly one DS18B20 is found. Multiple sensors without explicit selection are rejected. The room-temperature range −20…60 °C rejects the 85 °C power-on value in particular.
 
-Nach plausibler Einzelmessung:
+After a plausible single measurement:
 
 ```bash
 ./Install.sh
 journalctl -u RoomTemperature.service -n 30 --no-pager
 ```
 
-Install.sh verwendet sudo, installiert/aktiviert nur RoomTemperature.service und
-führt ihn als Projektbesitzer (auf dem Pi normalerweise pi) aus, nicht als root.
-ROOM_TEMPERATURE_USER überschreibt den Dienstbenutzer. Bei späterem Quellupdate
-CopyToRasPi.sh erneut ausführen und sudo systemctl restart RoomTemperature.service.
-Der Transfer überschreibt die vorhandene Pi-Config nicht. Kein Compiler nötig.
+`Install.sh` uses sudo and installs/enables only `RoomTemperature.service`. It runs as the project owner (normally pi), not root. `ROOM_TEMPERATURE_USER` overrides the service user. For later source updates, run `CopyToRasPi.sh` again and then `sudo systemctl restart RoomTemperature.service`. Transfer preserves existing Pi configuration. No compiler is needed.
 
-## UDP und Systemintegration
+## UDP and system integration
 
 ```json
 {"Version":2,"Type":"Status","ID":"B8:27:EB:7B:96:D7@3","Status":{"Kind":"RoomTemperature","Temperature":22.375}}
 ```
 
-Das tatsächliche Paket enthält zusätzlich SensorId, AppVersion, CurrentTime,
-Healthy, Errors und Measurements für die Anzeige. Fehler werden als
-Temperature:null/Valid:false publiziert, nicht als letzter gültiger Wert.
-Version-2-Requests mit ID:[] oder der eigenen MAC@3 lösen eine frische Messung
-aus (höchstens einmal pro Sekunde). Zielport ist 44444. BroadcastAddress kann
-bei Bedarf auf die passende Subnetz-Broadcastadresse gesetzt werden.
+The actual packet also contains SensorId, AppVersion, CurrentTime, Healthy, Errors and Measurements for display. Errors publish Temperature:null/Valid:false, not the last valid value. Version-2 requests with ID:[] or the sender's MAC@3 trigger a fresh measurement, at most once per second. Target port is 44444. Set BroadcastAddress to the appropriate subnet broadcast address if needed.
 
-Die MAC ist dieselbe feste Pi-MAC wie bisher; @3 unterscheidet den Sensor vom
-MultiTimer @1 und Dashboard @2. Eine neue Registry-Revision mit ExternalSources
-RoomTemperature → B8:27:EB:7B:96:D7@3 muss nach dem Sensortest noch gezielt
-angelegt/verteilt werden. Diese Vorbereitung ändert keine laufende Zuordnung oder
-Heizprofile. Die Raumtemperatur ist bislang keine Eingangsgröße der vorhandenen
-Heizungsregelung; die autonome PI-Regelung im Nous/Shelly ist ein nächster Schritt.
+Identity uses the fixed Pi MAC; @3 distinguishes the sensor from MultiTimer @1 and Dashboard @2. After a plausible sensor measurement, register it under `ExternalSources` in the Dashboard registry, for example RoomTemperature → B8:27:EB:7B:96:D7@3. The assignment change requires a new registry revision and distribution. Room temperature is not an input to the existing heating control; autonomous PI control in Nous/Shelly is not implemented.
 
-## Prüfumfang
+## Check on your own device
 
-Sieben Tests bestanden: sechs Hosttests für Messwert-/CRC-Verarbeitung,
-Verlust/Wiederkehr, Auswahl, Bereichsfehler, Protokoll und Requests; ein echter
-Senderprozess mit simuliertem sysfs über ausschließlich Loopback-UDP-Broadcast
-für gültigen Wert, CRC-Fehler/null und Wiederkehr auf Request. Die tatsächlich
-vom Installer erzeugte Dienstdatei besteht systemd-analyze verify; Shellsyntax
-geprüft. Dies ersetzt keinen Test mit angeschlossenem DS18B20. Installer und
-Quelltransfer sind nicht produktiv ausgeführt.
+After connecting the sensor and enabling the driver, run `--list` and `--once` and check that the measurement is plausible. Then start the service and inspect its messages. Failed or missing readings must appear as invalid; an old value must not be sent as a current measurement.
 
-Technische Quellen:
+Technical references:
 [Linux w1_therm](https://docs.kernel.org/w1/slaves/w1_therm.html),
-[Raspberry-Pi-Overlays](https://github.com/raspberrypi/firmware/blob/master/boot/overlays/README).
+[Raspberry Pi overlays](https://github.com/raspberrypi/firmware/blob/master/boot/overlays/README).

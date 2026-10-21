@@ -10,7 +10,7 @@
 
 Weitere Aufnahmen: [20261019_093611](Images/20261019_093611.jpg) · [20261019_093616](Images/20261019_093616.jpg) · [20261019_093928](Images/20261019_093928.jpg) · [20261019_094013](Images/20261019_094013.jpg)
 
-Relaismodul-Unterlage (manufacturer reference; not bundled) · [Sensorplatte (STL)](CAD/SensorPlate.stl) · [Raumtemperatur-Sender](../../RoomTemperature/README.md)
+Relaismodul-Unterlage (manufacturer reference; not bundled) · [Sensorplatte (STL)](CAD/SensorPlate.stl) · [Raumtemperatur-Sender](../../RoomTemperature/README.DE.md)
 
 ## Noch offen
 

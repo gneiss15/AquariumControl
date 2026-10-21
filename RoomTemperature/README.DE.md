@@ -1,0 +1,103 @@
+<!-- README.DE.md, Version: 1.02 -->
+# Raumtemperatur-Sender für den Raspberry Pi
+
+[English](README.md)
+
+Eigenständiger DS18B20-Sender mit Python 3 ohne Zusatzpakete. Das Programm liest
+über den Linux-OneWire-Treiber und sendet die Raumtemperatur alle fünf Sekunden
+per UDP-Broadcast. Es läuft unabhängig von MultiTimer und Dashboard als eigener
+Systemdienst. Produktversion: Versions.txt.
+
+## Hardware und Vorbereitung
+
+Vor dem Anschluss sicherstellen, dass GPIO4 frei ist und kein anderer Treiber
+oder Verbraucher darauf zugreift. Sensor außerhalb des Gehäuses platzieren,
+mit Abstand zu Pi, Netzteil und Warmluft.
+
+Bei ausgeschaltetem Pi anschließen, Sensor-Pinbelegung anhand seines Datenblatts
+prüfen (Kabelfarben nicht als Belegung voraussetzen):
+
+- VDD an 3,3 V, beispielsweise physischer Header-Pin 1.
+- GND an Masse, beispielsweise physischer Pin 6.
+- DQ an BCM GPIO4, physischer Pin 7.
+- 4,7-kΩ-Pull-up zwischen DQ und 3,3 V; kein Parasite-Power-Betrieb.
+
+Auf dem Pi in /boot/firmware/config.txt im passenden [all]-Abschnitt ergänzen,
+sofern kein entsprechender Eintrag existiert:
+
+```ini
+dtoverlay=w1-gpio,gpiopin=4
+```
+
+Danach ist ein Pi-Neustart nötig. Weder Sender noch Installer ändern diese Datei
+oder starten den Pi neu. Während des Reboots stehen dessen Schaltkanäle nicht
+zur Verfügung. Die später geplante autonome PI-Regelung ist noch nicht umgesetzt.
+
+## Übertragen und vor dem Dienststart prüfen
+
+Am PC vom Repository-Stamm:
+
+```bash
+cd RoomTemperature
+./CopyToRasPi.sh
+```
+
+Am Pi, nach Anschluss und Treiberaktivierung:
+
+```bash
+cd ~/Prjs/RoomTemperature
+python3 RoomTemperature.py --list
+python3 RoomTemperature.py --once
+```
+
+--once gibt ein Telegramm aus, sendet aber kein UDP. Exitcode 0 bedeutet gültiger
+Wert; 2 bedeutet ungültiger Sensorwert. Ohne Sensor sind null/Healthy=false korrekt.
+Die gefundene 28-…-Adresse in data/Config.json als SensorId eintragen. null erlaubt
+vorläufig automatische Auswahl bei genau einem gefundenen DS18B20. Mehrere
+Sensoren werden ohne explizite Auswahl abgelehnt. Der Bereich -20..60 °C ist für
+Raumtemperatur gewählt und verwirft insbesondere den 85-°C-Einschaltwert.
+
+Nach plausibler Einzelmessung:
+
+```bash
+./Install.sh
+journalctl -u RoomTemperature.service -n 30 --no-pager
+```
+
+Install.sh verwendet sudo, installiert/aktiviert nur RoomTemperature.service und
+führt ihn als Projektbesitzer (auf dem Pi normalerweise pi) aus, nicht als root.
+ROOM_TEMPERATURE_USER überschreibt den Dienstbenutzer. Bei späterem Quellupdate
+CopyToRasPi.sh erneut ausführen und sudo systemctl restart RoomTemperature.service.
+Der Transfer überschreibt die vorhandene Pi-Config nicht. Kein Compiler nötig.
+
+## UDP und Systemintegration
+
+```json
+{"Version":2,"Type":"Status","ID":"B8:27:EB:7B:96:D7@3","Status":{"Kind":"RoomTemperature","Temperature":22.375}}
+```
+
+Das tatsächliche Paket enthält zusätzlich SensorId, AppVersion, CurrentTime,
+Healthy, Errors und Measurements für die Anzeige. Fehler werden als
+Temperature:null/Valid:false publiziert, nicht als letzter gültiger Wert.
+Version-2-Requests mit ID:[] oder der eigenen MAC@3 lösen eine frische Messung
+aus (höchstens einmal pro Sekunde). Zielport ist 44444. BroadcastAddress kann
+bei Bedarf auf die passende Subnetz-Broadcastadresse gesetzt werden.
+
+Die Identität verwendet die feste Pi-MAC; @3 unterscheidet den Sensor vom
+MultiTimer @1 und Dashboard @2. Für die Integration den Sensor nach einer plausiblen Messung in der
+Dashboard-Registry unter `ExternalSources` registrieren, zum Beispiel
+RoomTemperature → B8:27:EB:7B:96:D7@3. Die geänderte Zuordnung benötigt eine
+neue Registry-Revision und Verteilung. Die Raumtemperatur ist keine Eingangsgröße
+der vorhandenen Heizungsregelung; eine autonome PI-Regelung im Nous/Shelly
+ist noch nicht umgesetzt.
+
+## Prüfung am eigenen Gerät
+
+Nach Anschluss und Treiberaktivierung `--list` und `--once` ausführen und den
+Messwert auf Plausibilität prüfen. Danach den Dienst starten und seine Meldungen
+kontrollieren. Fehlerhafte oder fehlende Messwerte müssen als ungültig erscheinen;
+ein alter Wert darf nicht als aktuelle Messung weitergegeben werden.
+
+Technische Quellen:
+[Linux w1_therm](https://docs.kernel.org/w1/slaves/w1_therm.html),
+[Raspberry-Pi-Overlays](https://github.com/raspberrypi/firmware/blob/master/boot/overlays/README).

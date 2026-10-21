@@ -1,4 +1,4 @@
-<!-- Feeder/README.DE.md, Version: 1.26 -->
+<!-- Feeder/README.DE.md, Version: 1.27 -->
 # Feeder
 
 [English](README.md)
@@ -110,19 +110,27 @@ Das empfohlene Rescue-Artefakt ist `generated/bin/wifi_kit_8_Arduino2/Feeder.Res
 
 ## Geräteidentität und Funktionstausch
 
-Die aktuelle Firmware unterstützt persistierte MAC/Dienst-IDs und Funktionstausch
-über das Dashboard. Ein Firmware-Upload alleine aktiviert keinen Tausch.
-Zuerst Dashboard und alle Teilnehmer aktualisieren, dann im Bereich
-Gerätezuordnung die MAC-Zuordnung ausdrücklich aktivieren. Für ESP genügt Firmware;
-kein LittleFS-/Rescue-Upload erforderlich. Hardwarekonfiguration und Kalibrierung
-bleiben beim physischen Gerät. Reihenfolge, Voraussetzungen und Prüfungen stehen in
-[DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Jedes physische Gerät wird anhand seiner MAC-Adresse und Dienstkennung erkannt.
+Im Dashboard lassen sich Funktionen zwischen funktionskompatiblen Geräten tauschen.
+Hardwarekonfiguration und Kalibrierung bleiben beim physischen Gerät. Die Bedienung
+beschreibt [Dashboard – Geräteidentität und Funktionstausch](../Dashboard/README.DE.md#geräteidentität-und-funktionstausch).
+Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
 
 ## Gerätezuordnung und PC-Dateien
 
-Die Netzwerkidentität ist MAC@ServiceId; Funktionsnamen bleiben für Menschen und Zeitpläne erhalten. Bedienung und aktueller Versionsstand: [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
-Nach einem Funktionstausch sind frühere FS-Binaries veraltet. Dashboard kann PC-Dateien nicht aktualisieren. Vom Prjs-Stamm `python3 Aq/tools/ReadDeviceStates.py --apply` ausdrücklich starten: vollständiger ESP-Readback, Übernahme persistenter Daten in DevState/<aktuelle Funktion> im passenden Hardwareprojekt. Danach betroffene FS-Abbilder neu bauen; keine Abbilder zwischen Hardwaretypen austauschen.
+Ein Funktionstausch allein erfordert keinen Dateisystem-Upload. Soll später ein
+Dateisystem neu aufgespielt werden, müssen vor dem Erstellen des Abbilds die
+PC-Daten mit der aktuellen Gerätezuordnung abgeglichen werden. Den folgenden
+Befehl im Stammverzeichnis des AquariumControl-Repositories ausführen:
 
-UDP-Statusmeldungen senden Version 2 mit dem optionalen Temperaturmesswert in
-`Status.Temperature` (bei ungültiger Messung `null`, bei deaktiviertem Sensor
-kein Feld).
+```bash
+python3 tools/ReadDeviceStates.py --apply
+```
+
+Dashboard selbst hat keinen Zugriff auf die PC-Dateien. Danach die betroffenen
+Dateisystem-Abbilder neu bauen; Abbilder verschiedener Hardwaretypen sind nicht
+austauschbar.
+
+UDP-Statusmeldungen verwenden Version 2 mit dem optionalen Temperaturmesswert in
+`Status.Temperature`: bei ungültiger Messung `null`, bei deaktiviertem Sensor
+kein Feld.

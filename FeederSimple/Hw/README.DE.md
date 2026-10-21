@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-**Coming soon – unvollständig.** FeederSimple ist der Umbau eines gekauften Futterautomaten. Die Originalsteuerung wird ersetzt; die vorhandene Platine und Mechanik werden weiterverwendet. Bestätigte Signalbelegungen und aktuelle Firmwarevorgaben stehen in der [Projekt-README](../README.md).
+**Coming soon – unvollständig.** FeederSimple ist der Umbau eines gekauften Futterautomaten. Die Originalsteuerung wird ersetzt; die vorhandene Platine und Mechanik werden weiterverwendet. Bestätigte Signalbelegungen und aktuelle Firmwarevorgaben stehen in der [Projekt-README](../README.DE.md).
 
 ![Umgebauter Futterautomat](Images/FeederComplete.png)
 

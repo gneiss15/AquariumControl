@@ -1,34 +1,24 @@
+<!-- README.md, Version: 1.00 -->
 # GnBasicLib
 
-Basics GnBasicLib
+[Deutsch](README.DE.md)
 
-GPIO-Functions:
-	Set...		Set the Pin Latch
-	Clr...		Resets the Pin Latch
-	Toggle...	Toggles the Pin Latch
-	GetOut...	Get The State of the Pin Latch
-	GetIn...	Get The State of the Pin
-	...Pin		Pin is given as Pin-Number
-	...PinM		Pin is given as Pin-Mask
+Shared basic functions for the project firmware and applications.
 
-	PinMode_Output
-	PinMode_OutputOpenDrain
-	PinMode_Input
-	PinMode_InputPullUp
+## GPIO functions
 
-CPU-Specific:
-	GetCycleCount	returns the CPU-Cycle-Counter
+| Name | Purpose |
+| --- | --- |
+| `Set...` | Set the output latch. |
+| `Clr...` | Clear the output latch. |
+| `Toggle...` | Toggle the output latch. |
+| `GetOut...` | Read the output latch. |
+| `GetIn...` | Read the pin state. |
+| `...Pin` | Specify the pin by number. |
+| `...PinM` | Specify the pin by bit mask. |
 
+Pin modes include `PinMode_Output`, `PinMode_OutputOpenDrain`, `PinMode_Input` and `PinMode_InputPullUp`.
 
-## Description
+## CPU-specific functions
 
-
-## Interfaces
-
-
-## Future
-
-
-## Operational
-
-
+`GetCycleCount` returns the CPU cycle counter.
