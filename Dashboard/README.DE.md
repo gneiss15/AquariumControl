@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 2.09 -->
+<!-- README.DE.md, Version: 2.10 -->
 # Aquarium Dashboard
 
 [English](README.md)
@@ -11,8 +11,7 @@ Separate Übersicht und Bedienoberfläche für mehrere Dashboard-kompatible Ger�
 
 ## Externe Laptop-Anzeige
 
-Ab Server 1.37/Data 2.84 erscheinen registrierte `ExternalSources` als reine
-Statussender unter System. `LaptopBattery` wird als Laptop angezeigt; sein
+Registrierte `ExternalSources` erscheinen als reine Statussender unter System. `LaptopBattery` wird als Laptop angezeigt; sein
 `Status.BatteryPercent` erscheint als Akkustand in Prozent. Der Schaltausgang
 LaptopSw und seine Rückmeldeüberwachung bleiben separate Anzeigen.
 
@@ -21,11 +20,6 @@ Der Browser benötigt keine Geräte-/Konfigurations-API am Laptop. Nach 20 Sekun
 ohne Statuspaket gilt der Sender als Offline; veraltete Messwerte werden
 ausgeblendet. Ungültige Prozentwerte werden als „—“ angezeigt. Der Laptop bleibt
 eine externe Quelle und wird nicht zum verwalteten Feeder/Schaltgerät.
-
-Für diese Änderung Quellstand mit `./CopyToRasPi.sh --sources-only` auf dem PC
-übertragen, auf dem Pi unter `~/Prjs/Dashboard` mit `make` bauen und anschließend
-`sudo systemctl restart DashboardServer.service` ausführen. Browser neu laden.
-Keine ESP-/FS-Uploads erforderlich.
 
 ## MAC-Identität und Funktionstausch
 
