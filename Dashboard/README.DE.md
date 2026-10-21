@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 2.10 -->
+<!-- README.DE.md, Version: 2.11 -->
 # Aquarium Dashboard
 
 [English](README.md)
@@ -23,8 +23,7 @@ eine externe Quelle und wird nicht zum verwalteten Feeder/Schaltgerät.
 
 ## MAC-Identität und Funktionstausch
 
-Server 1.19/Data 2.65 verwaltet physische Geräte über MAC/Dienst-ID und feste IP/Port-Zuordnungen. Die Box **Gerätetausch** enthält Auswahl und Bedienung.
-Zeitpläne und Kanalrollen bleiben nach Funktionen geordnet. Legacy-IDs und MAC-Aktivierung entfallen.
+Jedes physische Gerät wird anhand seiner MAC-Adresse und Dienstkennung erkannt. Die Zuordnung zu einer Funktion, etwa Fütterung oder Beleuchtung, lässt sich im Bereich **Gerätetausch** ändern. Zeitpläne und Kanalrollen bleiben dabei der jeweiligen Funktion zugeordnet.
 
 Verbraucher vorher von beiden Geräten trennen. Tausch nur innerhalb Feeder bzw. TimerSw; Hardwareparameter bleiben am Exemplar. Hostname, ApSsid, ApPw und FtpPw wandern mit der Funktion. Beide betroffenen ESPs starten neu; ein ausstehender Tausch bleibt bis zur frischen Bestätigung im privaten Journal erhalten.
 
