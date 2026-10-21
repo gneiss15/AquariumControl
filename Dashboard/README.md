@@ -1,4 +1,4 @@
-<!-- README.md, Version: 2.11 -->
+<!-- README.md, Version: 2.12 -->
 # Aquarium Dashboard
 
 [Deutsch](README.DE.md)
@@ -35,7 +35,7 @@ make
 sudo ./Install.sh
 ```
 
-`Install.sh` installs and enables `DashboardServer.service`. It also removes old Dashboard startup/watch entries from `/etc/crontab` and replaces a previously installed `aquarium-dashboard.service`.
+`Install.sh` installs and enables `DashboardServer.service`.
 
 ```bash
 systemctl status DashboardServer.service
@@ -96,7 +96,7 @@ The Pi holds the central runtime data. The schedule page edits times, weekdays, 
 
 Profiles live in `data/HeatProfiles.json` with one global UTC `TimeStamp`. Per-device channel assignments live separately in `data/Times.json`, each with its own timestamp. A channel-assignment update applies only to that device; a global profile change is distributed to all schedule participants with each device's own channel assignments. Empty or incomplete profile lists do not delete central profiles. A profile cannot be deleted while a channel still refers to it.
 
-Devices continue to receive their combined `Channels.json` structure with `Profiles` and `Channels`. `/api/times/sync` accepts it with schedule data; device updates use `/api/v1/times`. No separate profile message type is needed. Older TmrSw payloads without intervals leave central intervals unchanged.
+Devices receive their combined `Channels.json` structure with `Profiles` and `Channels`. `/api/times/sync` accepts it with schedule data; device updates use `/api/v1/times`.
 
 The profile editor changes a channel's role and profile without changing its hardware structure or identity. The profile's **Source** (`TempId`) identifies the sender. **Measurement** identifies a numeric field in its status, such as `Temperature` or `BatteryPercent`; an empty measurement field means `Temperature`. For example, a laptop-charging profile uses source `LaptopBattery` and measurement `BatteryPercent`. With `NoTempOn: false`, a missing valid measurement keeps the output off. Save/distribute after editing.
 
@@ -164,7 +164,7 @@ Devices publish at least every five seconds and on relevant changes, using broad
 
 On a stream failure the browser polls the server cache once per second. EventSource reconnects automatically; a silent connection is also renewed after 15 seconds. Reconnection delivers a snapshot; late polling responses cannot overwrite newer pushed data. After 20 seconds without valid device UDP, the device is offline and stale measurements are hidden. Missing feedback is unknown, never an assumed OFF state. Server limits of 32 streams and 256 KiB pending data per stream prevent slow browsers from blocking other work.
 
-Only UDP version 2 is accepted. Measurements are named fields in `Status`; old root-level `Value` and `Temperature` are not read. Device capabilities and source identity remain independent of the selected measurement field.
+UDP version 2 is used. Measurements are named fields in `Status`. Device capabilities and source identity remain independent of the selected measurement field.
 
 The local Pi status source reports CPU temperature, load averages for 1/5/15 minutes and `vcgencmd get_throttled` flags for current or past undervoltage, frequency limiting, throttling and temperature limits. An unavailable device needs only its Offline status, without a duplicate generic error message.
 
@@ -192,7 +192,7 @@ Rules are saved atomically to `data/FeedbackMonitors.json`. The editor loads the
 
 Enable the warning sound explicitly in the browser; this plays a test tone. An unacknowledged confirmed fault produces three short tones every 30 seconds. Acknowledge silences it until recovery or a new fault type, retaining the visual fault. Disable turns sound off for that browser. Stale Dashboard data suppresses repeated tones. Set volume on the tablet/browser; browser audio permission remains necessary.
 
-The `AquariumDashboard.FeedbackSound` cookie stores the choice for one year (`Path=/`, `SameSite=Lax`). At page load and daily, a remaining lifetime of at most 30 days renews it for both ON and OFF. Legacy 0/1 values are retained; deleted/invalid cookies do not create a preference automatically.
+The `AquariumDashboard.FeedbackSound` cookie stores the choice for one year (`Path=/`, `SameSite=Lax`). At page load and daily, a remaining lifetime of at most 30 days renews it for both ON and OFF. Deleted/invalid cookies do not create a preference automatically.
 
 With a saved ON choice, the page silently attempts audio resumption. If the browser blocks it, press **Enable warning sound** to release audio. An explicit enable/release plays the same test signal as the alarm; automatic resumption is silent. OFF remains off across reloads. Cookie preferences apply only to the same browser/host and may be lost in private browsing or after clearing cookies.
 

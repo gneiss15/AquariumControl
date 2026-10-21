@@ -1,45 +1,106 @@
-<!-- README.DE.md, Version: 2.13 -->
+<!-- README.DE.md, Version: 2.14 -->
 # Aquarium Dashboard
 
 [English](README.md)
 
+Dashboard ist die gemeinsame Übersicht und Bedienoberfläche für die Aquarium-Geräte. Die Übersicht gruppiert Schaltausgänge und Messwerte nach Aquarium. Gemeinsam genutzte Ausgänge können in mehreren Aquariumgruppen erscheinen.
+
+Die Geräte senden aktuelle Zustände und Messwerte wie Temperatur, Spannung, Strom und Leistung per UDP-Broadcast an den DashboardServer. Dieser leitet die Daten an die Browser weiter; die Browser fragen die Geräte dafür nicht direkt ab.
+
 ## Hardware und Dokumentationsstand
 
-Dashboard und das Programm MultiTimer laufen auf demselben Raspberry Pi. MultiTimer steuert die angeschlossene achtfache Relaiskarte. Fotos und die bisherige Beschreibung von Relaiskarte, Netzteil und Gehäuse stehen unter [MultiTimer – Hardware](../MultiTimer/Hw/README.DE.md). **Coming soon: Die Hardwarebeschreibung wird noch vervollständigt.**
+Dashboard und das Programm MultiTimer laufen auf demselben Raspberry Pi. MultiTimer steuert die angeschlossene achtfache Relaiskarte. Fotos und die Beschreibung von Relaiskarte, Netzteil und Gehäuse stehen unter [MultiTimer – Hardware](../MultiTimer/Hw/README.DE.md).
 
-Separate Übersicht und Bedienoberfläche für mehrere Dashboard-kompatible Geräte. Die Übersicht gruppiert Ausgänge nach Aquarium; gemeinsam genutzte Ausgänge können in mehreren Aquariumgruppen erscheinen. Die Geräte senden aktuelle Zustände und Messwerte wie Temperatur, Spannung, Strom und Leistung per UDP-Broadcast an den DashboardServer. Dieser leitet die Daten an die Browser weiter; die Browser fragen die Geräte dafür nicht direkt ab.
+**Coming soon: Die Hardwarebeschreibung wird noch vervollständigt.**
 
-## Externe Laptop-Anzeige
+Gerätespezifische Konfigurationen, Zugangsdaten und Laufzeitdaten sind nicht im öffentlichen Repository enthalten. Eigene Konfigurationen und Signierdaten werden wie unter [Build und private Konfiguration](../BUILD-SECRETS.md) beschrieben bereitgestellt. **Coming soon:** eine vollständige Erstaufbau-Anleitung und allgemeine Konfigurationsbeispiele.
 
-Registrierte `ExternalSources` erscheinen als reine Statussender unter System. `LaptopBattery` wird als Laptop angezeigt; sein
-`Status.BatteryPercent` erscheint als Akkustand in Prozent. Der Schaltausgang
-LaptopSw und seine Rückmeldeüberwachung bleiben separate Anzeigen.
+## Übersicht und Bedienung
 
-Der Server übernimmt nur Pakete registrierter MAC@Service-IDs in den Cache.
-Der Browser benötigt keine Geräte-/Konfigurations-API am Laptop. Nach 20 Sekunden
-ohne Statuspaket gilt der Sender als Offline; veraltete Messwerte werden
-ausgeblendet. Ungültige Prozentwerte werden als „—“ angezeigt. Der Laptop bleibt
-eine externe Quelle und wird nicht zum verwalteten Feeder/Schaltgerät.
+Die Bereichsauswahl öffnet die Übersicht, die Zeitpläne und die Konfigurationsseiten der Geräte. Der zuletzt gewählte Bereich wird im Browser gespeichert und nach dem Neuladen geöffnet. Ist er nicht verfügbar, erscheint die Übersicht. Die Sprache des Dashboards wird unabhängig von den eingebetteten Geräteseiten gewählt.
 
-## MAC-Identität und Funktionstausch
+In der Übersicht stehen Geräte mit ihrem Verbindungsstatus sowie die zugeordneten Messwerte und Ausgänge. Ein nicht erreichbares Gerät wird als **Offline** angezeigt; veraltete Messwerte werden ausgeblendet. Die Gruppe **System** enthält gemeinsame Geräte und Statusanzeigen, beispielsweise den Raspberry Pi und einen registrierten Laptop.
+
+Die Darstellung passt sich an PC, Tablet und Smartphone an. Auf schmalen Bildschirmen erscheinen Zeitpläne als Karten. Gerätekonfigurationen werden in die verfügbare Fläche eingepasst; bei Erreichen der Mindestgröße ist horizontales Scrollen möglich. Skalierung und Neuladen lassen sich neben der Bereichsauswahl bedienen.
+
+### Schaltausgänge bedienen
+
+- Auf **EIN** oder **AUS** tippen: die kurze Tasteraktion des Geräts auslösen.
+- Auf den Kanalnamen tippen: die Detailansicht öffnen.
+- In der Detailansicht sind kurze und, sofern vom Gerät unterstützt, lange Tasteraktionen verfügbar.
+- Eine lange Tasteraktion muss innerhalb von vier Sekunden ein zweites Mal bestätigt werden.
+
+Die Aktion entspricht der Bedienung am Gerät. Was ein kurzer oder langer Tastendruck bewirkt, beschreibt die jeweilige Geräteanleitung.
+
+### Tabellen bedienen
+
+Ein Klick auf eine Spaltenüberschrift sortiert aufsteigend oder absteigend. Die Sortierung verändert die gespeicherte Reihenfolge nicht. In der Zeitentabelle stellt **#** die manuelle Reihenfolge wieder her.
+
+Spalten passen ihre Breite an den Inhalt an. Eine Spaltengrenze lässt sich ziehen; ein Doppelklick stellt die automatische Breite wieder her. Per Tastatur ändern Links/Rechts die Breite, Enter stellt die Automatik wieder her. Manuelle Breiten werden im Browser gespeichert.
+
+## Zeitpläne und Profile
+
+Auf der Seite **Zeiten** werden Schaltzeiten, Wochentage, Kanäle, Zustände und Intervalle bearbeitet. Fütterungszeiten werden ebenfalls zentral verwaltet. Änderungen werden an die betroffenen Geräte verteilt. Nicht erreichbare Geräte erhalten ausstehende Änderungen, sobald die Verbindung wiederhergestellt ist.
+
+Die Seite **Heizprofile** verwaltet die zentralen Profile und deren Zuordnung zu Gerätekanälen. Ein Profil kann erst gelöscht werden, wenn kein Kanal darauf verweist. Rollen und Profile lassen sich ändern, ohne die Hardwarebelegung des Geräts zu verändern.
+
+Ein Profil enthält unter anderem:
+
+- **Quelle:** der Geber des Messwerts, beispielsweise ein Temperaturgeber oder `LaptopBattery`.
+- **Messwertfeld:** das auszuwertende Feld, beispielsweise `Temperature` oder `BatteryPercent`. Ein leeres Feld bedeutet `Temperature`.
+- Die zum Profil gehörenden Schaltgrenzen und Einstellungen für fehlende Messwerte.
+
+Quelle und Messwertfeld sind unterschiedliche Angaben: `LaptopBattery` benennt den Sender, `BatteryPercent` dessen Akkustand. Das Messwertfeld gehört zum Profil, nicht zur Kanalzuordnung. Nach dem Bearbeiten **Speichern / verteilen** betätigen.
+
+Der Revisionszeitstempel bezeichnet die letzte Profiländerung. Er ist keine laufende Uhr und wird neutral dargestellt. Synchronisierte Teilnehmer sind grün; ausstehende Synchronisierungen und Fehler werden rot angezeigt. Hinweise zum Speichern und Verteilen verschwinden nach erfolgreichem Abschluss.
+
+Die zentrale Datenhaltung liegt auf dem Raspberry Pi. Jedes Gerät erhält seine eigenen Zeitpläne und Kanalzuordnungen zusammen mit den zentralen Profilen. Änderungen an einer Kanalzuordnung betreffen nur das zugehörige Gerät. Änderungen an zentralen Profilen werden an alle beteiligten Schaltgeräte verteilt. Unverändertes Speichern löst keine erneute Verteilung aus.
+
+## Geräte konfigurieren
+
+`Devices.json` enthält die Ausgangskonfiguration für Geräte, Adressen und Darstellung. Für eine eigene Installation müssen die Adressen und Zuordnungen angepasst werden.
+
+| Einstellung | Bedeutung |
+| --- | --- |
+| `Name` | Anzeigename des Geräts. |
+| `BaseUrl` | Geräteadresse einschließlich eines gegebenenfalls benötigten Ports. |
+| `Group` | Aquariumgruppe oder `System` für gemeinsame Anzeigen. |
+| `GroupViews` | Gefilterte Ansichten eines Geräts in mehreren Aquariumgruppen. |
+| `OverviewOutputOrder` | Reihenfolge der Ausgänge und Messwerte je Aquarium. Fehlende vorgesehene Einträge behalten eine Leerzeile. |
+| `StatusOnly` | Reine Statusanzeige ohne Konfigurationsseite und Kanalbedienung. |
+| `ConfigUrl` | Pfad zur Konfigurationsseite des Geräts. |
+| `FrameWidth`, `MinimumScale` | Darstellungsbreite und kleinste automatische Skalierung eingebetteter Geräteseiten. |
+| `PowerLabel` | Beschriftung der Leistungsanzeige, beispielsweise für Licht oder Heizung. |
+| `Enabled` | Mit `false` einen Eintrag deaktivieren. |
+| `SyncOnlyDevices` | Geräte an der Profilverteilung beteiligen, ohne eine Übersichtskarte anzuzeigen. |
+
+Gruppenfilter und Ausgabereihenfolge verwenden die technischen Kanalnamen aus dem Statusfeld `Name`. Aktionen verwenden die numerische Kanal-ID. Ein Ausgang wie die gemeinsame Luftversorgung kann in mehreren Aquariumgruppen angezeigt werden.
+
+`HardwareNames` ordnet MAC-Adressen den Beschriftungen der physischen Geräte zu. Bei Reservefunktionen mit `UseHardwareName` erscheint diese Gerätebeschriftung; fest zugeordnete Aquariumfunktionen zeigen ihren Funktionsnamen.
+
+## Geräteidentität und Funktionstausch
 
 Jedes physische Gerät wird anhand seiner MAC-Adresse und Dienstkennung erkannt. Die Zuordnung zu einer Funktion, etwa Fütterung oder Beleuchtung, lässt sich im Bereich **Gerätetausch** ändern. Zeitpläne und Kanalrollen bleiben dabei der jeweiligen Funktion zugeordnet.
 
-Verbraucher vorher von beiden Geräten trennen. Ein Gerät kann nur durch ein funktionskompatibles Gerät ersetzt werden. Hardwareparameter bleiben am jeweiligen Gerät. Hostname, ApSsid, ApPw und FtpPw wandern mit der Funktion. Beide betroffenen ESPs starten neu; ein ausstehender Tausch bleibt bis zur frischen Bestätigung im privaten Journal erhalten.
+**Vor einem Tausch die angeschlossenen Verbraucher von beiden betroffenen Geräten trennen; die Steuergeräte eingeschaltet lassen.** Ein Gerät kann nur durch ein funktionskompatibles Gerät ersetzt werden.
 
-Der Dialog warnt vor veralteten PC-FS-Binaries. Dashboard synchronisiert keine PC-Dateien. Der ausdrückliche PC-Abgleich liest Geräte-FS zurück und übernimmt auf Wunsch persistente Daten in das passende Hardwareprojekt. Vollständige Bedienung und Prüfgrenzen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Beim Tausch ganzer Geräte werden Funktionshostname und AP-/FTP-Zugangsdaten der Funktion zugeordnet. Hardwareeinstellungen bleiben am jeweiligen Gerät. Beide betroffenen ESPs starten neu. Der Vorgang ist abgeschlossen, wenn beide Geräte die Übernahme bestätigt haben. Unterbrochene Vorgänge werden nach einem Neustart fortgesetzt.
 
-## HW-Endpunkte und Kanaltausch
+Weitere Einzelheiten stehen in [Geräteidentität und Funktionstausch](../Libs/GnBasicLib/DeviceIdentity.md).
+
+### Hardware-Endpunkte und Kanaltausch
 
 Ein Hardware-Endpunkt ist ein einzelner Schaltausgang oder Temperaturgeber. Im Bereich **Gerätetausch** lassen sich die Funktionen zweier funktionskompatibler Endpunkte tauschen, beispielsweise zwischen zwei MultiTimer-Ausgängen oder zwischen einem MultiTimer-Ausgang und einer NOUS-/Shelly-Steckdose. Schaltausgänge können nur gegen Schaltausgänge und Temperaturgeber nur gegen Temperaturgeber getauscht werden.
 
 Die Tabelle zeigt die Endpunkte mit ihrer aktuellen Funktion. Bei MultiTimer entsprechen die Ausgangsnummern den Steckdosen 1 bis 8. Fütterung und Temperaturmessung eines Feeders sind getrennte Funktionen; beim Tausch eines Temperaturgebers bleiben die Fütterungspläne unverändert.
 
-**Vor dem Tausch die angeschlossenen Verbraucher von beiden betroffenen Ausgängen trennen; die Steuergeräte eingeschaltet lassen.** Die beiden Endpunkte auswählen und den Tausch bestätigen. Während der Übernahme sind weitere Zuordnungsänderungen sowie Änderungen an zentralen Zeiten und Profilen gesperrt. Der Vorgang ist abgeschlossen, wenn alle beteiligten Geräte die neue Zuordnung bestätigt haben. Ein unterbrochener Vorgang wird nach einem Neustart fortgesetzt.
+Nach dem Trennen der Verbraucher die beiden Endpunkte auswählen und den Tausch bestätigen. Während der Übernahme sind weitere Zuordnungsänderungen sowie Änderungen an zentralen Zeiten und Profilen gesperrt. Der Vorgang ist abgeschlossen, wenn alle beteiligten Geräte die neue Zuordnung bestätigt haben.
 
 Funktionsname, Rolle, Profil, Schaltzeiten und Intervalle werden der neuen Hardware zugeordnet. Aquariumgruppen und Verweise auf Temperaturquellen folgen der Funktion. Hardwareeinstellungen, Kalibrierung, Gerätehostname und Zugangsdaten bleiben beim jeweiligen Gerät. Eine vorübergehende manuelle Übersteuerung wird beim Funktionswechsel aufgehoben; der Ausgangszustand wird anhand der neuen Funktion berechnet. HeatHistory erfasst Heizfunktionen am jeweils zugeordneten Gerätekanal.
 
-Nach abgeschlossenem Tausch die MultiTimer-Seite öffnen oder neu laden. Beim Wechsel zur Seite bzw. beim erneuten Aktivieren prüft sie die Konfiguration und lädt geänderte Belegungen und Zeiten nach. Ungespeicherte Eingaben bleiben erhalten und werden mit einem Änderungshinweis versehen.
+Nach abgeschlossenem Tausch die MultiTimer-Seite öffnen oder neu laden. Beim Wechsel zur Seite oder beim erneuten Aktivieren prüft sie die Konfiguration und lädt geänderte Belegungen und Zeiten nach. Ungespeicherte Eingaben bleiben erhalten und werden mit einem Änderungshinweis versehen.
+
+### PC-Daten nach einem Tausch abgleichen
 
 Vor einem späteren Dateisystem-Upload müssen die PC-Daten mit der neuen Zuordnung abgeglichen und die betroffenen Dateisystem-Abbilder neu gebaut werden. Den Abgleich vom Repository-Stamm ausdrücklich starten:
 
@@ -47,269 +108,130 @@ Vor einem späteren Dateisystem-Upload müssen die PC-Daten mit der neuen Zuordn
 python3 tools/ReadDeviceStates.py --apply
 ```
 
-## Geräte-Editor
+Dashboard selbst hat keinen Zugriff auf die PC-Dateien. Bereits erzeugte Dateisystem-Abbilder können noch die Zuordnung vor dem Tausch enthalten.
 
-Unter Gerätezuordnung bleibt die Tabelle sichtbar. Der Button **Gerätetausch** öffnet die Box mit mittiger Überschrift; darin öffnet **Geräte-Editor** separat den ausgerichteten JSON-Editor. Beide Bereiche sind nach dem Laden geschlossen.
+### Geräte-Editor
 
-Der Editor enthält `Devices` mit `Function`, `MAC`, `IP`, `HttpPort`, `ServiceId`, `DeviceType`, `HardwareName`, `Group`, `UseHardwareName` und `Active`. Er ermöglicht Hinzufügen, Entfernen und Metadatenänderungen. Bestehende Funktion/MAC/Hardwaretyp sind geschützt; für Funktionswechsel weiterhin den Tausch verwenden. Die beiden Pi-Dienste bleiben unveränderlich. Doppelte Identitäten, ungültige Daten, veraltete Revisionen und Änderungen während einer ausstehenden Zuordnung werden abgewiesen.
+Unter **Gerätezuordnung → Gerätetausch → Geräte-Editor** öffnet sich der JSON-Editor zum Hinzufügen und Entfernen von Geräten sowie zum Bearbeiten ihrer Metadaten. Er enthält unter anderem Funktion, MAC-Adresse, IP-Adresse, Port, Geräteart, Hardwarebezeichnung, Aquariumgruppe und Aktivierungsstatus.
 
-Neue aktive Geräte benötigen vorab passende Firmware/FS und eine feste IP. Der Server prüft ihre tatsächliche MAC, Dienstklasse und Hardwareart. Bei nötiger Hostname-/Funktionsübernahme wird der Neustart bestätigt. `Active: false` erlaubt vorbereitete Einträge ohne Gerätekommunikation. Entfernen/Deaktivieren ist erst ohne zentrale Zeitplan- und Temperaturquellenreferenzen möglich. Entfernte Geräte separat außer Betrieb nehmen; die Tabellenänderung löscht deren Dateisystem nicht.
+Bestehende Geräteidentitäten, Funktionen und Hardwaretypen sind geschützt; Funktionswechsel erfolgen über den Tauschdialog. Die Pi-Dienste können im Geräte-Editor nicht verändert werden. Ungültige oder doppelte Identitäten und Änderungen während einer ausstehenden Zuordnung werden abgewiesen.
 
-Änderungen werden atomar zusammen mit der Zuordnung in der privaten Laufzeitdatei `data/DeviceAssignments.json` gespeichert (`EditorConfiguration`: Devices/HardwareNames). `Devices.json` liefert die Ausgangswerte; Quellübertragung überschreibt die laufende Editor-Konfiguration nicht. Nach bestätigter Übernahme vom PC `python3 Aq/tools/ReadDeviceStates.py --apply` im Prjs-Stamm starten. Danach betroffene FS neu bauen.
+Neue aktive Geräte benötigen passende Firmware, ein eingerichtetes Dateisystem und eine feste IP-Adresse. Der Server prüft ihre tatsächliche Identität und Geräteart. Mit `Active: false` lassen sich Einträge vorbereiten, ohne das Gerät anzusprechen.
 
-## Dateien
+Entfernen oder Deaktivieren ist erst möglich, wenn keine Zeitpläne oder Temperaturquellen-/Profilzuordnungen das Gerät verwenden. Ein entferntes Gerät muss separat außer Betrieb genommen werden; das Entfernen aus der Liste löscht keine Daten auf dem Gerät.
 
-- `index.html`: einzeiliger Kopfbereich, kompakte Bereichsauswahl, Aquariumgruppen, iframe-Werkzeuge und interne Detailansicht
-- `Index.css`: kompakte responsive Darstellung für Tablet und Smartphone
-- `Dashboard.js`: Geräteverwaltung, Statusübersicht, Tasteraktionen, Detail-Drawer und FitFrame für Geräte-iframes
-- Der aktive Dashboard-Bereich wird wie bei den anderen Geräteoberflächen im Cookie `MNr` gespeichert und nach einem Neuladen wieder geöffnet. Ist ein gespeicherter Gerätebereich nicht mehr verfügbar, startet das Dashboard in der Übersicht.
-- `StatusClient.js`: liest die statischen Geräteinformationen einmalig über `/api/v1/device` und den laufenden Status ausschließlich aus dem UDP-Statuscache des lokalen DashboardServer
-- `Devices.json`: Gerätenamen, Adressen, FitFrame-Einstellungen, Gruppenfilter und die Reihenfolge der Übersichtsausgänge
-- `DashboardServer.cpp`: kleiner eigenständiger POSIX-Webserver für die statischen Dateien und zentrale Speicher
-- Der DashboardServer stellt zusätzlich das lokale Statusgerät `GN-Pi System` bereit. Es wertet `vcgencmd get_throttled` aus und zeigt aktuelle beziehungsweise seit dem Boot aufgetretene Unterspannungs-, Taktbegrenzungs-, Drossel- und Temperaturflags als Dashboard-Fehler an. CPU-Temperatur sowie die Systemlast-Durchschnitte für 1, 5 und 15 Minuten erscheinen als Messwerte.
-- `TimeStore.cpp/.h`: bidirektionale Synchronisation der Schalt- und Fütterungszeiten
-- `data/Times.json`: zentrale Schaltzeiten, Sync-Status sowie die je Gerät getrennt gespeicherten Kanalzuordnungen
-- `data/HeatProfiles.json`: zentrale, separat gespeicherte Heizprofile
-- `data/Version.json`: aus `Versions.txt` erzeugte Data-Version, die der Server zur Laufzeit liest
-- Die zentrale Heizprofilseite verwendet Eingabefelder statt JSON-Text. Ein Profil lässt sich erst löschen, wenn keine Geräte-Kanalzuordnung in `data/Times.json` mehr darauf verweist. Nicht synchronisierte Geräte werden rot angezeigt.
-- In der zentralen Zeitenliste lassen sich die Datensätze über die Spaltenüberschriften sortieren; die Sortierung ändert nicht die gespeicherte Reihenfolge. Klick auf `#` stellt die manuelle Reihenfolge wieder her. Die Geräteauswahl zeigt nur noch den Gerätenamen.
-- Die Zeitliste zeigt Einträge als bearbeitbare Zeit-, Wochentag-, Kanal- und Zustandsfelder. `#` stellt die manuelle Reihenfolge wieder her; Typ und Art bleiben in den Daten erhalten, werden aber nicht als redundante Spalten angezeigt.
-- Auf der Heizprofilseite werden nur Kanäle mit Heizprofil-Zuordnung aufgeführt. Bei Geräten mit nur einem Kanal steht in der Kanalspalte `-`; die Funktion wird separat angezeigt. Funktion und Profil lassen sich ändern; vorhandene Gerätekanäle können als Heizprofilnutzer hinzugefügt oder daraus entfernt werden. Dabei bleibt die Gerätekanalstruktur erhalten. Änderungen erhalten einen neuen Kanal-Zeitstempel und werden nur an das betroffene Gerät verteilt.
-- `CopyToRasPi.sh`: liest vor einer Übertragung den Pi-Datenbestand zurück, erstellt die Snapshots und führt den Vergleich der zentralen Dateien durch
-- `Makefile`: Build des Dashboard-Servers
-- `DashboardServer.service`: systemd-Servicevorlage
-- `Install.sh`: Installation und Aktivierung des systemd-Dienstes
+Die laufende Konfiguration wird in `data/DeviceAssignments.json` gespeichert und beim Quelltransfer erhalten. `Devices.json` liefert die Ausgangswerte.
 
-## Feste Netzwerkzuordnung
+## Externe Messquellen und Laptop-Anzeige
 
-| Gerät/Dienst | Adresse |
+Zusätzliche Sender ohne Geräte-/Konfigurations-API werden unter `ExternalSources` in `data/DeviceAssignments.json` eingetragen. Der Eintrag ordnet einen Funktionsnamen einer Identität der Form `MAC@3` zu. Nur registrierte Sender werden ausgewertet.
+
+Änderungen an dieser Tabelle bei gestopptem Dashboard durchführen. Sie benötigen eine neue Zuordnungsrevision und Verteilung an die beteiligten Geräte; der Geräte-Editor bearbeitet diese Tabelle nicht. Einzelheiten zum Datenformat stehen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+
+Der Laptop-Akku-Sender läuft auf dem Laptop und sendet den Akkustand als `Status.BatteryPercent` in Prozent. Zusätzlich meldet er mit `Status.AcOnline` die Netzversorgung und mit `Status.BatteryState` den Akkuzustand. Ein registrierter Sender `LaptopBattery` erscheint unter **System** als Laptop. Ungültige Prozentwerte werden als „—“ dargestellt. Nach 20 Sekunden ohne gültiges Statuspaket gilt der Sender als Offline; veraltete Messwerte werden ausgeblendet.
+
+Ein Ladeprofil kann beispielsweise die Quelle `LaptopBattery`, das Messwertfeld `BatteryPercent` und die Grenzen 40/80 verwenden. Bei `NoTempOn: false` bleibt der zugeordnete Ausgang ohne gültigen Messwert AUS. Der zugehörige Schaltausgang `LaptopSw` wird als eigene Funktion angezeigt.
+
+## Rückmeldeüberwachung und Warnton
+
+Die Rückmeldeüberwachung vergleicht den gemeldeten Schaltzustand mit einer unabhängigen Rückmeldung. Sie schaltet selbst keine Ausgänge. Die Regeln werden unter **Gerätezuordnung → Rückmeldeüberwachung** im JSON-Editor bearbeitet.
+
+| Feld | Bedeutung |
 | --- | --- |
-| Aq Dashboard | `192.168.99.51:8090` |
-| MultiTimer Aq1 & 2 | `192.168.99.51:8080` |
-| Aq Tablet | `192.168.99.100` |
-| FeederAq1 | `192.168.99.101` |
-| LightTimerAq3 | `192.168.99.102` |
-| FeederAq2 | `192.168.99.103` |
-| FeederAq3 | `192.168.99.104` |
-| HeaterMainAq1 | `192.168.99.105` |
-| HeaterMainAq2 | `192.168.99.106` |
-| HeaterMainAq3 | `192.168.99.107` |
-| Shelly1 | `192.168.99.108` |
-| Shelly2 | `192.168.99.109` |
+| `SwitchFunction` | Zu überwachende Schaltfunktion. |
+| `Source` | Unabhängiger Rückmeldegeber. |
+| `StatusKind` | Kennung der erwarteten Statusmeldung. |
+| `FeedbackField` | Feld mit einer booleschen Rückmeldung. |
+| `GraceSeconds` | Zulässige Abweichungsdauer von 1 bis 3600 Sekunden. |
 
-## Geräte konfigurieren
+Beispielsweise kann `LaptopSw` mit der Netzversorgungsrückmeldung `Status.AcOnline` von `LaptopBattery` verglichen werden. `StatusKind` ist dabei `LaptopPower`; eine mögliche Toleranz beträgt 60 Sekunden. Ob der Akku gerade lädt, genügt nicht als Rückmeldung zur Netzversorgung, da ein Ladelimit das Laden verhindern kann.
 
-`Devices.json` bearbeiten. Das lokale Statusgerät wird mit `StatusOnly: true` ohne Konfigurationsseite und ohne Kanalbereich eingebunden:
+Nur durchgehend unterschiedliche, gültige und höchstens 20 Sekunden alte Werte führen nach der Toleranz zum Fehler. Übereinstimmung, Richtungswechsel, fehlende oder ungültige Werte und eine neue Zuordnung setzen die Wartezeit zurück. Der Monitor berücksichtigt auch manuelle Übersteuerungen des Ausgangs und folgt einem Kanaltausch.
 
-```json
-{
-  "Name": "Aquarium Dashboard",
-  "Devices": [
-    {
-      "Name": "GN-Pi System",
-      "BaseUrl": ".",
-      "Group": "System",
-      "StatusOnly": true
-    },
-    {
-      "Name": "MultiTimer Aq1 & 2",
-      "BaseUrl": "http://gn-pi:8080",
-      "GroupViews": [
-        { "Group": "Aq1", "Channels": ["LichtAq1Haupt", "LichtAq1Hinten", "LichtAq1Vorne", "HeizungBodenAq1", "Luft"] },
-        { "Group": "Aq2", "Channels": ["LichtAq2Haupt", "LichtAq2Hinten", "HeizungBodenAq2", "Luft"] }
-      ],
-      "ConfigUrl": "/",
-      "FrameWidth": 1200,
-      "MinimumScale": 0.72
-    },
-    {
-      "Name": "Futterautomat Aq3",
-      "BaseUrl": "http://Feeder1",
-      "Group": "Aq3",
-      "ConfigUrl": "/Index.html",
-      "FrameWidth": 1000,
-      "MinimumScale": 0.72
-    }
-  ]
-}
+Die Anzeige unterscheidet **Zustand bestätigt**, **Zustand wird geprüft**, **Zustand nicht bestätigt**, **Rückmeldung fehlt** und **Rückmeldung inkorrekt**. Fehlende oder unbrauchbare Rückmeldungen werden nicht als AUS gewertet und lösen keinen Abweichungs-Warnton aus.
+
+Die Regeln werden in `data/FeedbackMonitors.json` gespeichert. Der Editor erkennt zwischenzeitliche Änderungen. Die Datei `FeedbackMonitors.json` im Projektstamm dient als Ausgangskonfiguration, solange keine Laufzeitdatei vorhanden ist.
+
+### Warnton bedienen
+
+**Warnton aktivieren** gibt die Audioausgabe im Browser frei und spielt einen Testton. Bei einer bestätigten, unquittierten Abweichung erklingen drei kurze Töne alle 30 Sekunden. **Warnton quittieren** lässt die optische Meldung bestehen und unterdrückt den Ton bis zur Erholung oder einer neuen Störungsart. **Warnton ausschalten** deaktiviert die Tonfunktion in diesem Browser. Ohne aktuelle Dashboard-Daten wird der Ton nicht wiederholt.
+
+Die Ein-/Auswahl wird für ein Jahr im Browser gespeichert. Bei gespeichertem Ein versucht die Seite nach dem Laden, die Audioausgabe still wieder aufzunehmen. Blockiert der Browser dies, erscheint **Warnton freigeben**; einmal antippen. Aus bleibt nach dem Neuladen aus. Lautstärke und Audiofreigabe werden am Tablet bzw. im Browser eingestellt. Gelöschte Cookies oder private Sitzungen können die gespeicherte Auswahl verwerfen.
+
+Die Cookie-Laufzeit wird beim Laden und täglich geprüft. Bei höchstens 30 Tagen Restlaufzeit wird die vorhandene Auswahl um ein Jahr verlängert. Eine automatische Wiederaufnahme spielt keinen Testton; ausdrückliches Aktivieren oder Freigeben spielt den Testton.
+
+**Prüfung am eigenen Gerät:** Ton aktivieren, Testton prüfen, Seite neu laden und die Audiofreigabe kontrollieren. Danach ausschalten und erneut laden; die Seite muss stumm bleiben. Ein Hörtest im Fully Kiosk Browser steht noch aus.
+
+## Live-Daten und Verbindungsstatus
+
+Der Datenweg ist **Gerät → UDP → DashboardServer → SSE → Browser**. SSE ist eine dauerhafte HTTP-Verbindung, über die der Server Änderungen direkt an die Browserseite sendet.
+
+Die Geräte veröffentlichen ihren Status spätestens alle fünf Sekunden und zusätzlich bei relevanten Änderungen auf UDP-Port 44444. Eine gemeinsame Verbindung über `/api/events` versorgt die Browserseite mit den Statusdaten aller Geräte und externen Messsender. Der Server fordert fehlende oder veraltete Gerätedaten gezielt an.
+
+Bei einer unterbrochenen Push-Verbindung fragt der Browser den Statuscache des DashboardServers einmal pro Sekunde per HTTP ab. Die Push-Verbindung wird automatisch wiederhergestellt; eine 15 Sekunden lang stumme Verbindung wird neu aufgebaut. Nach Wiederverbindung erhält der Browser den aktuellen Datenbestand. Mehr als 20 Sekunden alte Gerätedaten werden als Offline behandelt.
+
+Bei WLAN- oder Serverausfall zeigt das Dashboard eine Statusleiste mit automatischem Wiederholungsversuch und manueller Retry-Möglichkeit. Beim Aufwecken oder erneuten Sichtbarwerden wird die Verbindung sofort geprüft. Geänderte Gerätekonfigurationen werden beim Neuladen berücksichtigt.
+
+Die Gerätekommunikation verwendet UDP-Version 2. Messwerte stehen als benannte Felder im Objekt `Status`, beispielsweise `Temperature` oder `BatteryPercent`. Die technischen Schnittstellen sind in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md) beschrieben.
+
+### Raspberry-Pi-Systemstatus
+
+Der Pi meldet CPU-Temperatur und die Systemlast für 1, 5 und 15 Minuten. Außerdem zeigt Dashboard Unterspannung, Taktbegrenzung, Drosselung und Temperaturgrenzen aus `vcgencmd get_throttled` an. Dabei werden sowohl aktuelle als auch seit dem Start aufgetretene Zustände berücksichtigt. Ein Fehlerblock erscheint nur bei entsprechenden Meldungen.
+
+## Übertragung und Datensicherung
+
+`CopyToRasPi.sh` liest vor einer Übertragung den vollständigen Pi-Datenbestand zurück. Das Skript in einem interaktiven Terminal vom Repository-Stamm starten:
+
+```bash
+./Dashboard/CopyToRasPi.sh
 ```
 
-- `Name` ist der im Dashboard und in der Bereichsauswahl sichtbare Name. Ein Firmware-Update nur für den Anzeigenamen ist daher nicht nötig.
-- `Group` ordnet eine Gerätekarte einer Aquariumgruppe zu. `GroupViews` erlaubt gefilterte Ansichten eines Geräts in mehreren Gruppen. Der MultiTimer zeigt so die Aq1- und Aq2-Ausgänge getrennt; der gemeinsame Ausgang `Luft` kann beiden Gruppen zugeordnet werden. `System` ist für Statusgeräte ohne Aquarium.
-- `OverviewOutputOrder` in `Devices.json` bestimmt je Aq die feste Ausgabereihenfolge. Für einen dort vorgesehenen, aktuell fehlenden Messwert oder Ausgang bleibt eine Leerzeile; nicht gelistete zusätzliche Ausgänge werden anschließend angezeigt.
-- Kanalzeilen zeigen nur die Funktion (z. B. `Licht Haupt`, `Heizung Boden`, `Luft`), ohne erneuten Aquariumzusatz.
-- Gruppenfilter und Ausgabereihenfolge verwenden die technischen Kanalnamen aus dem Statusfeld `Name`; die numerische API-`Id` bleibt für Geräteaktionen erhalten.
-- `PowerLabel` bestimmt je Gerät den Übersetzungsschlüssel der Leistungszeile: `PowerLight` für Licht und `PowerHeater` für Heizung. Ohne Angabe bleibt die allgemeine Leistungsbeschriftung erhalten.
-- `ConfigUrl` ermöglicht den Konfigurationstab bereits, bevor die Geräte-API geantwortet hat. Nach erfolgreichem API-Abruf hat `ConfigUrl` aus `/api/v1/device` Vorrang.
-- `FrameWidth` ist die virtuelle Breite, mit der die vorhandene Geräteseite im iframe dargestellt wird.
-- `MinimumScale` begrenzt die automatische Verkleinerung. Auf breiten Ansichten verwendet das iframe die vollständige verfügbare Breite; auf schmalen Ansichten bleibt unterhalb der Grenze horizontales Scrollen möglich.
-- Mit `"Enabled": false` kann ein Eintrag vorübergehend deaktiviert werden.
+Das Standardziel ist `pi@gn-pi:/home/pi/Prjs/Dashboard/`. Für andere Ziele `RASPI_HOST` und `RASPI_PRJS_DIR` setzen. Die lokalen Projektpfade ermittelt das Skript aus seinem Speicherort.
 
-## Heizprofile
+Verglichen werden ausschließlich `Times.json` und `HeatProfiles.json` mit Beyond Compare (BCO): links der lokale Build-Stand, rechts der Pi-Download. Gewünschte Änderungen vom Pi auf die linke Seite übernehmen. Nach dem Schließen von BCO und Enter werden die bearbeiteten Dateien geprüft und nach lokal `data/` zurückgeschrieben. Neuere Pi-Zeitstempel können automatisch übernommen werden, wenn der zugehörige Inhalt ansonsten identisch ist.
 
-`data/HeatProfiles.json` ist die zentrale Quelle für Profildefinitionen und
-führt mit `TimeStamp` eine globale UTC-Revision für den gesamten Profilbestand.
-`data/Times.json` enthält zusätzlich `Channels`, eine Zuordnung vom Gerätenamen
-zu dessen Kanalzeilen und einem eigenen UTC-`TimeStamp` je Gerät. Ein Eintrag
-hat die Form `{"TimeStamp":"...","Rows":[...]}`. Die Zeitstempel der
-SwitchTimes-Sets bleiben davon getrennt. Geräte behalten ihr bisheriges
-gebündeltes `Channels.json` mit `Profiles` und `Channels`; das Geräteformat
-ändert sich nicht. Der vorhandene `/api/times/sync` nimmt das gebündelte
-`Channels.json` zusammen mit den Zeitdaten entgegen. Der DashboardServer trennt
-Profilwerte nach `HeatProfiles.json` und Kanalzuordnungen nach `Times.json`.
-Eine vom Gerät gemeldete Änderung an `Channels.json` wird nur unter diesem
-Gerätenamen gespeichert. Bei einer Rückmeldung erhält dieses Gerät seine eigene
-Kanalzuordnung zusammen mit den zentralen Profilen; Kanalzuordnungen werden
-nicht an andere Geräte verteilt. Profilteilsets werden nach Profil-ID
-zusammengeführt; ein leeres oder unvollständiges `Profiles`-Array löscht keine
-zentralen Profile. Eine angenommene Änderung am globalen Profilbestand wird an
-alle SwitchTimes-Teilnehmer verteilt. Bei einer Profilabweichung entscheidet
-der Profil-Zeitstempel über die Übernahme; die gültigen Zeiten und
-Kanalzuordnungen werden separat über ihre eigenen Zeitstempel ermittelt.
+Vor dem Übernehmen wird der lokale Datenstand gesichert; die drei neuesten Sicherungen bleiben erhalten. Anschließend fragt das Skript ausdrücklich nach der Upload-Freigabe. Fehler beim Download oder bei der Validierung stoppen den Upload. Bei Ablehnung bleiben die Pi-Dateien unverändert; bestätigte lokale Änderungen bleiben lokal erhalten.
 
-Die zentrale Datenkopie auf dem Raspberry Pi ist der Laufzeitstand. Beim Start
-des DashboardServers werden offene Zeit-/Profilstände an die Geräte verteilt;
-Geräte mit älteren lokalen Sync-Zeitstempeln übernehmen den zentralen Stand.
-Gemeldete Schaltzeiten und Kanalzuordnungen werden jeweils für das meldende
-Gerät gespeichert. Nur globale Profiländerungen werden an alle
-SwitchTimes-Teilnehmer verteilt; jede Rückverteilung verwendet weiterhin die
-eigene Kanalzuordnung des jeweiligen Geräts. `SyncOnlyDevices` in
-`Devices.json` nimmt Geräte in die Profilverteilung auf, ohne ihnen eine
-Dashboard-Karte zuzuweisen.
+Der vollständige Transfer überträgt Quellen, Webdateien, `Times.json`, `HeatProfiles.json` und die erzeugte `Version.json`. Die laufenden Gerätezuordnungen und Pi-eigenen Laufzeitdateien bleiben erhalten. Das lokal kompilierte Serverprogramm wird nicht übertragen.
 
-Die Seite `Zeiten` vergleicht beim Speichern die gerätespezifischen Zeit- und
-Intervallinhalte mit dem bisherigen Stand. Nur geänderte Gerätesätze erhalten
-einen neuen Zeitstempel und werden zur Übertragung vorgemerkt. Die Seite
-`Heizprofile` vergleicht den semantischen Profilbestand; bei einer Änderung
-erhält der globale Profilbestand einen neuen Zeitstempel und alle
-SwitchTimes-Teilnehmer erhalten ihr eigenes Zeit-/Intervallpaket mit der
-jeweiligen Kanalzuordnung und den neuen Profilen. Ein unverändertes Speichern
-stößt keine Geräteverteilung an.
+Für reine Quell-/Webänderungen bei unveränderten zentralen Zeiten und Profilen:
 
-Die Zeitseite erlaubt Schaltzeiten und Intervalle auch für `Format=TmrSw`.
-Beide Arrays werden im bestehenden `/api/v1/times`-Payload gemeinsam mit der
-jeweiligen Kanalzuordnung übertragen. TmrSw speichert Intervalle in
-`/Intervals.json`; ältere TmrSw-Gerätepayloads ohne `Intervals` lassen den
-zentralen Intervallstand unverändert.
+```bash
+./Dashboard/CopyToRasPi.sh --sources-only
+```
 
-Die versionierten TmrSw-`DevState/<Gerät>/SwitchTimes.sync.json`-Dateien
-enthalten den gemeinsamen Sync-Zeitstempel für `Channels.json` und
-`SwitchTimes.json`. Sie stehen derzeit auf `1970-01-01T00:00:00.000Z` und
-`Synced:false`; so gelten die übrigen Geräte-Fallbackdateien aus dem Repo als
-alt und der Server kann nach einem FS-Upload seine aktuelle Version verteilen.
-Die separaten `Channels.json`- und `*Times.json`-Dateien selbst haben kein
-Zeitstempelfeld. `MultiTimer/WebSrc`-Dateien sind ebenfalls Build-Fallbacks.
+Auch dabei wird zuerst ein Pi-Snapshot eingelesen. Der Vergleich und Upload der zentralen Zeiten und Profile entfallen. Nach Webänderungen den Browser neu laden; bei einer veralteten Ansicht mit Strg+F5.
 
-`CopyToRasPi.sh` lädt den vollständigen Pi-Datenstand herunter. Der unveränderte
-Snapshot liegt danach unter `generated/raspi/`; `generated/raspi-readable/` enthält
-ausschließlich pretty-gedruckte `Times.json` und `HeatProfiles.json`. Verglichen
-werden diese beiden Dateien mit dem pretty-gedruckten Build-Stand unter
-`generated/build-readable/`. Neuere Zeitstempel aus
-`Times.json` werden automatisch übernommen, wenn der zugehörige Datensatz
-abgesehen vom Zeitstempel identisch ist. Andere Inhaltsunterschiede bleiben
-für den BCO-Abgleich sichtbar. `Layouts.json` ist eine
-Pi-seitige Dashboard-Datei. `HeatProfiles.sync.json` enthält den Laufzeit- und
-Geräte-Syncstatus. Beide Dateien werden weder verglichen noch in den Build
-übernommen oder beim Upload überschrieben.
+| Verzeichnis | Inhalt |
+| --- | --- |
+| `data/` | Lokaler zentraler Datenstand. |
+| `generated/raspi/` | Vollständige unveränderte Rücklesekopie der Pi-Daten. |
+| `generated/build-readable/` | Lesbare lokale Vergleichskopien für BCO. |
+| `generated/raspi-readable/` | Lesbare Pi-Kopien von `Times.json` und `HeatProfiles.json`. |
+| `generated/data-before-sync/` | Sicherungen des lokalen Datenstands vor der Übernahme. |
 
-Übernimm gewünschte Pi-Änderungen in BCO auf der linken Build-Seite. Nach dem
-Schließen von BCO und Enter werden die bearbeiteten zentralen Dateien geprüft
-und nach `data/` zurückgeschrieben. Vorher wird der vorherige lokale Inhalt von
-`Dashboard/data/` vollständig unter
-`generated/data-before-sync/<Zeitstempel-Zufallssuffix>/` gesichert. Das ist
-eine Sicherung des vorherigen lokalen `data/`-Buildstands; der Pi-Snapshot liegt
-unter `generated/raspi/`. Es bleiben höchstens die drei neuesten Sicherungen erhalten.
-Anschließend fragt das Skript ausdrücklich, ob es
-den Dashboard-Quell-/Webdateistand, `Times.json`, `HeatProfiles.json` und die
-generierte `Version.json` zum Pi übertragen soll. Das kompilierte
-`DashboardServer`-Programm wird nicht übertragen. Nur bei Änderungen an
-Server-Quellen oder der Server-Version muss es danach auf dem Pi im
-Dashboard-Verzeichnis mit `make` gebaut und der Dienst neu gestartet werden.
-Eine reine Data-Versionsänderung wird durch `Version.json` sofort wirksam.
-Pi-eigene Dateien wie
-`Layouts.json` und `HeatProfiles.sync.json` bleiben erhalten. Bei Ablehnung
-bleiben sämtliche Pi-Dateien unverändert; bestätigte lokale Build-Änderungen
-bleiben in `data/` erhalten. Ein Fehler beim Download oder bei der Validierung
-stoppt den Lauf vor jeglichem Upload. Das Profilformat lässt sich prüfen mit:
+Profil-Dateien lassen sich im Dashboard-Verzeichnis separat prüfen:
 
 ```bash
 ./tools/ValidateHeatProfiles.py data/HeatProfiles.json
 ```
 
-Formatierungsänderungen gelten nicht als neue Profilrevision. Eine neue
-Revision entsteht nur bei geändertem semantischem Profilinhalt.
-
-## Übertragung auf den Raspberry Pi
-
-`CopyToRasPi.sh` ermittelt das lokale Dashboard-Verzeichnis aus seinem eigenen Speicherort. Das Skript kann daher unabhängig vom aktuellen Arbeitsverzeichnis und vom Mountpunkt des Datenträgers direkt gestartet werden:
-
-```bash
-bash Aq/Dashboard/CopyToRasPi.sh
-```
-
-Es lädt zuerst Pi-Daten herunter, vergleicht die beiden zentralen Laufzeitdateien und synchronisiert danach den Dashboard-Quellstand sowie die beiden zentralen JSON-Dateien und `data/Version.json` nach `pi@gn-pi:${RASPI_PRJS_DIR:-/home/pi/Prjs}/Dashboard/`. Bei abweichenden zentralen Dateien fragt es vor deren Übertragung; bei einem Fehler im Vorabgleich wird nichts kopiert. Das lokal gebaute `DashboardServer`-Binary wird nicht übertragen. Nur bei Änderungen an Server-Quellen oder der Server-Version muss es auf dem Raspberry Pi mit `make` neu gebaut und der Dienst neu gestartet werden. Eine reine Data-Versionsänderung wird ohne Neubau wirksam. Für abweichende Ziele können `RASPI_HOST` und `RASPI_PRJS_DIR` gesetzt werden.
-
-Wenn die zentralen Dateien auf dem Pi erhalten bleiben sollen, auch wenn sie vom Repository abweichen, verwende:
-
-```bash
-bash Aq/Dashboard/CopyToRasPi.sh
-```
-
-Der Kopierlauf führt den beschriebenen BCO-Abgleich und die Upload-Abfrage selbst durch. Starte ihn in einem interaktiven Terminal, damit du Änderungen im BCO auswählen und den Upload anschließend ausdrücklich bestätigen kannst.
-
-## Pi-Daten und Validierung
-
-Der Pi-Datenbestand wird durch `CopyToRasPi.sh` automatisch vor dem Vergleich eingelesen; ein separates Download-Skript ist nicht erforderlich. Der vollständige Pi-`data/`-Bestand wird unverändert unter `Aq/Dashboard/generated/raspi/` abgelegt. Unter `Aq/Dashboard/generated/raspi-readable/` entstehen pretty-gedruckte Kopien ausschließlich von `Times.json` und `HeatProfiles.json`. Pi-seitige Dateien wie `Layouts.json` und `HeatProfiles.sync.json` bleiben im Roh-Snapshot, werden aber nicht für den zentralen Vergleich aufbereitet. Das Zurücklesen ändert keine Datei unter `data/`. `RASPI_HOST` und `RASPI_PRJS_DIR` werden von `CopyToRasPi.sh` unterstützt.
-
-Die Datenverzeichnisse haben folgende Aufgaben:
-
-- `data/`: zentraler Build-Datenstand (`Times.json`, `HeatProfiles.json`).
-- `generated/raspi/`: unveränderter Snapshot des vollständigen vom Pi zurückgelesenen `data/`-Verzeichnisses.
-- `generated/build-readable/`: temporäre pretty-gedruckte Build-Kopien für BCO.
-- `generated/raspi-readable/`: pretty-gedruckte Pi-Kopien nur der beiden zentralen Vergleichsdateien.
-- `generated/data-before-sync/`: Sicherungen des lokalen `data/`-Stands unmittelbar vor dem Übernehmen von BCO-Änderungen; maximal drei neueste Sicherungen.
-
-`tools/ValidateHeatProfiles.py` wird im `CopyToRasPi.sh`-Ablauf auf die vom Pi gelesene `HeatProfiles.json` sowie auf den lokalen Build-Stand angewendet. Es prüft JSON-Struktur, Pflichtfelder, Datentypen, Hysteresegrenzen, eindeutige Profil-IDs und den optionalen globalen Zeitstempel. Nach einem BCO-Abgleich wird die bearbeitete Build-Datei vor dem Zurückschreiben erneut geprüft. Zur Einzelprüfung kann das Tool weiterhin direkt auf eine Datei angewendet werden.
-
 ## Server bauen und starten
 
-Auf dem Raspberry Pi im Dashboard-Verzeichnis (Standardpfad `/home/pi/Prjs/Dashboard`, mit `RASPI_PRJS_DIR` überschreibbar):
+Benötigt werden Python 3.10 oder neuer, ein C++20-Compiler, Make und die Entwicklungsbibliothek von json-c. Auf dem Raspberry Pi im Dashboard-Verzeichnis:
 
 ```bash
-export RASPI_PRJS_DIR="${RASPI_PRJS_DIR:-/home/pi/Prjs}"
-cd "$RASPI_PRJS_DIR/Dashboard"
 make
 ./DashboardServer 8090 .
 ```
 
-Vor jedem Build erzeugt das Makefile `Version.inc.h` und `data/Version.json`
-erneut aus der Masterdatei `Versions.txt`. Die Server-Version wird in den
-Server kompiliert. Die Data-Version steht separat in `data/Version.json` und
-wird von `/api/version` zur Laufzeit gelesen. Eine reine Data-Versionsänderung
-erfordert daher keinen Server-Neubau; `CopyToRasPi.sh` erzeugt und überträgt
-die aktualisierte Datei automatisch. Nur Änderungen an Server-Quellen oder
-der Server-Version erfordern anschließend `make` und einen Dienstneustart.
+Im Browser `http://PI-HOST:8090/` öffnen und `PI-HOST` durch Hostname oder Adresse des Pi ersetzen. Dashboard und eingebettete Geräteseiten über HTTP betreiben, da Browser unsichere HTTP-Inhalte innerhalb einer HTTPS-Seite blockieren können.
 
-Dashboard öffnen:
+`Versions.txt` ist die Versionsquelle. Der Build erzeugt `Version.inc.h` und `data/Version.json`. Änderungen an Serverquellen oder der Serverversion erfordern einen Neubau und Dienstneustart. Eine Änderung der Data-Version wird über `data/Version.json` ohne Serverneubau wirksam. Die Kopfzeile zeigt Server- und Data-Version.
 
-```text
-http://gn-pi:8090/
-```
+### systemd-Dienst
 
-Optional funktioniert weiterhin der Python-Server:
-
-```bash
-RASPI_PRJS_DIR="${RASPI_PRJS_DIR:-/home/pi/Prjs}"
-python3 -m http.server 8090 --bind 0.0.0.0 --directory "$RASPI_PRJS_DIR/Dashboard"
-```
-
-Der Python-Server eignet sich nur für die statische Anzeige. Für die Dashboard-APIs und die Bearbeitung zentraler Daten wird `DashboardServer` benötigt.
-
-## systemd-Dienst installieren
-
-Der Pi behält `/home/pi/Prjs/Dashboard`; nur der Entwicklungs-PC-Quellbaum liegt jetzt unter `Prjs/Aq/Dashboard`. Das lokale Verschieben allein erfordert daher keinen neuen systemd-Installationslauf. Wenn du das Dashboard auf dem Pi aktualisieren willst, übertrage es vom PC und baue es danach unter dem bisherigen Pi-Pfad. `Install.sh` kann dort anschließend wie gewohnt `DashboardServer.service` installieren und neu starten; es erhöht selbst per `sudo` die Rechte.
-
-Vorhandene Dashboard-`@reboot`- und `pgrep`-Watch-Einträge werden aus `/etc/crontab` entfernt. Ein früher unter dem Namen `aquarium-dashboard.service` installierter Dienst wird deaktiviert und entfernt.
+Der Standardpfad auf dem Pi ist `/home/pi/Prjs/Dashboard`. Bei abweichendem übergeordneten Verzeichnis `RASPI_PRJS_DIR` setzen. Vor der Dienstinstallation das Programm bauen:
 
 ```bash
 export RASPI_PRJS_DIR="${RASPI_PRJS_DIR:-/home/pi/Prjs}"
@@ -318,275 +240,35 @@ make
 sudo ./Install.sh
 ```
 
-Die Anmeldung auf dem Pi erfolgt beispielsweise mit `ssh pi@gn-pi`. Bei einem abweichenden Prjs-Pfad muss `RASPI_PRJS_DIR` sowohl beim Build als auch beim Installer gesetzt sein.
-
-Status und Logausgabe:
+Der Dienst heißt `DashboardServer.service`. Status und Logausgabe:
 
 ```bash
 systemctl status DashboardServer.service
 journalctl -u DashboardServer.service -f
 ```
 
-## Verhalten
-
-- Der Kopfbereich enthält nur noch den Dashboard-Namen in einer Zeile.
-- Die obere Bereichsleiste enthält eine Auswahlliste mit `Übersicht`, `Zeiten` und allen Gerätekonfigurationen. Dadurch bleibt sie auch bei vielen Geräten einzeilig.
-- `Zeiten` bearbeitet die eine zentrale `data/Times.json`; Einträge können unabhängig von Gerät und Typ global angeordnet werden. UUIDs identifizieren die Einträge dauerhaft.
-- Auf schmalen Ansichten werden Zeitdatensätze als kompakte Karten statt in einer breiten Tabelle dargestellt. Der Sync-Status ist eine zugängliche Checkbox-Anzeige; die Zeitfelder bleiben ohne horizontales Seitenscrollen erreichbar.
-- Speichern-/Verteilen-Hinweise verschwinden automatisch, sobald die betroffene Synchronisierung erfolgreich abgeschlossen ist. Bei ausstehenden Geräten bleibt der Hinweis sichtbar und prüft den Status weiter.
-- `data/HeatProfiles.json` ist die zentrale Sollquelle für Heizprofile. Pro Gerät bleiben die Kanalzuordnungen separat in `data/Times.json`; aus beidem wird das vorhandene Geräteformat zusammengesetzt.
-- Pro `Device`/`Type` liegt genau ein UTC-Timestamp und ein `Synced`-Status vor. Änderungen werden sofort übertragen; nicht erreichbare Partner werden periodisch erneut versucht.
-- Die Übersicht ordnet Daten nach den Gruppen `Aq1`, `Aq2`, `Aq3` und `System`. Ab 30 rem (bei Standardschriftgröße 480 CSS-Pixel) stehen zwei gerahmte Gruppen nebeneinander, darunter eine. Ab 75 rem (1200 CSS-Pixel) stehen auf Geräten mit feinem Zeiger vier Gruppen nebeneinander; Touch-Geräte mit `pointer: coarse` behalten im Hochformat zwei Spalten und zeigen im Querformat ab 60 rem vier Spalten. Bei zwei Spalten stehen Aq1/Aq2 oben und Aq3/System darunter. Leistungsbeschriftung und Messwerte stehen nebeneinander; die kompakte Schreibweise lautet beispielsweise `233.1V, 0.000A, 0.0W`.
-- Auf Touch-Geräten ab 30 rem wird die gesamte Übersicht bei Bedarf proportional in die verfügbare Browserbreite und -höhe eingepasst. Browserleisten, Gruppenstatus und sichtbare Meldungen werden berücksichtigt; Inhalte werden nicht abgeschnitten. Bei wenig Platz werden Schrift und Bedienelemente entsprechend kleiner.
-- Ausgangszeilen der Gruppenübersicht haben wie die Statuszeilen keine einzelnen Trennlinien.
-- Die Gruppenübersicht verwendet auch auf Touch-Geräten kompakte Kanalzeilen (1,65 rem Mindesthöhe), entsprechend hohe Leerzeilen und kleinere Gruppenabstände.
-- Je Aq stehen Gerätenamen mit Live-/Offline-Status kompakt über einer Trennlinie. Darunter folgen Temperatur, Heiz- und Lichtausgänge sowie Luft in der Reihenfolge aus `Devices.json`; fehlende Einträge belegen eine Leerzeile. Leistung steht am Ende: zuerst Heizung, danach gegebenenfalls Licht. Der nicht schaltbare Feeder-Status `Fütterung` und leere „Keine Kanäle“-Meldungen erscheinen dort nicht.
-- `GN-Pi System`, `Shelly1` und `Shelly2` stehen in der Gruppe `System`. Beide Shellys haben Status-/Ausgangsanzeige und einen Konfigurationstab; ihre Leistungszeilen sind mit dem jeweiligen Shelly-Namen beschriftet. Die Ausgangszeilen heißen `Shelly1` bzw. `Shelly2`; die gerätespezifischen Übersetzungen gelten auch in Kanal-Details und Aktionsmeldungen. Die zentrale Synchronisierung verwendet ihre Einträge unter `Devices`. Der MultiTimer erhält je eine Ansicht in Aq1 und Aq2. Beide Ansichten verwenden dieselbe Geräteverbindung und filtern die Ausgänge gemäß `GroupViews`; `Luft` ist beiden Gruppen zugeordnet.
-- Globale gespeicherte Layouts passen nicht zur Aquariumgruppierung. Der bisherige Layout-Editor wurde entfernt. Die automatische Darstellung wurde vom Benutzer auf Galaxy Tab S9 und Galaxy Tab S7 (Fully Kiosk Browser) bestätigt; gespeicherte Aquariumlayouts sind dafür nicht erforderlich. Die Pi-seitige Datei `data/Layouts.json` wird von der Oberfläche ignoriert und von `CopyToRasPi.sh` weder überschrieben noch gelöscht.
-- Der jeweilige iframe wird erst beim ersten Auswählen seines Eintrags erzeugt.
-- FitFrame skaliert das iframe automatisch bis zur konfigurierten Untergrenze; danach wird horizontales Scrollen zugelassen.
-- Die Dashboard-Oberfläche ist vertikal kompakter: Übersicht, Bereichsauswahl, Detailansicht und Zeitentabelle sind gegenüber dem früheren Stand um ungefähr 10 px pro Zeile reduziert. Die Titelzeile mit `Aquarium Dashboard` bleibt unverändert groß.
-- `GN-Pi System` zeigt CPU-Temperatur sowie Systemlast-Durchschnitte (1, 5 und 15 Minuten) an. Darunter erscheint der Fehlerblock nur, wenn ein aktueller oder historischer Systemfehler vorliegt; ein Kanalbereich wird für dieses Statusgerät nicht dargestellt.
-- Ein Tipp auf einen Kanal öffnet eine interne Detailansicht innerhalb derselben Browserseite. Es wird kein Browser-Popup und kein neues Fenster verwendet.
-- Beim Start wird für jedes Gerät `/api/v1/device` einmalig direkt geladen. Laufende Statusdaten kommen aus dem UDP-Cache des DashboardServer über einen gemeinsamen SSE-Datenstrom `/api/events`; `/api/device-status/<ID>` liefert den Anfangsstand und dient als Polling-Rückfall.
-- Liefert `/api/v1/device` zusätzlich `DataVersion`, zeigt das Dashboard die tatsächlich auf dem Gerät liegende Data-/LittleFS-Version an und verwendet sie als Cache-Buster für den Konfigurations-iframe.
-- Die Kopfzeile zeigt `Server <Version> · Data <Version>`. `/api/version` liefert die kompilierte Server-Version und liest die Data-Version bei jedem Aufruf aus `data/Version.json`; diese Datei wird aus `Versions.txt` erzeugt. `Dashboard.js` führt keine separate Data-Version.
-- Geräte publizieren ihren Status spätestens alle fünf Sekunden und zusätzlich bei relevanten Änderungen per UDP-Broadcast auf Port 44444.
-- Der DashboardServer fordert beim Start mit `ID:[]` einen Status aller Publisher an und bei fehlendem beziehungsweise veraltetem Cacheeintrag gezielt die betreffende Geräte-ID.
-- Browser öffnen für laufende Statusdaten weder WebSockets noch periodische HTTP-Verbindungen zu den Geräten.
-- Gerätezugriffe besitzen ein Timeout von sechs Sekunden; nicht erreichbare Geräte werden alle zehn Sekunden erneut initialisiert.
-- Das Dashboard prüft seinen eigenen Webserver regelmäßig über `Devices.json`. Dabei wird gleichzeitig der Inhalt mit dem beim Start geladenen Stand verglichen. Änderungen an `Devices.json` werden ohne Neustart des `DashboardServer` erkannt; die Browserseite lädt sich anschließend automatisch neu.
-- Die Pi-seitige `data/Layouts.json` wird nicht von der Weboberfläche verwendet. `data/Times.json` bleibt Laufzeit-/Synchronisationszustand und wird über die vorhandene Zeiten-API aktualisiert.
-- Bei WLAN- oder Serverausfall erscheint eine Statusleiste mit automatischem Retry und manuellem Sofortversuch.
-- Sobald WLAN und Dashboard-Server wieder erreichbar sind, wird die Seite kontrolliert neu geladen.
-- Beim Aufwecken beziehungsweise erneuten Sichtbarwerden wird sofort eine Verfügbarkeitsprüfung ausgeführt.
-- Der DashboardServer liefert statische Dateien aus und stellt `/api/version`, `/api/layouts`, `/api/times`, `/api/times/sync`, `/api/heatprofiles` sowie `/api/device-status/<ID>` bereit. `/api/times/sync` nimmt das bestehende gebündelte `Channels.json` zusammen mit Zeitdaten entgegen; es gibt keinen besonderen Profil-`Type` und keinen neuen Geräte-Endpunkt. Die Geräteverteilung nutzt `/api/v1/times`. Der laufende Geräte-/Temperaturstatus bleibt davon getrennt auf UDP.
-- `CopyToRasPi.sh` lädt den gesamten Pi-Data-Bestand als Snapshot, vergleicht über BCO ausschließlich `Times.json` und `HeatProfiles.json`, übernimmt bestätigte linke Build-Änderungen zurück nach `data/` und überträgt diese beiden Dateien sowie die generierte `Version.json` nur nach ausdrücklicher Zustimmung. `Layouts.json` und `HeatProfiles.sync.json` bleiben Pi-seitig erhalten.
-
-Dashboard und Geräte sollten gemeinsam über HTTP betrieben werden. Eine über HTTPS geladene Seite darf Browser-seitig keine unsicheren HTTP- oder WebSocket-Verbindungen öffnen.
-
-
-## Aktionen
-
-Geräte können in `/api/v1/device` eine Tasteraktion veröffentlichen:
-
-```json
-"Actions": {
-  "ButtonPress": {
-    "Path": "/api/v1/button/{ChannelId}/{Press}",
-    "Presses": ["Short", "Long"]
-  }
-}
-```
-
-Bei Kanälen mit `HasOutput: true` wird der angezeigte Zustand in der Übersicht zur Aktion. Ein physischer Eingang ist dafür nicht erforderlich:
-
-- Tipp auf `EIN` beziehungsweise `AUS`: kurzer Tastendruck
-- Tipp auf den Kanalnamen: Detailansicht
-- Detailansicht: kurzer und, sofern unterstützt, langer Tastendruck
-- langer Tastendruck: zweite Bestätigung innerhalb von vier Sekunden
-
-Das Gerät führt dabei denselben internen Codepfad wie beim physischen Taster aus. Die Übersicht schickt keinen direkten Ausgangszustand.
-
-## Gerätekonfigurationen
-
-`Auto xx %` und der runde Neuladen-Button stehen direkt rechts neben der Bereichsauswahl. Die Geräteseite beginnt ohne zusätzlichen Dashboard-Rahmen unmittelbar darunter. Bei Erreichen von `MinimumScale` wird nicht weiter verkleinert; stattdessen kann horizontal gescrollt werden.
-
-## Feste Hardware-Namen
-
-Devices.json → HardwareNames ordnet die Gehäusebeschriftung ausschließlich der MAC zu (Feeder1–3, Nous1–4, Shelly1–2). Diese Tabelle ist statische Metadatenquelle und wird beim normalen Quelltransfer übertragen; die laufende DeviceAssignments.json bleibt geschützt. UseHardwareName kennzeichnet Reservefunktionen unter System: Statuszeile, Ausgang und Leistungszeile zeigen dort den Namen der aktuell zugeordneten Hardware. Konkrete Aquariumfunktionen behalten ihre Funktionsbezeichnung. In Gerätezuordnung steht der Hardware-Name zusätzlich zur MAC. Keine Änderung von Wire-ID, Zeitplänen oder Geräte-Config. Feeder3 ist trotz bekannter MAC weiterhin inaktiv.
-
-Hostname-Regel beim Gerätetausch: Für konkrete Funktionen wird der neue Funktionsname gesetzt. Für mit UseHardwareName gekennzeichnete Reservefunktionen wird der Hardware-Name der Ziel-MAC gesetzt. Hostname wird daher beim Transfer berechnet und nicht unverändert von der Quellhardware kopiert. Die übrigen drei Funktionsfelder ApSsid/ApPw/FtpPw behalten ihre bisherige Übertragung. Interne Funktionsschlüssel, physische IDs und DevState-Verzeichnisnamen bleiben davon unabhängig.
-
-### Zuordnungsschema 2
-
-`data/DeviceAssignments.json` enthält die Geräte-/Dienstliste unter `Devices` und die vollständige HW-Endpunkt-Zuordnung unter `Endpoints`. `Version: 2` bezeichnet dieses Dateiformat; `State` entfällt. Der DashboardServer migriert ältere MAC-Tabellen beim Start atomar, ohne die Zuordnungsrevision oder ein laufendes Transferjournal zu verändern. Die Pi-Datei bleibt autoritativ und wird beim Quelltransfer nicht überschrieben.
-
-`EndpointId` hat die Form `MAC@ServiceId/Kanalnummer`; `Capabilities` ist ein separates Bitfeld (1 Schalten, 2 Temperatur messen). Beim Feeder sind Fütterungsdienst und Temperatur-Endpunkt getrennte Funktionen derselben Hardware. Die Gerätezuordnung zeigt die Fähigkeiten deshalb in einer eigenen Spalte.
-
-### Tabellenbreiten
-
-Dashboard-Tabellen passen ihre Spalten im Tabellenlayout automatisch an die gerenderten Inhalte an. Die rechte Grenze einer Überschrift lässt sich ziehen; ein Doppelklick setzt diese Spalte auf automatische Inhaltsbreite zurück. Per Tastatur ändern Links/Rechts die Breite, Enter stellt die Automatik wieder her. Manuelle Breiten werden pro Tabelle in diesem Browser gespeichert und bleiben bei Datenaktualisierungen erhalten. Auf schmalen Displays bleibt die Zeitenliste eine Kartenansicht. Gerätezuordnung bleibt eine Tabelle; bei Bedarf kann sie horizontal gescrollt werden. JSON-Schreibvorgänge speichern `/` ohne das optionale Escape.
-
-### Datenverzeichnisse und Pi-Abgleich
-
-Daten liegen einheitlich unter `data/`, Rücklesedaten unter `generated/raspi/`; temporäre Downloads ebenfalls unter `generated/`. `CopyToRasPi.sh` liest zuerst den aktuellen Pi-Stand aus `data/` zurück und führt den bestehenden Vergleich durch. Nach bestätigter Übertragung werden die abgestimmten Daten und Quellen übertragen. Die einmalige Umbenennung auf dem Pi wurde durchgeführt; ihr Sondercode ist entfernt. Transfer, Server und Versionsgenerator verwenden ausschließlich `data`.
-
-Die Gerätezuordnung lässt sich durch Klick auf die Spaltenüberschrift aufsteigend/absteigend sortieren. Die Sortierrichtung bleibt bei Datenaktualisierungen erhalten; gespeichert wird dadurch keine fachliche Umordnung.
-
-In Gerätezuordnung und Tauschauswahl wird die Aquariumzugehörigkeit einheitlich als `AqX` angezeigt. Enthält der übersetzte Funktionsname bereits dieselbe Angabe, wird sie nicht nochmals angehängt. Fütterung und Temperaturgeber bleiben als getrennte Funktionen gekennzeichnet.
-Reserven mit `UseHardwareName` verwenden auch in Gerätezuordnung und Tauschauswahl den tatsächlichen Hardware-Namen, nicht den internen Transport-/Funktionsschlüssel.
-
-Feeder-Gesamtgerätetausch verlangt identische konfigurierte Temperaturfähigkeiten: mit Sensor nur gegen mit Sensor, ohne nur gegen ohne. Dashboard liest dafür `Measurements` der Status-API; der Temperatureintrag ist bei `DallasPresent=true` vorhanden, auch bei ungültigem Messwert. Fehlende/unklare Statusdaten sperren den Tausch. Deaktivierte Temperatursensoren erscheinen nicht als wählbare Temperatur-Endpunkte. Gespeicherte Funktionszuordnungen bleiben für erneutes Aktivieren erhalten; ungültige Messwerte verändern die Hardwarefähigkeit nicht.
-
-Die Dashboard-Dienstfunktion heißt `Dashboard`; die physische MAC@Service-ID bleibt unverändert. Eine vorhandene frühere Dienstbezeichnung wird beim Start in der Zuordnung korrigiert, ohne die Zuordnungsrevision zu verändern. Programm und Dienst heißen weiterhin `DashboardServer`. Hinweise zu separaten Anzeigenamen beziehen sich allgemein auf das Heimnetz.
-
-Für Quelländerungen ohne Änderungen an zentralen Zeiten/Profilen kann `./CopyToRasPi.sh --sources-only` verwendet werden. Der vollständige Pi-Datenstand wird zuvor wie üblich zurückgelesen; nach Bestätigung werden nur Quellen/statische Dateien und Version.json übertragen. Times.json, HeatProfiles.json und die bestehende Gerätezuordnung bleiben unverändert.
-
-Der native Diensttyp heißt `MultiTimer`. Bestehende frühere Typbezeichnungen in der Zuordnung werden ohne Änderung der physischen ID oder Zuordnungsrevision normalisiert. Native Projekt-/Programm-/Dienstpfade verwenden MultiTimer; der bestehende Zeitdaten-Formatbezeichner bleibt kompatibel.
-
-## Externe UDP-Messquellen
-
-Zusätzliche Sender ohne Geräte-/Konfigurations-API werden in der autoritativen
-`data/DeviceAssignments.json` unter `ExternalSources` als Funktionsname →
-`MAC@3` eingetragen. Sie werden nicht als Feeder verwaltet, getauscht oder auf
-Zuordnungsbestätigungen geprüft. Die Tabelle wird mit der zentralen Zuordnung
-an MultiTimer und TimerSw verteilt; ein neuer Zuordnungsstand erfordert eine
-neue Registry-Revision und Verteilung. Änderungen dieser Tabelle derzeit bei
-gestopptem Dashboard durchführen; der Geräteeditor bearbeitet sie nicht.
-
-Beispiel: `LaptopBattery` → `F4:06:69:2A:E9:CD@3`. Der Laptop sendet alle fünf
-Sekunden UDP-Statuspakete an Broadcast-Port 44444 mit dem Ladestand im Feld
-`Value`. Das Profil `LaptopCharge` verwendet `TempId: LaptopBattery`,
-40/80 als Ein-/Ausschaltgrenzen und `NoTempOn: false`: nach 20 Sekunden ohne
-gültige Meldung bleibt der Ausgang AUS. Nous1 übernimmt die Funktion
-`LaptopSw` unter System. Die Wiederverwendung des Temperaturfelds ändert
-nicht dessen Einheit in der bestehenden Oberfläche.
-
-## Rückmeldeüberwachung und Warnton
-
-Unter **Gerätezuordnung → Rückmeldeüberwachung** öffnet ein eigener Button den
-JSON-Editor. Die Regeln gehören nicht zu den Heiz-/Ladeprofilen. Jede Regel
-verknüpft eine `SwitchFunction` mit einer unabhängigen `Source`, der
-Telegrammkennung `StatusKind`, einem booleschen `FeedbackField` und der
-Toleranz `GraceSeconds` (1 bis 3600 Sekunden). Der Schaltzustand kommt aus dem
-tatsächlich gemeldeten Kanal-`State`, einschließlich manueller Übersteuerung.
-Die Schaltfunktion folgt bei einem Endpunkttausch ihrer aktuellen Hardware.
-
-Die vorbereitete Regel prüft `LaptopSw` gegen `LaptopBattery` mit
-`Status.Kind: LaptopPower` und `Status.AcOnline`, Toleranz 60 Sekunden.
-`BatteryState` entscheidet nicht über den Fehler: Ein Laptop kann trotz
-Netzversorgung aufgrund seines Ladelimits nicht laden. Der Monitor selbst
-schaltet nichts. Er zeigt unter System den Prüfzustand bzw. eine Abweichung an.
-
-Nur durchgehend unterschiedliche, gültige und höchstens 20 Sekunden alte
-Werte führen nach der Toleranz zum Fehler. Übereinstimmung, Richtungswechsel,
-fehlende/ungültige Daten oder eine neue Zuordnung setzen die Wartezeit zurück.
-Fehlende Rückmeldungen werden als unbekannt angezeigt; sie sind kein gemeldetes
-AUS. Die Ladeautomatik behält unabhängig davon ihre Einstellung `NoTempOn`.
-
-Gespeichert wird atomar in `data/FeedbackMonitors.json`; die Datei im
-Projektstamm dient nur als Ausgangskonfiguration, solange keine gespeicherte
-Konfiguration vorliegt. Der Transfer erhält die Laufzeitdatei. Der Editor lädt
-nur beim Öffnen bzw. auf Wunsch und erkennt zwischenzeitliche Änderungen.
-
-Am S7 im Fully Kiosk Browser nach Laden der Dashboardseite **Warnton aktivieren**
-antippen. Dies gibt Browser-Audio frei und spielt einen kurzen Testton. Die
-Freigabe gilt für diese Seite und muss nach einem vollständigen Neuladen erneut
-erfolgen; Lautstärke und Audiofreigabe des S7 müssen passen. Bei einer bestätigten
-Abweichung erklingen drei kurze Töne, solange unquittiert alle 30 Sekunden.
-**Warnton quittieren** lässt die optische Meldung bestehen und verstummt bis
-zur Erholung oder einer neuen Störungsart. **Warnton ausschalten** deaktiviert
-die Tonfunktion auf diesem Browser. Ohne frische Dashboard-Statusupdates wird
-der Ton nicht wiederholt. Ein echter Hörtest im Fully Kiosk Browser steht aus.
-
-### Rückmeldetexte und Messwert-Kompatibilität
-
-Die Anzeige verwendet „Zustand bestätigt“, „Zustand wird geprüft“ und nach der
-Toleranz „Zustand nicht bestätigt“. Fehlende und veraltete Daten heißen
-„Rückmeldung fehlt“; frische, aber nicht auswertbare Rückmeldefelder heißen
-„Rückmeldung inkorrekt“. Diese unbekannten Werte werden weiterhin nicht als
-false interpretiert und erzeugen keinen Abweichungs-Warnton.
-
-UDP-Messwerte stehen in Version 2 als benannte Felder in `Status`.
-Root-`Value` und Root-`Temperature` werden nicht mehr ausgewertet.
-Die Rückmeldeüberwachung verwendet das unabhängige `Status.AcOnline`.
-Der Laptop sendet `Status.BatteryPercent`; AcOnline und BatteryState bleiben
-im selben Statusobjekt.
-
-## UDP-Version 2
-
-Der bereinigte Server-Quellstand akzeptiert ausschließlich Version 2 und verwirft
-Version-1-Pakete. Die Profilverwaltung erhält `Measurement` (Messwertfeld),
-z. B. `Temperature` oder `BatteryPercent`; ohne Feld gilt `Temperature`.
-Alle aktiven Profile und Sender sind bereits umgestellt und real geprüft.
-Hardwarefähigkeiten, Quellen-MAC-Zuordnung und unabhängige JSON-Datenversionen
-bleiben unverändert. Vollständiger Vertrag:
-[DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
-
-Der laufende Server 1.35 sendet bereits UDP-Requests mit Version 2; seinen
-Systemstatus erzeugt er lokal über HTTP. Der für den nächsten Produktbuild
-vorgemerkte Server 1.36 entfernt nur die alte Empfangslogik. Diese Quellbereinigung
-ist noch nicht auf den Pi übertragen oder als Produkt gebaut.
-
-Der Aktivierungs-Hörtest und spätere Rückmelde-Warnton verwenden den vollen
-Audiopegel (Gain 1.0). Die Lautstärke wird am Tablet/Browser über die
-Medienlautstärke geregelt. Ein/Aus wird pro Browser als Cookie
-`AquariumDashboard.FeedbackSound` für ein Jahr gespeichert. Beim Laden und
-bei dauerhaft geöffneter Seite einmal täglich wird die Restlaufzeit geprüft.
-Bei höchstens 30 Tagen Rest wird sie erneut auf ein Jahr gesetzt, für Ein und
-Aus gleichermaßen. Alte 0/1-Cookies werden unter Beibehaltung der Einstellung
-übernommen. Gelöschte Cookies werden nicht automatisch neu angelegt. Bei gespeichertem
-Ein versucht die Seite nach dem Laden eine stille Audio-Wiederaufnahme. Erlaubt
-der Browser sie, lautet der Button „Warnton ausschalten“. Bei blockierter oder
-noch ausstehender Freigabe steht dort „Warnton freigeben“; einmal antippen.
-Automatische Wiederaufnahme spielt keinen Bestätigungston; ausdrückliches
-Aktivieren/Freigeben spielt denselben Hörtest wie der spätere Alarm. Bei
-Aus bleibt der Ton nach Reload aus. Keine Browser-Autoplay-Freigabe vortäuschen.
-
-Prüfung im Fully Kiosk Browser: aktivieren und Hörtest prüfen, neu laden und
-Buttontext prüfen (ausschalten = bereit; freigeben = Browser benötigt Klick).
-Anschließend ausschalten, erneut laden: der Button muss „Warnton aktivieren“
-anzeigen und die Seite stumm bleiben. Die Speicherung gilt nur für denselben
-Browser/Host; gelöschte Cookies oder private Sitzungen können sie verwerfen.
-
-## Profil-Messwert und Synchronisationsanzeige
-
-Das Messwertfeld gehört zum zentralen Profil im oberen Profileditor, nicht zur
-Kanalzuordnung. Für `LaptopCharge` mit Quelle `LaptopBattery` muss `Measurement`
-auf `BatteryPercent` stehen. Im Feld „Messwertfeld“ werden `Temperature` und
-`BatteryPercent` vorgeschlagen; andere benannte numerische Statusfelder bleiben
-als Freitext möglich. Ein leeres Feld bedeutet weiterhin `Temperature`.
-Nach Änderung des Profils „Speichern / verteilen“ betätigen. Bei fehlendem
-passenden Messwert und `NoTempOn: false` bleibt der zugeordnete Ausgang AUS.
-Die Live-Prüfung am 2026-10-19 fand das Feld im laufenden LaptopCharge-Profil
-noch nicht gesetzt; es wurde bei dieser Oberflächenkorrektur nicht live geändert.
-
-Data 2.86 zeigt den Revisions-/Synchronisationsblock mit neutraler Grundfarbe;
-synchronisierte Teilnehmer bleiben grün. Nur die eigene Zeile für nicht
-synchronisierte Teilnehmer und deren Fehler ist rot. Der Revisionszeitstempel
-bezeichnet die letzte Profiländerung, nicht die aktuelle Uhrzeit. Ladefehler
-bleiben rot. Lokale JS-/Renderer-/Statusclient-/Alarmtests bestanden; diese
-reine Oberflächenänderung benötigt keinen Serverbuild oder Dienstneustart.
-Übertragung vom Prjs-Stamm: `./Aq/Dashboard/CopyToRasPi.sh --sources-only`,
-danach Dashboard neu laden. Der Transfer erhält die laufenden Zeiten/Profile.
-
-Die Profilbeschriftung `TempId` heißt ab Data 2.86 „Quelle“ (EN: „Source“).
-`LaptopBattery` bezeichnet den richtigen Geber; `BatteryPercent` bezeichnet das
-von ihm gelieferte Messwertfeld. Im frisch geöffneten laufenden Dashboard
-(Data 2.85, 2026-10-19) ist „Messwertfeld“ bereits als drittes Feld sichtbar,
-unter „Id“ und links neben „Boden Ein“. Bei abweichender älterer Browseransicht
-zuerst mit Strg+F5 vollständig neu laden; die beiden Felder nicht vertauschen.
-
-## Status-Push ab Server 1.38 / Data 2.87
-
-Datenweg: Gerät → UDP V2 → DashboardServer → SSE → Browser.
-Eine gemeinsame `EventSource`-Verbindung pro Browserseite verteilt Statusupdates
-an alle Karten einschließlich externer Messsender. Gültige UDP-Pakete werden
-nach Eingang weitergeleitet; auf ein sekündliches Browser-Polling wird im
-Push-Betrieb verzichtet. Die A8T-Messfenster bleiben davon unabhängig.
-Der lokale Pi-Systemstatus wird alle fünf Sekunden aktualisiert und hält
-zugleich den Stream aktiv.
-
-Bei Verbindungsfehlern greift das bisherige sekündliche HTTP-Polling des
-Servercaches. `EventSource` verbindet sich automatisch wieder; nach 15 Sekunden
-ohne Daten wird auch eine stumme Verbindung neu aufgebaut. Nach Reconnect
-kommt ein Snapshot; verspätete Poll-Antworten überschreiben keinen neueren
-Push-Stand. Ein Serverneustart darf Revisionsnummern wiederverwenden.
-Nach 20 Sekunden ohne gültiges Geräte-UDP wird Offline gepusht; ein Reconnect
-macht alte Messwerte nicht wieder frisch. Entfernte Zuordnungen werden als
-Offline gemeldet. Der Server begrenzt Streams auf 32 und ausstehende Daten je
-Stream auf 256 KiB; nicht lesende Browser blockieren die übrige Arbeit nicht.
-
-Diese Änderung enthält Servercode. Vom Prjs-Stamm zuerst
-`./Aq/Dashboard/CopyToRasPi.sh --sources-only` ausführen. Danach auf dem Pi:
+Nach Änderungen am Server auf dem Pi neu bauen und den Dienst neu starten:
 
 ```bash
-cd /home/pi/Prjs/Dashboard
 make
 sudo systemctl restart DashboardServer.service
 ```
 
-Anschließend Dashboard mit Strg+F5 neu laden. Zeiten, Profile, Gerätezuordnung
-und Firmware bleiben bei diesem Quelltransfer erhalten. Lokale Build- und
-Loopback-Prüfung ersetzen noch keinen übertragenen Pi-/Tablet-Betrieb.
+## Wichtige Dateien
+
+| Datei | Aufgabe |
+| --- | --- |
+| `Devices.json` | Ausgangskonfiguration für Geräte und Darstellung. |
+| `data/DeviceAssignments.json` | Laufende Geräte-/Funktionszuordnung, Endpunkte und Editor-Einstellungen. |
+| `data/Times.json` | Zentrale Zeitpläne, Intervalle und Kanalzuordnungen. |
+| `data/HeatProfiles.json` | Zentrale Profile mit Revisionszeitstempel. |
+| `data/HeatProfiles.sync.json` | Laufender Synchronisationsstatus. |
+| `data/FeedbackMonitors.json` | Regeln der Rückmeldeüberwachung. |
+| `data/Version.json` | Erzeugte Data-Version. |
+| `data/Layouts.json` | Auf dem Pi erhaltene Laufzeitdatei; die Oberfläche verwendet sie nicht. |
+| `index.html`, `Index.css`, `Dashboard.js` | Browseroberfläche. |
+| `StatusClient.js` | Geräteinitialisierung und Empfang der laufenden Statusdaten. |
+| `Translations.json` | Englische und deutsche Oberflächentexte. |
+| `DashboardServer.cpp` und weitere C++-Dateien | Webserver, Datenhaltung, Zuordnungen und Überwachung. |
+| `CopyToRasPi.sh` | Abgleich, Rücklesekopie und Übertragung zum Pi. |
+| `Install.sh`, `DashboardServer.service` | Installation und Betrieb als systemd-Dienst. |
