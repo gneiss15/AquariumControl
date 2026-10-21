@@ -25,3 +25,28 @@
 *.zip
 *.log
 *.pyc
+
+# Local documentation, device captures and dependency/build output
+**/Reference/
+**/captures/
+**/build*/
+**/bin/
+**/Log/
+**/ftp/
+**/stock/
+**/stock-firmware/
+**/PrjRegeln.md
+**/AGENTS.md
+**/ProjectVersion.cmake
+/AqPrjsProjektregeln.md
+/SwUmstellung.md
+/README.local.md
+/README.public.md
+/Aq-index.previous.md
+*.pdf
+*.lock
+
+# Native build products
+/Dashboard/DashboardServer
+/MultiTimer/MultiTimer
+/tools/minify

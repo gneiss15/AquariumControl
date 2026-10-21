@@ -1,0 +1,18 @@
+# Local working documents; keep these files on disk.
+/doc/
+
+# Local CAD history, repair records and automatic FreeCAD backups.
+/Hw/CAD/Sicherung-*/
+/Hw/CAD/*.FCBak
+/Hw/CAD/*.FCStd[0-9]*
+/Hw/CAD/Feeder[0-9]*.FCStd
+/Hw/CAD/Feeder.Old.FCStd
+/Hw/CAD/FeederOrig.FCStd
+/Hw/CAD/Feeder-Assembly.FCStd
+/Hw/CAD/Feeder*.20??????.DE.md
+/Hw/CAD/Feeder*.20??????.png
+/Hw/CAD/Feeder-Repair*.py
+/Hw/CAD/RestoreExplodedView.FCMacro
+
+# Regenerable CAD comparison export; Hw/BOM.ods is maintained manually.
+/generated/CAD-BOM.csv

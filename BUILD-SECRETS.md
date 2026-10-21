@@ -1,4 +1,4 @@
-<!-- BUILD-SECRETS.md, Version: 1.07 -->
+<!-- BUILD-SECRETS.md, Version: 1.08 -->
 # Build-private Dateien und gerätespezifischer Zustand
 
 Für die ESP-Projekte werden drei Arten von Quellen getrennt:
@@ -124,7 +124,7 @@ Das Projekt-ZIP schließt damit mindestens aus:
 
 Die sensiblen gerätespezifischen Daten bleiben lokal im Projektbaum, werden aber nicht in das portable Projektarchiv aufgenommen.
 
-`Aq/CleanGeneratedConfig.sh` entfernt bei Bedarf Konfigurationskopien aus den generierten Verzeichnissen. Für den normalen Build ist das nicht erforderlich.
+`CleanGeneratedConfig.sh` entfernt bei Bedarf Konfigurationskopien aus den generierten Verzeichnissen. Für den normalen Build ist das nicht erforderlich.
 
 ## Arduino-Library-Pfade
 

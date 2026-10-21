@@ -1,4 +1,4 @@
-<!-- README.public.DE.md, Version: 1.02 -->
+<!-- README.DE.md, Version: 1.03 -->
 # AquariumControl
 
 [English](README.md)
@@ -11,18 +11,18 @@ Die eigenen Projektdateien stehen unter [PolyForm Noncommercial 1.0.0](LICENSE.m
 
 ## Komponenten
 
-- [Dashboard](Aq/Dashboard/README.md): Aquariumübersicht, Schaltzeiten, Heizprofile, MAC-basierte Gerätezuordnung und Funktionstausch.
-- [MultiTimer](Aq/MultiTimer/README.md): nativer Mehrkanal-Timer und Controller.
-- [NOUS A8T](Aq/TmrSwA8T/README.md) und [Shelly](Aq/TmrSwShelly/README.md): Schaltgeräte-Firmware mit Leistungsmessung und Heizprofilen.
-- [Feeder](Aq/Feeder/README.DE.md) und [FeederSimple](Aq/FeederSimple/README.md): Futterautomaten und Temperatursender.
-- [HeatHistory](Aq/HeatHistory/README.md): passiver CSV-Rekorder und Diagramme auf Abruf, optional als PC-Benutzerdienst.
-- `Aq/Libs/`: gemeinsamer Code; `Aq/tools/`: Build-, Synchronisations- und Kalibrierwerkzeuge.
+- [Dashboard](Dashboard/README.md): Aquariumübersicht, Schaltzeiten, Heizprofile, MAC-basierte Gerätezuordnung und Funktionstausch.
+- [MultiTimer](MultiTimer/README.md): nativer Mehrkanal-Timer und Controller.
+- [NOUS A8T](TmrSwA8T/README.md) und [Shelly](TmrSwShelly/README.md): Schaltgeräte-Firmware mit Leistungsmessung und Heizprofilen.
+- [Feeder](Feeder/README.DE.md) und [FeederSimple](FeederSimple/README.md): Futterautomaten und Temperatursender.
+- [HeatHistory](HeatHistory/README.md): passiver CSV-Rekorder und Diagramme auf Abruf, optional als PC-Benutzerdienst.
+- `Libs/`: gemeinsamer Code; `tools/`: Build-, Synchronisations- und Kalibrierwerkzeuge.
 
 Die Erstübernahme der Schaltgeräte wird separat in [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) gepflegt. Die kompatiblen Main-Anwendungen liegen hier in AquariumControl.
 
 ## Leistungsmessung kalibrieren
 
-NOUS A8T können mithilfe eines Shelly als Messreferenz abgeglichen werden. Das [Kalibrierskript](Aq/tools/CalibrateA8T.py) und die [Anleitung](Aq/tools/CalibrateA8T.DE.md) sind enthalten. Das Skript berechnet Korrekturwerte aus zwei Messreihen mit vertauschter Gerätereihenfolge; geschrieben wird nur auf den A8T, mit `--apply` und zusätzlicher Bestätigung. Die Shelly-Kalibrierung bleibt unverändert.
+NOUS A8T können mithilfe eines Shelly als Messreferenz abgeglichen werden. Das [Kalibrierskript](tools/CalibrateA8T.py) und die [Anleitung](tools/CalibrateA8T.DE.md) sind enthalten. Das Skript berechnet Korrekturwerte aus zwei Messreihen mit vertauschter Gerätereihenfolge; geschrieben wird nur auf den A8T, mit `--apply` und zusätzlicher Bestätigung. Die Shelly-Kalibrierung bleibt unverändert.
 
 ## Lokale Konfiguration und Builds
 
@@ -38,9 +38,9 @@ Der laufende Betrieb ist für die bestehende Aquarium-Installation bestätigt; d
 
 Die Hardwarebeschreibung und ihr jeweiliger Dokumentationsstand stehen in den Projektunterlagen:
 
-- [Feeder – Hardware](Aq/Feeder/Hw/README.DE.md)
-- [FeederSimple – Hardware](Aq/FeederSimple/Hw/README.DE.md)
-- [MultiTimer / Dashboard – Raspberry-Pi-Hardware](Aq/MultiTimer/Hw/README.DE.md)
+- [Feeder – Hardware](Feeder/Hw/README.DE.md)
+- [FeederSimple – Hardware](FeederSimple/Hw/README.DE.md)
+- [MultiTimer / Dashboard – Raspberry-Pi-Hardware](MultiTimer/Hw/README.DE.md)
 
 ## Rückmeldungen ausdrücklich erwünscht
 
