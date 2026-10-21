@@ -1,11 +1,11 @@
-<!-- README.md, Version: 1.07 -->
+<!-- README.md, Version: 1.08 -->
 # AquariumControl
 
 [Deutsch](README.DE.md)
 
 **Work in progress. Comments, test reports and suggestions are welcome.**
 
-Source code for a locally operated aquarium system: feeding, lighting, temperature-dependent heating, a Raspberry Pi dashboard, and PC-based history charts.
+Hardware designs, firmware and software for a locally operated aquarium system: feeding, lighting, temperature-controlled heating, a Raspberry Pi dashboard, and PC-based history charts.
 
 The project’s own files use the [PolyForm Noncommercial License 1.0.0](LICENSE.md). Required Notice: Copyright 2026 Günter Neiß. Existing component licenses remain unchanged; see [THIRD_PARTY.md](THIRD_PARTY.md).
 

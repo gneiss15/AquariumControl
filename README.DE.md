@@ -1,11 +1,11 @@
-<!-- README.DE.md, Version: 1.03 -->
+<!-- README.DE.md, Version: 1.04 -->
 # AquariumControl
 
 [English](README.md)
 
 **Work in progress – Anmerkungen, Testergebnisse und Verbesserungsvorschläge sind ausdrücklich erwünscht.**
 
-Quellen für ein lokal betriebenes Aquarium-System: Fütterung, Beleuchtung, temperaturabhängige Heizung, Raspberry-Pi-Dashboard und Verlaufsdiagramme am PC.
+Hardware, Firmware und Software für ein lokal betriebenes Aquarium-System: Fütterung, Beleuchtung, temperaturgeregelte Heizung, ein Raspberry-Pi-Dashboard und Verlaufsauswertungen am PC.
 
 Die eigenen Projektdateien stehen unter [PolyForm Noncommercial 1.0.0](LICENSE.md). Required Notice: Copyright 2026 Günter Neiß. Bestehende Komponentenlizenzen bleiben unverändert; siehe [THIRD_PARTY.md](THIRD_PARTY.md).
 
