@@ -1,4 +1,4 @@
-<!-- README.md, Version: 1.50 -->
+<!-- README.md, Version: 1.51 -->
 # TmrSwShelly
 
 ## Übernahme der Geräte
@@ -7,7 +7,9 @@ Die Erstübernahme von Nous A8T und Shelly Plug M Gen3 wird im eigenständigen R
 
 Produktionsprojekt für Shelly Plug M Gen3: gemeinsame TmrSw-Main mit Timer-/
 Heizungsrollen, gerätespezifischem LittleFS und unabhängigem Produktions-Rescue.
-Produktversionen stehen in `Versions.txt`, verbindliche Regeln in `PrjRegeln.md`.
+Produktversionen stehen in `Versions.txt`. Eigene Gerätekonfigurationen und
+Signierdaten werden wie unter [Build und private Konfiguration](../BUILD-SECRETS.md)
+beschrieben bereitgestellt.
 
 ## Aktive Quellen
 
@@ -42,8 +44,8 @@ Abweichungen klären (lokaler Stand links, Download rechts):
 ```
 
 - Normaler Aufruf: inkrementell.
-- `--build`: eigenen Cache über Trash entfernen und vollständig neu bauen.
-- `--clean`: nur eigenen Cache über Trash entfernen und beenden.
+- `--build`: eigenen Cache löschen und vollständig neu bauen.
+- `--clean`: nur eigenen Cache löschen und beenden.
 - `--full-clean`: zusätzlich nur eigene veröffentlichte Artefakte entfernen.
 - Main unterstützt `--status` mit Phasen und Compiler-Heartbeat.
 

@@ -1,12 +1,14 @@
-<!-- README.md, Version: 1.25 -->
+<!-- README.md, Version: 1.26 -->
 # TmrSwA8T
 
 ## Übernahme der Geräte
 
 Die Erstübernahme von Nous A8T und Shelly Plug M Gen3 wird im eigenständigen Repository [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) beschrieben. Dieses Projekt gehört zu [AquariumControl](../README.md) und stellt die Main-Anwendung nach der Übernahme bereit.
 
-Nous-A8T-Projekt mit Main, Rescue und gerätespezifischem LittleFS. Verbindliche
-Hardware-, Partitions- und Buildregeln stehen in `PrjRegeln.md`.
+Nous-A8T-Projekt mit Main, Rescue und gerätespezifischem LittleFS.
+Produktversionen stehen in `Versions.txt`. Eigene Gerätekonfigurationen und
+Signierdaten werden wie unter [Build und private Konfiguration](../BUILD-SECRETS.md)
+beschrieben bereitgestellt.
 
 ## Hardware-Leistungsmessung
 
@@ -69,9 +71,9 @@ und bei vorhandenem Sync-State den Startzeitstempel mit `Synced: false`. Die
 Kanalzuordnungen bleiben erhalten; der Dashboard-Sync liefert die zentralen
 Laufzeitdaten. Die Dateien unter `DevState/` werden dafür nicht verändert.
 
-Main und Rescue verwenden inkrementelle Builds. `--clean` verschiebt
-nur den eigenen Cache in den Papierkorb; `--full-clean` zusätzlich nur die eigenen
-Artefakte im gemeinsamen Bin-Ordner. Andere Builds bleiben erhalten.
+Main und Rescue verwenden inkrementelle Builds. `--clean` löscht nur den
+eigenen Cache; `--full-clean` zusätzlich die eigenen Artefakte im gemeinsamen
+Bin-Ordner. Andere Builds bleiben erhalten.
 
 Vor einem LittleFS-Build zuerst die Gerätedaten herunterladen, im BCO links den
 lokalen Stand und rechts den Geräte-Download vergleichen und Config-Abweichungen
