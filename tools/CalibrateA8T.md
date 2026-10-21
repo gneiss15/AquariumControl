@@ -1,22 +1,22 @@
-<!-- CalibrateA8T.md, Version: 1.00 -->
-# Calibrate a NOUS A8T using a Shelly reference
+<!-- CalibrateA8T.md, Version: 1.01 -->
+# Calibrate a Nous A8T using a Shelly reference
 
 [Deutsch](CalibrateA8T.DE.md) · [Script](CalibrateA8T.py)
 
-`CalibrateA8T.py` compares a Shelly reference with a NOUS A8T in two measurement runs, reversing their order between runs. It calculates corrections for the A8T voltage, current and power calibration. By default, it reports the calculated values without saving them.
+`CalibrateA8T.py` compares a Shelly reference with a Nous A8T in two measurement runs, reversing their order between runs. It calculates corrections for the A8T voltage, current and power calibration. By default, it reports the calculated values without saving them.
 
 ## Requirements
 
-- A Shelly and a NOUS A8T running compatible TmrSw firmware, reachable from the PC. The script checks DeviceTypes `TmrSwShellyC3V1` and `TmrSwA8T`.
+- A Shelly and a Nous A8T running compatible TmrSw firmware, reachable from the PC. The script checks DeviceTypes `TmrSwShellyC3V1` and `TmrSwA8T`.
 - A suitable stable load that both devices can switch. The default minimum accepted power is 100 W.
 - Python 3 on the PC; no additional Python packages are needed.
 - The A8T calibration API must be reachable when applying values.
 
 ## Procedure
 
-1. With the mains supply disconnected, connect Shelly → NOUS A8T → load.
+1. With the mains supply disconnected, connect Shelly → Nous A8T → load.
 2. Start the script, connect the Shelly to the mains supply and acknowledge the prompt. The script switches on the upstream Shelly first, waits for the downstream A8T, then switches on the A8T.
-3. After the first run, disconnect the mains supply and reverse the order: NOUS A8T → Shelly → load. Connect the NOUS to the mains supply and acknowledge the prompt. The script switches on the upstream NOUS, waits for the Shelly, then switches on the Shelly.
+3. After the first run, disconnect the mains supply and reverse the order: Nous A8T → Shelly → load. Connect the Nous to the mains supply and acknowledge the prompt. The script switches on the upstream Nous, waits for the Shelly, then switches on the Shelly.
 4. The script records the second run, saves raw samples to CSV and calculates new A8T values. Invalid sample pairs are rejected. Corrections use each run's median ratios and the geometric mean of both runs.
 5. Review the calculated values. Saving requires `--apply` and the exact additional confirmation `A8T SCHREIBEN`. After saving, the script reads the A8T calibration back and checks it.
 

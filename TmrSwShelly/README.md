@@ -1,9 +1,9 @@
-<!-- README.md, Version: 1.48 -->
+<!-- README.md, Version: 1.49 -->
 # TmrSwShelly
 
 ## Übernahme der Geräte
 
-Die Erstübernahme von NOUS A8T und Shelly Plug M Gen3 wird im eigenständigen Repository [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) beschrieben. Dieses Projekt gehört zu [AquariumControl](../README.md) und stellt die Main-Anwendung nach der Übernahme bereit.
+Die Erstübernahme von Nous A8T und Shelly Plug M Gen3 wird im eigenständigen Repository [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) beschrieben. Dieses Projekt gehört zu [AquariumControl](../README.md) und stellt die Main-Anwendung nach der Übernahme bereit.
 
 Produktionsprojekt für Shelly Plug M Gen3: gemeinsame TmrSw-Main mit Timer-/
 Heizungsrollen, gerätespezifischem LittleFS und unabhängigem Produktions-Rescue.
@@ -21,7 +21,7 @@ Produktversionen stehen in `Versions.txt`, verbindliche Regeln in `PrjRegeln.md`
   OneWayMigration-Einstieg. Separate Beschreibung: `Aq/TmrSwShelly/README-Old.md`
   im ZIP. Kein aktueller Build hängt davon ab.
 
-Das eigenständige aktuelle Shelly-/NOUS-Takeover liegt in `../../ShellyNousTakeover/`.
+Das eigenständige aktuelle Shelly-/Nous-Takeover liegt in `../../ShellyNousTakeover/`.
 Die bereits abgeschlossene Migration ist keine Voraussetzung für einen erneuten
 Main-/Rescue-Build. Noch benötigte Schutzfunktionen wurden übernommen; es wurde
 kein Stock-Rollback wieder freigegeben.

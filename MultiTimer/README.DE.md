@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 1.17 -->
+<!-- README.DE.md, Version: 1.18 -->
 # MultiTimer
 
 [English](README.md)
@@ -10,7 +10,7 @@ MultiTimer ist eine achtfach-Schaltsteckdose.
 Raspberry Pi mit achtfach-Relaiskarte und Netzteil im Conrad-IR-Powermanager-Gehäuse und (optionalem) Raumtemperatursensor.
 Die Programme Dashboard und MultiTimer laufen auf demselben Raspberry Pi.
 MultiTimer steuert die Schaltausgänge der achtfach-Relaiskarte anhand von Zeitplänen und messwertabhängigen Profilen.
-Mit seinen acht Schaltausgängen übernimmt MultiTimer die Steuerungsaufgaben von acht einzelnen NOUS- oder Shelly-Schaltsteckdosen.
+Mit seinen acht Schaltausgängen übernimmt MultiTimer die Steuerungsaufgaben von acht einzelnen Nous- oder Shelly-Schaltsteckdosen.
 
 **Coming soon – Hardwarebeschreibung unvollständig.** [Fotos und Hardwareunterlagen](Hw/README.DE.md) zeigen den Aufbau. Stückliste, Anschlussplan und Einbaudetails folgen.
 

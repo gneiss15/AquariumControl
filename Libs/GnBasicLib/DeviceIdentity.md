@@ -1,4 +1,4 @@
-<!-- DeviceIdentity.md, Version: 1.13 -->
+<!-- DeviceIdentity.md, Version: 1.14 -->
 # Geräteidentität und Funktionstausch
 
 Die Netzwerkidentität ist ausschließlich STA-MAC plus Dienstnummer:
@@ -27,7 +27,7 @@ Diese Netzvorgabe ersetzt keinen Schutz vor anderen LAN-Teilnehmern.
 
 ## Temperaturquellen ohne Dashboard
 
-MyTimer, NOUS und Shelly besitzen auf Konfiguration einen Sources-JSON-Editor.
+MyTimer, Nous und Shelly besitzen auf Konfiguration einen Sources-JSON-Editor.
 Er bearbeitet ein Objekt Funktion → physische Feeder-ID (`MAC@3`). Bei erreichbarem
 Dashboard ist der Editor gesperrt; auch der Server prüft vor jedem Speichern die
 Erreichbarkeit. Bei Wiederverbindung ersetzt die zentrale Zuordnung lokale Quellen
@@ -38,7 +38,7 @@ NoTempOn; es gibt keinen Rückfall auf frühere Hostnamen.
 
 Dashboard hat keinen Zugriff auf den PC und synchronisiert dessen Dateien nicht.
 Der Tauschdialog weist darauf hin, dass zuvor erzeugte FS-Binaries veraltet sind.
-NOUS- und Shelly-FS-Abbilder sind nicht austauschbar.
+Nous- und Shelly-FS-Abbilder sind nicht austauschbar.
 
 Vom Prjs-Stamm ausdrücklich starten:
 
@@ -91,7 +91,7 @@ Der bestehende Geräte-Funktionsschlüssel dient weiterhin als stabiler Transpor
 
 Vor Schaltkanaltausch Verbraucher von beiden Ausgängen trennen. Bei Temperaturgebertausch Anschluss und gewünschte Funktionszuordnung prüfen. Zentraler Journalstand und vollständiger Times-Wunschstand werden zusammen gesichert und nach Neustart weiterverteilt. Die Empfänger übernehmen vollständige Kanäle/Zeiten über ein Redo-Journal, bestätigen erst nach Anwendung. Keine gleichzeitige Umschaltung aller Geräte behaupten; Verbraucher erst nach bestätigtem Abschluss wieder anschließen.
 
-MyTimer 2.56/Web 2.31, NOUS 1.16 und Shelly 1.12 benötigen dafür neuen Code, vorhandene NS-FS bleiben für das Firmwareupdate gültig. Nach einem tatsächlichen Tausch müssen die neuen Channels-Zustände vor späterem FS-Upload am PC zurückgelesen und neu gebaut werden. HeatHistory 1.15 folgt den Heizrollen am jeweils tatsächlichen Kanal. Lokale Builds/Mock- und Recoveryprüfungen bestanden; realer Kanaltausch steht noch aus.
+MyTimer 2.56/Web 2.31, Nous 1.16 und Shelly 1.12 benötigen dafür neuen Code, vorhandene NS-FS bleiben für das Firmwareupdate gültig. Nach einem tatsächlichen Tausch müssen die neuen Channels-Zustände vor späterem FS-Upload am PC zurückgelesen und neu gebaut werden. HeatHistory 1.15 folgt den Heizrollen am jeweils tatsächlichen Kanal. Lokale Builds/Mock- und Recoveryprüfungen bestanden; realer Kanaltausch steht noch aus.
 
 ## Allgemeiner UDP-Messwert
 

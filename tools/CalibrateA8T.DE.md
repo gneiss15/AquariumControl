@@ -1,5 +1,5 @@
-<!-- CalibrateA8T.DE.md, Version: 1.00 -->
-# NOUS A8T mit Shelly-Referenz kalibrieren
+<!-- CalibrateA8T.DE.md, Version: 1.01 -->
+# Nous A8T mit Shelly-Referenz kalibrieren
 
 [English](CalibrateA8T.md) · [Skript](CalibrateA8T.py)
 
@@ -24,8 +24,8 @@ berechneten Werte an, ohne sie zu schreiben.
    bestätigen. Das Skript schaltet zuerst das Shelly-Relais ein, wartet dann
    auf den dadurch versorgten A8T und schaltet diesen ebenfalls ein.
 3. Nach der ersten Messung die Netzversorgung trennen, die Reihenfolge zu
-   Nous A8T → Shelly → Verbraucher tauschen und den NOUS wieder mit dem Netz
-   verbinden. Nach der Aufforderung schaltet das Skript zuerst den NOUS ein,
+   Nous A8T → Shelly → Verbraucher tauschen und den Nous wieder mit dem Netz
+   verbinden. Nach der Aufforderung schaltet das Skript zuerst den Nous ein,
    wartet auf den Shelly dahinter und schaltet diesen ebenfalls ein.
 4. Das Skript nimmt die zweite Messreihe auf, berechnet daraus neue A8T-Werte
    und speichert die Rohmessungen als CSV.

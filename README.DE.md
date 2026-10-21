@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 1.07 -->
+<!-- README.DE.md, Version: 1.08 -->
 # AquariumControl
 
 [English](README.md)
@@ -13,7 +13,7 @@ Die eigenen Projektdateien stehen unter [PolyForm Noncommercial 1.0.0](LICENSE.m
 
 - [Dashboard](Dashboard/README.DE.md): Aquariumübersicht, Schaltzeiten, Heizprofile, MAC-basierte Gerätezuordnung und Funktionstausch.
 - [MultiTimer](MultiTimer/README.DE.md): nativer Mehrkanal-Timer und Controller.
-- [NOUS A8T](TmrSwA8T/README.md) und [Shelly](TmrSwShelly/README.md): Schaltgeräte-Firmware mit Leistungsmessung und Heizprofilen.
+- [Nous A8T](TmrSwA8T/README.md) und [Shelly](TmrSwShelly/README.md): Schaltgeräte-Firmware mit Leistungsmessung und Heizprofilen.
 - [Feeder](Feeder/README.DE.md) und [FeederSimple](FeederSimple/README.md): Futterautomaten und Temperatursender.
 - [HeatHistory](HeatHistory/README.md): passiver CSV-Rekorder und Diagramme auf Abruf, optional als PC-Benutzerdienst.
 - `Libs/`: gemeinsamer Code; `tools/`: Build-, Synchronisations- und Kalibrierwerkzeuge.
@@ -22,7 +22,7 @@ Die Erstübernahme der Schaltgeräte wird separat in [ShellyNousTakeover](https:
 
 ## Leistungsmessung kalibrieren
 
-NOUS A8T können mithilfe eines Shelly als Messreferenz abgeglichen werden. Das [Kalibrierskript](tools/CalibrateA8T.py) und die [Anleitung](tools/CalibrateA8T.DE.md) sind enthalten. Das Skript berechnet Korrekturwerte aus zwei Messreihen mit vertauschter Gerätereihenfolge; geschrieben wird nur auf den A8T, mit `--apply` und zusätzlicher Bestätigung. Die Shelly-Kalibrierung bleibt unverändert.
+Nous A8T können mithilfe eines Shelly als Messreferenz abgeglichen werden. Das [Kalibrierskript](tools/CalibrateA8T.py) und die [Anleitung](tools/CalibrateA8T.DE.md) sind enthalten. Das Skript berechnet Korrekturwerte aus zwei Messreihen mit vertauschter Gerätereihenfolge; geschrieben wird nur auf den A8T, mit `--apply` und zusätzlicher Bestätigung. Die Shelly-Kalibrierung bleibt unverändert.
 
 ## Lokale Konfiguration und Builds
 

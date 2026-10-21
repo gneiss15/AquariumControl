@@ -1,6 +1,6 @@
 # TmrSwA8T – Hardware
 
-Dieses Projekt verwendet übernommene NOUS-A8T-Steckdosen mit eigener Firmware. Die Gerätehardware ist ein Kaufprodukt. Das Verfahren zur Übernahme wird im separaten Projekt [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) beschrieben.
+Dieses Projekt verwendet übernommene Nous-A8T-Steckdosen mit eigener Firmware. Die Gerätehardware ist ein Kaufprodukt. Das Verfahren zur Übernahme wird im separaten Projekt [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover) beschrieben.
 
 ## Vorgesehene Ablage
 

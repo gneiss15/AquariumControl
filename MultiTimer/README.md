@@ -1,4 +1,4 @@
-<!-- README.md, Version: 1.17 -->
+<!-- README.md, Version: 1.18 -->
 # MultiTimer
 
 [Deutsch](README.DE.md)
@@ -10,7 +10,7 @@ MultiTimer is an eight-channel switched power strip.
 A Raspberry Pi with an eight-channel relay board and power supply in a Conrad IR Powermanager enclosure, with an (optional) room-temperature sensor.
 Dashboard and MultiTimer run on the same Raspberry Pi.
 MultiTimer controls the relay board's outputs using schedules and measurement-dependent profiles.
-Its eight switching outputs perform the control tasks of eight individual NOUS or Shelly smart plugs.
+Its eight switching outputs perform the control tasks of eight individual Nous or Shelly smart plugs.
 
 **Coming soon – hardware description incomplete.** [Photos and hardware documents](Hw/README.md) show the assembly. A bill of materials, wiring diagram and installation details will follow.
 

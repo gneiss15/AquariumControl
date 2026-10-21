@@ -1,4 +1,4 @@
-<!-- ChannelSwapInstall.md, Version: 1.01 -->
+<!-- ChannelSwapInstall.md, Version: 1.02 -->
 # Kanaltausch V7.28 installieren und prüfen
 
 Noch keine Übertragung durch Codex. Lokale Builds und Prüfungen bestanden; echter Kanaltausch steht aus. Kalibrierung und Partitionen wurden nicht geändert. Snapshot: Prjs.V7.28.BeforeChannelAssignments.20261014.zip.
@@ -7,7 +7,7 @@ Noch keine Übertragung durch Codex. Lokale Builds und Prüfungen bestanden; ech
 
 Am PC im Gerätebrowser jeweils nur Main-Firmware hochladen:
 
-- alle NOUS: `Aq/TmrSwA8T/generated/bin/esp32_Arduino2/TmrSwA8T.ino.bin_signed` → Firmware 1.16;
+- alle Nous: `Aq/TmrSwA8T/generated/bin/esp32_Arduino2/TmrSwA8T.ino.bin_signed` → Firmware 1.16;
 - beide Shellys: `Aq/TmrSwShelly/generated/bin/esp32c3_Arduino2/TmrSwShelly.ino.bin_signed` → Firmware 1.12.
 
 Kein Rescue-/FS-Upload für diesen Codewechsel erforderlich. Nach Neustart auf erreichbare Geräte und neue Firmwareversion achten. Noch keinen Kanaltausch starten.

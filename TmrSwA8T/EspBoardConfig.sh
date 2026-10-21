@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# EspBoardConfig.sh, Version: 1.01
+# EspBoardConfig.sh, Version: 1.02
 
-# Select the NOUS A8T target once for Main and Rescue.
+# Select the Nous A8T target once for Main and Rescue.
 BoardId="esp32"
 FQBN="esp32:esp32:esp32:FlashSize=4M,FlashMode=dio,FlashFreq=40,PartitionScheme=default"
 BinSubDir="${BoardId}_Arduino2"

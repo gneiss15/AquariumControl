@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 2.15 -->
+<!-- README.DE.md, Version: 2.16 -->
 # Aquarium Dashboard
 
 [English](README.md)
@@ -90,7 +90,7 @@ Weitere Einzelheiten stehen in [Geräteidentität und Funktionstausch](../Libs/G
 
 ### Hardware-Endpunkte und Kanaltausch
 
-Ein Hardware-Endpunkt ist ein einzelner Schaltausgang oder Temperaturgeber. Im Bereich **Gerätetausch** lassen sich die Funktionen zweier funktionskompatibler Endpunkte tauschen, beispielsweise zwischen zwei MultiTimer-Ausgängen oder zwischen einem MultiTimer-Ausgang und einer NOUS-/Shelly-Steckdose. Schaltausgänge können nur gegen Schaltausgänge und Temperaturgeber nur gegen Temperaturgeber getauscht werden.
+Ein Hardware-Endpunkt ist ein einzelner Schaltausgang oder Temperaturgeber. Im Bereich **Gerätetausch** lassen sich die Funktionen zweier funktionskompatibler Endpunkte tauschen, beispielsweise zwischen zwei MultiTimer-Ausgängen oder zwischen einem MultiTimer-Ausgang und einer Nous-/Shelly-Steckdose. Schaltausgänge können nur gegen Schaltausgänge und Temperaturgeber nur gegen Temperaturgeber getauscht werden.
 
 Die Tabelle zeigt die Endpunkte mit ihrer aktuellen Funktion. Bei MultiTimer entsprechen die Ausgangsnummern den Steckdosen 1 bis 8. Fütterung und Temperaturmessung eines Feeders sind getrennte Funktionen; beim Tausch eines Temperaturgebers bleiben die Fütterungspläne unverändert.
 

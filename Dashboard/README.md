@@ -1,4 +1,4 @@
-<!-- README.md, Version: 2.13 -->
+<!-- README.md, Version: 2.14 -->
 # Aquarium Dashboard
 
 [Deutsch](README.DE.md)
@@ -90,7 +90,7 @@ Further details are in [device identity and function swaps](../Libs/GnBasicLib/D
 
 ### Hardware endpoints and channel swaps
 
-A hardware endpoint is an individual switching output or temperature source. **Device swap** can exchange the functions of two functionally compatible endpoints, for example two MultiTimer outputs, or a MultiTimer output and a NOUS/Shelly socket. Switching outputs can only be swapped with switching outputs, and temperature sources with temperature sources.
+A hardware endpoint is an individual switching output or temperature source. **Device swap** can exchange the functions of two functionally compatible endpoints, for example two MultiTimer outputs, or a MultiTimer output and a Nous/Shelly socket. Switching outputs can only be swapped with switching outputs, and temperature sources with temperature sources.
 
 The table shows endpoints with their current functions. MultiTimer output numbers correspond to sockets 1–8. Feeding and temperature sensing on a feeder are separate functions; swapping a temperature source leaves feeding schedules unchanged.
 

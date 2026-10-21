@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# CalibrateA8T.py, Version: 1.02
-"""Compare a Shelly reference with one NOUS A8T and optionally calibrate the A8T."""
+# CalibrateA8T.py, Version: 1.03
+"""Compare a Shelly reference with one Nous A8T and optionally calibrate the A8T."""
 
 import argparse
 import csv
@@ -226,7 +226,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Erfasst zwei Kreuztausch-Messreihen; Referenz ist Shelly, kalibriert wird nur der A8T.")
     parser.add_argument("--shelly", required=True, metavar="URL", help="URL/IP des Shelly-Referenzgeräts")
-    parser.add_argument("--nous", required=True, metavar="URL", help="URL/IP des zu kalibrierenden NOUS A8T")
+    parser.add_argument("--nous", required=True, metavar="URL", help="URL/IP des zu kalibrierenden Nous A8T")
     parser.add_argument("--seconds", type=float, default=30, help="Messdauer je Anordnung (Standard: 30 s)")
     parser.add_argument("--interval", type=float, default=1, help="Abstand der Messpaare (Standard: 1 s)")
     parser.add_argument("--min-power", type=float, default=100, help="Mindestleistung beider Geräte in W (Standard: 100 W)")
@@ -242,7 +242,7 @@ def parse_args():
 def main():
     args = parse_args()
     shelly = Device(args.shelly, "Shelly")
-    nous = Device(args.nous, "NOUS A8T")
+    nous = Device(args.nous, "Nous A8T")
     output_path = args.output or Path(f"PowerCalibration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
     output_path = output_path.expanduser().resolve()
     if output_path.exists():
@@ -250,7 +250,7 @@ def main():
 
     print(f"Shelly-Referenz: {shelly.base}")
     print(f"Kalibrierziel:   {nous.base}")
-    print("Es werden ausschließlich Kalibrierwerte des NOUS A8T geschrieben; der Shelly wird nur gelesen.")
+    print("Es werden ausschließlich Kalibrierwerte des Nous A8T geschrieben; der Shelly wird nur gelesen.")
     print("Beide Geräte werden während der Messungen per temporärem Override eingeschaltet.")
     pairs = []
     old_cal = None
@@ -262,9 +262,9 @@ def main():
         output = output_path.open("x", newline="", encoding="utf-8")
         writer = csv.DictWriter(output, fieldnames=CSV_FIELDS)
         writer.writeheader()
-        print("\nMessung 1 vorbereiten: spannungsfrei aufbauen: Shelly → NOUS A8T → Heizlast.")
+        print("\nMessung 1 vorbereiten: spannungsfrei aufbauen: Shelly → Nous A8T → Heizlast.")
         print("Dann Shelly mit dem Netz verbinden. Sein Relais muss nicht manuell eingeschaltet werden;")
-        print("das Skript schaltet zuerst den Shelly ein und wartet danach auf den NOUS A8T.")
+        print("das Skript schaltet zuerst den Shelly ein und wartet danach auf den Nous A8T.")
         input("Wenn der Shelly mit dem Netz verbunden ist, Enter drücken … ")
         shelly_info, nous_info = prepare_order(
             shelly, nous, EXPECTED_SHELLY_TYPE, EXPECTED_NOUS_TYPE,
@@ -273,16 +273,16 @@ def main():
         for key in ("VoltageCal", "CurrentCal", "PowerCal"):
             value = old_cal.get(key)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-                raise RuntimeError(f"NOUS A8T liefert keinen gültigen ganzzahligen {key}-Wert.")
+                raise RuntimeError(f"Nous A8T liefert keinen gültigen ganzzahligen {key}-Wert.")
         print(f"Shelly-Referenz: {shelly_info.get('DeviceId', '?')}")
         print(f"Kalibrierziel:   {nous_info.get('DeviceId', '?')}")
         pairs.append(sample_round(shelly, nous, "Shelly → Nous → Last", args.seconds, args.interval,
                                   args.min_power, writer, output))
 
-        print("\nMessung 2 vorbereiten: Netz trennen, Reihenfolge tauschen: NOUS A8T → Shelly → Heizlast.")
-        print("Nach dem Umstecken den NOUS mit dem Netz verbinden. Das Skript schaltet")
-        print("zuerst den NOUS ein und wartet danach auf den Shelly dahinter.")
-        input("Wenn der NOUS mit dem Netz verbunden ist, Enter drücken … ")
+        print("\nMessung 2 vorbereiten: Netz trennen, Reihenfolge tauschen: Nous A8T → Shelly → Heizlast.")
+        print("Nach dem Umstecken den Nous mit dem Netz verbinden. Das Skript schaltet")
+        print("zuerst den Nous ein und wartet danach auf den Shelly dahinter.")
+        input("Wenn der Nous mit dem Netz verbunden ist, Enter drücken … ")
         prepare_order(nous, shelly, EXPECTED_NOUS_TYPE, EXPECTED_SHELLY_TYPE,
                       args.reconnect_timeout, override_devices)
         pairs.append(sample_round(shelly, nous, "Nous → Shelly → Last", args.seconds, args.interval,

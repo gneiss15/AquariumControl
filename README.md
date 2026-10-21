@@ -1,4 +1,4 @@
-<!-- README.md, Version: 1.09 -->
+<!-- README.md, Version: 1.10 -->
 # AquariumControl
 
 [Deutsch](README.DE.md)
@@ -13,7 +13,7 @@ The project’s own files use the [PolyForm Noncommercial License 1.0.0](LICENSE
 
 - [Dashboard](Dashboard/README.md): grouped aquarium overview, schedules, heating profiles, MAC-based device assignments and function swaps.
 - [MultiTimer](MultiTimer/README.md): native multi-channel timer/controller.
-- [NOUS A8T](TmrSwA8T/README.md) and [Shelly](TmrSwShelly/README.md): switch firmware with power measurement and heating-profile consumers.
+- [Nous A8T](TmrSwA8T/README.md) and [Shelly](TmrSwShelly/README.md): switch firmware with power measurement and heating-profile consumers.
 - [Feeder](Feeder/README.md) and [FeederSimple](FeederSimple/README.md): feeding devices and temperature publishers.
 - [HeatHistory](HeatHistory/README.md): passive CSV recorder and on-demand charts, optionally as a PC user service.
 - `Libs/`: shared code; `tools/`: build, synchronization and calibration tools.
@@ -22,7 +22,7 @@ Takeover/initial migration is maintained separately in [ShellyNousTakeover](http
 
 ## Power-meter calibration
 
-NOUS A8T meters can be calibrated using a Shelly as the measurement reference. The [calibration script](tools/CalibrateA8T.py) and [instructions](tools/CalibrateA8T.md) are included. The script calculates corrections from two runs with the device order reversed; it writes calibration values only to the A8T, with `--apply` and additional confirmation. The Shelly calibration remains unchanged.
+Nous A8T meters can be calibrated using a Shelly as the measurement reference. The [calibration script](tools/CalibrateA8T.py) and [instructions](tools/CalibrateA8T.md) are included. The script calculates corrections from two runs with the device order reversed; it writes calibration values only to the A8T, with `--apply` and additional confirmation. The Shelly calibration remains unchanged.
 
 ## Local configuration and builds
 
