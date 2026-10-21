@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 2.11 -->
+<!-- README.DE.md, Version: 2.12 -->
 # Aquarium Dashboard
 
 [English](README.md)
@@ -25,7 +25,7 @@ eine externe Quelle und wird nicht zum verwalteten Feeder/Schaltgerät.
 
 Jedes physische Gerät wird anhand seiner MAC-Adresse und Dienstkennung erkannt. Die Zuordnung zu einer Funktion, etwa Fütterung oder Beleuchtung, lässt sich im Bereich **Gerätetausch** ändern. Zeitpläne und Kanalrollen bleiben dabei der jeweiligen Funktion zugeordnet.
 
-Verbraucher vorher von beiden Geräten trennen. Tausch nur innerhalb Feeder bzw. TimerSw; Hardwareparameter bleiben am Exemplar. Hostname, ApSsid, ApPw und FtpPw wandern mit der Funktion. Beide betroffenen ESPs starten neu; ein ausstehender Tausch bleibt bis zur frischen Bestätigung im privaten Journal erhalten.
+Verbraucher vorher von beiden Geräten trennen. Ein Gerät kann nur durch ein funktionskompatibles Gerät ersetzt werden. Hardwareparameter bleiben am jeweiligen Gerät. Hostname, ApSsid, ApPw und FtpPw wandern mit der Funktion. Beide betroffenen ESPs starten neu; ein ausstehender Tausch bleibt bis zur frischen Bestätigung im privaten Journal erhalten.
 
 Der Dialog warnt vor veralteten PC-FS-Binaries. Dashboard synchronisiert keine PC-Dateien. Der ausdrückliche PC-Abgleich liest Geräte-FS zurück und übernimmt auf Wunsch persistente Daten in das passende Hardwareprojekt. Vollständige Bedienung und Prüfgrenzen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
 

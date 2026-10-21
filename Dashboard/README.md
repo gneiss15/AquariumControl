@@ -1,4 +1,4 @@
-<!-- README.md, Version: 2.09 -->
+<!-- README.md, Version: 2.10 -->
 # Aquarium Dashboard
 
 [Deutsch](README.DE.md)
@@ -138,7 +138,7 @@ This still downloads a Pi snapshot first, but skips the central-data comparison 
 
 Physical identity is `MAC@ServiceId`; an endpoint adds a fixed channel number: `MAC@ServiceId/ChannelId`. Function names, physical identities and display labels are separate. See the [identity and swap contract](../Libs/GnBasicLib/DeviceIdentity.md).
 
-The expandable device-assignment area provides whole-device and endpoint swaps. **Disconnect consumers from both affected devices before swapping; leave the controllers powered.** A whole-device swap requires the same service class and, for feeders, matching configured temperature-sensor capability. Unknown capability blocks the swap. Function hostname and AP/FTP credentials follow the feeder function; hardware parameters remain with the physical device. Both ESPs restart.
+The expandable device-assignment area provides whole-device and endpoint swaps. **Disconnect consumers from both affected devices before swapping; leave the controllers powered.** A device can only be replaced by a functionally compatible device. Function hostname and AP/FTP credentials follow the feeder function; hardware parameters remain with the physical device. Both ESPs restart.
 
 Endpoint swaps require exactly equal, nonempty capability masks: 1 = switching, 2 = temperature sensing, 3 = both. Current endpoints use 1 or 2. MultiTimer socket numbers are derived from `PhysPos: "Main X"`, never array order. A MultiTimer entry without an output is not a switching target.
 
