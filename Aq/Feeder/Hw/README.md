@@ -1,9 +1,23 @@
-<!-- Feeder/Hw/README.md, Version: 1.07 -->
+<!-- Feeder/Hw/README.md, Version: 1.08 -->
 # Feeder – hardware
 
 [Deutsch](README.DE.md)
 
 Feeder is a complete DIY design. This directory contains the mechanical CAD model, images and documentation for the electronics modules and their assembly. The electronics use purchased modules exclusively.
+
+## Assembled feeder
+
+<a href="Images/FeederComplete.png"><img src="Images/FeederComplete.png" alt="Assembled feeder" width="480"></a>
+
+## OLED screens
+
+The photos show the date/time, temperature, feeding and Wi-Fi/NTP status views.
+
+| Date and time | Temperature |
+| --- | --- |
+| <a href="Images/MenuTime.png"><img src="Images/MenuTime.png" alt="Date and time" width="420"></a> | <a href="Images/MenuTemperature.png"><img src="Images/MenuTemperature.png" alt="Temperature" width="420"></a> |
+| **Feeding** | **Wi-Fi/NTP status** |
+| <a href="Images/MenuFeed.png"><img src="Images/MenuFeed.png" alt="Feeding" width="420"></a> | <a href="Images/MenuMode.png"><img src="Images/MenuMode.png" alt="Wi-Fi/NTP status" width="420"></a> |
 
 ## Operating principle
 
