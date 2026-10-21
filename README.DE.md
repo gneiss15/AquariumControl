@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 1.05 -->
+<!-- README.DE.md, Version: 1.06 -->
 # AquariumControl
 
 [English](README.md)
@@ -11,7 +11,7 @@ Die eigenen Projektdateien stehen unter [PolyForm Noncommercial 1.0.0](LICENSE.m
 
 ## Komponenten
 
-- [Dashboard](Dashboard/README.md): Aquariumübersicht, Schaltzeiten, Heizprofile, MAC-basierte Gerätezuordnung und Funktionstausch.
+- [Dashboard](Dashboard/README.DE.md): Aquariumübersicht, Schaltzeiten, Heizprofile, MAC-basierte Gerätezuordnung und Funktionstausch.
 - [MultiTimer](MultiTimer/README.md): nativer Mehrkanal-Timer und Controller.
 - [NOUS A8T](TmrSwA8T/README.md) und [Shelly](TmrSwShelly/README.md): Schaltgeräte-Firmware mit Leistungsmessung und Heizprofilen.
 - [Feeder](Feeder/README.DE.md) und [FeederSimple](FeederSimple/README.md): Futterautomaten und Temperatursender.
