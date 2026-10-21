@@ -1,15 +1,15 @@
-<!-- README.DE.md, Version: 2.14 -->
+<!-- README.DE.md, Version: 2.15 -->
 # Aquarium Dashboard
 
 [English](README.md)
 
 Dashboard ist die gemeinsame Übersicht und Bedienoberfläche für die Aquarium-Geräte. Die Übersicht gruppiert Schaltausgänge und Messwerte nach Aquarium. Gemeinsam genutzte Ausgänge können in mehreren Aquariumgruppen erscheinen.
 
-Die Geräte senden aktuelle Zustände und Messwerte wie Temperatur, Spannung, Strom und Leistung per UDP-Broadcast an den DashboardServer. Dieser leitet die Daten an die Browser weiter; die Browser fragen die Geräte dafür nicht direkt ab.
+Die Geräte senden aktuelle Zustände und Messwerte wie Temperatur, Spannung, Strom und Leistung per UDP-Broadcast. Der DashboardServer empfängt die Daten und übermittelt Aktualisierungen direkt an die Browser. Die Browser müssen die Messwerte daher nicht regelmäßig bei den Geräten abrufen.
 
 ## Hardware und Dokumentationsstand
 
-Dashboard und das Programm MultiTimer laufen auf demselben Raspberry Pi. MultiTimer steuert die angeschlossene achtfache Relaiskarte. Fotos und die Beschreibung von Relaiskarte, Netzteil und Gehäuse stehen unter [MultiTimer – Hardware](../MultiTimer/Hw/README.DE.md).
+Die Programme Dashboard und MultiTimer laufen auf demselben Raspberry Pi. MultiTimer steuert die angeschlossene achtfach-Relaiskarte. Fotos und die Beschreibung von Relaiskarte, Netzteil und Gehäuse stehen unter [MultiTimer – Hardware](../MultiTimer/Hw/README.DE.md).
 
 **Coming soon: Die Hardwarebeschreibung wird noch vervollständigt.**
 
@@ -102,7 +102,9 @@ Nach abgeschlossenem Tausch die MultiTimer-Seite öffnen oder neu laden. Beim We
 
 ### PC-Daten nach einem Tausch abgleichen
 
-Vor einem späteren Dateisystem-Upload müssen die PC-Daten mit der neuen Zuordnung abgeglichen und die betroffenen Dateisystem-Abbilder neu gebaut werden. Den Abgleich vom Repository-Stamm ausdrücklich starten:
+Ein Funktionstausch allein erfordert keinen Dateisystem-Upload. Soll später ein Dateisystem neu aufgespielt werden, müssen vor dem Erstellen des Abbilds die PC-Daten mit der aktuellen Gerätezuordnung abgeglichen werden.
+
+Den folgenden Befehl im Stammverzeichnis des AquariumControl-Repositories ausführen:
 
 ```bash
 python3 tools/ReadDeviceStates.py --apply
@@ -160,7 +162,7 @@ Die Ein-/Auswahl wird für ein Jahr im Browser gespeichert. Bei gespeichertem Ei
 
 Die Cookie-Laufzeit wird beim Laden und täglich geprüft. Bei höchstens 30 Tagen Restlaufzeit wird die vorhandene Auswahl um ein Jahr verlängert. Eine automatische Wiederaufnahme spielt keinen Testton; ausdrückliches Aktivieren oder Freigeben spielt den Testton.
 
-**Prüfung am eigenen Gerät:** Ton aktivieren, Testton prüfen, Seite neu laden und die Audiofreigabe kontrollieren. Danach ausschalten und erneut laden; die Seite muss stumm bleiben. Ein Hörtest im Fully Kiosk Browser steht noch aus.
+**Prüfung am eigenen Gerät:** Ton aktivieren, Testton prüfen, Seite neu laden und die Audiofreigabe kontrollieren. Danach ausschalten und erneut laden; die Seite muss stumm bleiben.
 
 ## Live-Daten und Verbindungsstatus
 
@@ -170,7 +172,8 @@ Die Geräte veröffentlichen ihren Status spätestens alle fünf Sekunden und zu
 
 Bei einer unterbrochenen Push-Verbindung fragt der Browser den Statuscache des DashboardServers einmal pro Sekunde per HTTP ab. Die Push-Verbindung wird automatisch wiederhergestellt; eine 15 Sekunden lang stumme Verbindung wird neu aufgebaut. Nach Wiederverbindung erhält der Browser den aktuellen Datenbestand. Mehr als 20 Sekunden alte Gerätedaten werden als Offline behandelt.
 
-Bei WLAN- oder Serverausfall zeigt das Dashboard eine Statusleiste mit automatischem Wiederholungsversuch und manueller Retry-Möglichkeit. Beim Aufwecken oder erneuten Sichtbarwerden wird die Verbindung sofort geprüft. Geänderte Gerätekonfigurationen werden beim Neuladen berücksichtigt.
+Bei WLAN- oder Serverausfall zeigt das Dashboard eine Statusleiste mit automatischem Wiederholungsversuch und einem Reload-Button.
+Beim Aufwachen oder erneuten Sichtbarwerden wird die Verbindung sofort geprüft. Geänderte Gerätekonfigurationen werden beim Neuladen berücksichtigt.
 
 Die Gerätekommunikation verwendet UDP-Version 2. Messwerte stehen als benannte Felder im Objekt `Status`, beispielsweise `Temperature` oder `BatteryPercent`. Die technischen Schnittstellen sind in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md) beschrieben.
 
