@@ -1,158 +1,121 @@
-<!-- README.md, Version: 1.16 -->
+<!-- README.md, Version: 1.17 -->
 # MultiTimer
 
-MultiTimer ist eine achtfach-Schaltsteckdose.
+[Deutsch](README.DE.md)
 
-## Hardware und Dokumentationsstand
+MultiTimer is an eight-channel switched power strip.
 
-Raspberry Pi mit achtfach-Relaiskarte und Netzteil im Conrad-IR-Powermanager-Gehäuse und (optionalem) Raumtemperatursensor.
-Die Programme Dashboard und MultiTimer laufen auf demselben Raspberry Pi.
-MultiTimer steuert die Schaltausgänge der achtfach-Relaiskarte anhand von Zeitplänen und messwertabhängigen Profilen.
-Mit seinen acht Schaltausgängen übernimmt MultiTimer die Steuerungsaufgaben von acht einzelnen NOUS- oder Shelly-Schaltsteckdosen.
+## Hardware and documentation status
 
-**Coming soon – Hardwarebeschreibung unvollständig.** [Fotos und Hardwareunterlagen](Hw/README.DE.md) zeigen den Aufbau. Stückliste, Anschlussplan und Einbaudetails folgen.
+A Raspberry Pi with an eight-channel relay board and power supply in a Conrad IR Powermanager enclosure, with an (optional) room-temperature sensor.
+Dashboard and MultiTimer run on the same Raspberry Pi.
+MultiTimer controls the relay board's outputs using schedules and measurement-dependent profiles.
+Its eight switching outputs perform the control tasks of eight individual NOUS or Shelly smart plugs.
 
-## Verzeichnisse und Daten
+**Coming soon – hardware description incomplete.** [Photos and hardware documents](Hw/README.md) show the assembly. A bill of materials, wiring diagram and installation details will follow.
 
-- `src/`, `include/`: native und gemeinsam genutzte C++-Quellen.
-- `WebSrc/`: lesbare Webquellen; PreBuild kopiert die statischen Webdateien nach data/; von dort werden sie ausgeliefert.
-- `data/`: erzeugte Ausgangsdaten und veränderliche Laufzeitdateien.
-- `generated/build/<target>/`: Compiler-Cache für `dummy` oder `raspi`.
-- `generated/Instances/GN-Pi/raspi/`: rohe Rücklesekopien vom Pi.
-- `generated/Instances/GN-Pi/raspi-readable/`: lesbare Gegenstücke.
-- `generated/Instances/GN-Pi/local-readable/`: lokale Vergleichskopie für BCO.
-- `include/ConfigDefaults.inc.h`: Beschreibung der Konfigurationsfelder
-  und Standardwerte für die JSON-Konfigurationsseite.
+## Directories and data
 
-`Config.json`, `Channels.json`, `SwitchTimes.json` und `SwitchTimes.sync.json`
-gehören zum Laufzeitbestand. Die Config.json im Projektstamm liefert dem nativen Programm seinen Namen.
-Die separate `data/Config.json` enthält die erzeugte Web-Konfiguration.
-`Channels.json` enthält Profile und Kanalzuordnungen;
-`SwitchTimes.json` enthält Schaltzeiten und Intervalle.
-Der Dashboard-Sync liefert die zentralen Werte. Bei Quell-/Webupdates dürfen
-laufende Geräte-Konfiguration, Kanalzuordnungen und Schaltpläne nicht überschrieben
-werden. `data/` kann private Daten enthalten und gehört nicht in Quellarchive.
+- `src/`, `include/`: native and shared C++ sources.
+- `WebSrc/`: readable web sources; PreBuild copies static web files to `data/`, from which they are served.
+- `data/`: generated initial data and mutable runtime files.
+- `generated/build/<target>/`: compiler cache for `dummy` or `raspi`.
+- `generated/Instances/GN-Pi/raspi/`: raw Pi readbacks.
+- `generated/Instances/GN-Pi/raspi-readable/`: readable counterparts.
+- `generated/Instances/GN-Pi/local-readable/`: local comparison copies for BCO.
+- `include/ConfigDefaults.inc.h`: configuration fields and defaults for the JSON configuration page.
 
-Die Anwendung ermittelt `data/` und `Log/MultiTimer.log` relativ zur ausführbaren Datei.
-`PreBuild.sh` erzeugt Ausgangsdateien aus WebSrc und den Konfigurationsdefinitionen.
-Es ist kein Rücklese- oder Backupwerkzeug für laufende Pi-Daten. Beim erneuten
-PreBuild wird der lokale data/-Bestand durch Ausgangsdaten ersetzt. `tools/DownloadData.sh`
-schützt davor nicht automatisch. Es lädt den gesamten Pi-data/-Bestand
-und die native Config.json zusätzlich zurück, formatiert die Kopien und öffnet BCO: lokal links,
-Pi-Download rechts. Er übernimmt keine Dateien in lokale Build-/Laufzeitquellen.
-NativeConfig.json im Vergleich ist die Config.json aus dem Projektstamm;
-Config.json innerhalb des Downloadordners stammt aus data/.
-Der Pi-Codeupload schließt die laufenden JSON-Dateien hingegen ausdrücklich aus.
+`Config.json`, `Channels.json`, `SwitchTimes.json` and `SwitchTimes.sync.json` are runtime data. The root `Config.json` supplies the native program's name. The separate `data/Config.json` contains generated web configuration. `Channels.json` contains profiles and channel assignments; `SwitchTimes.json` contains switching times and intervals.
+Dashboard synchronization supplies the central values. Source/web updates must not overwrite runtime device configuration, channel assignments or schedules. `data/` may contain private data and must not be included in source archives.
 
-## Bauen
+The application resolves `data/` and `Log/MultiTimer.log` relative to its executable.
+`PreBuild.sh` generates initial files from WebSrc and the configuration definitions. It is not a readback or backup tool for live Pi data. Running PreBuild again replaces local `data/` with initial data. `tools/DownloadData.sh` does not automatically protect against this. It reads back the entire Pi `data/` directory and the native `Config.json`, formats the copies and opens Beyond Compare (BCO): local files on the left, Pi download on the right. It does not copy files back into local build/runtime sources.
+In the comparison, `NativeConfig.json` represents the root `Config.json`; `Config.json` within the download directory comes from `data/`.
+The Pi code upload explicitly excludes runtime JSON files.
 
-Der PC-Testmodus simuliert die Hardware ohne angeschlossene Relais.
-Benötigt werden Python 3.10 oder neuer, ein C++20-fähiges g++, make, libjson-c und pthreads. Raspberry Pi benötigt zusätzlich
-libgpiod 2.x für die GPIO-Implementierung. Das Makefile erkennt einen Raspberry Pi
-über `/proc/device-tree/model` und wählt dort automatisch das Pi-Ziel.
+## Build
+
+The PC test mode simulates hardware without connected relays.
+Requirements are Python 3.10 or later, a C++20-capable g++, make, libjson-c and pthreads. Raspberry Pi additionally requires libgpiod 2.x for GPIO support. The Makefile detects a Raspberry Pi through `/proc/device-tree/model` and selects the Pi target automatically.
 
 ```bash
 make
 ```
 
-Explizite Ziele:
+Explicit targets:
 
 ```bash
 make dummy
 make raspi
 ```
 
-`make build` leert die Compiler-Caches und baut anschließend vollständig neu.
-`make clean` löscht die Compiler-Caches und erhält das Programm `MultiTimer`;
-`make full-clean` löscht zusätzlich das Programm. Quellen, Konfiguration,
-Laufzeitdaten und Pi-Rücklesekopien bleiben erhalten.
+`make build` clears compiler caches and performs a full rebuild.
+`make clean` deletes compiler caches and retains the `MultiTimer` executable; `make full-clean` also deletes the executable. Sources, configuration, runtime data and Pi readbacks are retained.
 
-Die ausführbare Datei heißt `MultiTimer`. `make TARGET_SYSTEM=dummy` bzw.
-`make TARGET_SYSTEM=raspi` wählt das Ziel ebenfalls explizit. Bei einer Einrichtung
-ohne Laufzeitbestand erzeugt `./PreBuild.sh` die Ausgangsdaten.
-Bestehende laufende Daten vorher sichern bzw. mit dem Pi-Stand abgleichen.
+The executable is called `MultiTimer`. `make TARGET_SYSTEM=dummy` or `make TARGET_SYSTEM=raspi` also selects the target explicitly. When setting up without runtime data, `./PreBuild.sh` generates the initial data. Back up existing runtime data or reconcile it with the Pi data before running PreBuild.
 
-## Start und Dienst
+## Start and service
 
 ```bash
 ./MultiTimer
 ./MultiTimer --port 8092
 ```
 
-Standard ist HTTP 8080, WebSocket 8081. Bei `--port` nutzt WebSocket den nächsten
-Port; HTTP muss kleiner als 65535 sein. `--log-start` protokolliert den ersten Start,
-`--ReStart` einen Neustart.
+Defaults are HTTP 8080 and WebSocket 8081. With `--port`, WebSocket uses the next port; the HTTP port must be below 65535. `--log-start` logs the first start, and `--ReStart` a restart.
 
-Der Standardpfad auf dem Pi ist `/home/pi/Prjs/MultiTimer`.
-Der Dienst heißt `MultiTimer.service`.
-Ein über die Weboberfläche angeforderter Neustart beendet MultiTimer; systemd startet
-es über `Restart=always` neu. Der Webprozess bekommt dafür keine sudo-Rechte.
+The default Pi directory is `/home/pi/Prjs/MultiTimer`.
+The service is called `MultiTimer.service`.
+A restart requested through the web interface terminates MultiTimer; systemd restarts it through `Restart=always`. The web process does not receive sudo privileges.
 
-Die Übertragung vom PC aus in einem interaktiven Terminal vom Repository-Stamm starten:
+Start the PC transfer in an interactive terminal from the repository root:
 
 ```bash
 ./MultiTimer/CopyToRasPi.sh
 ```
 
-`RASPI_HOST` und `RASPI_PRJS_DIR` überschreiben Ziel und Pfad.
-Der Transfer verlangt eine Bestätigung. Laufende Pi-Daten bleiben beim Quellupdate erhalten.
+`RASPI_HOST` and `RASPI_PRJS_DIR` override the target and path.
+The transfer requires confirmation. Runtime Pi data is preserved during source updates.
 
-Nach der Übertragung auf dem Pi im MultiTimer-Verzeichnis mit `make` bauen.
-`Install.sh` installiert und startet den systemd-Dienst sowie die Wartungsjobs.
-Bei einer bestehenden Installation den Dienst nach dem Neubau mit
-`sudo systemctl restart MultiTimer.service` neu starten.
+After transferring, build on the Pi with `make` in the MultiTimer directory.
+`Install.sh` installs and starts the systemd service and maintenance jobs.
+For an existing installation, restart the service after rebuilding with `sudo systemctl restart MultiTimer.service`.
 
 ```bash
 systemctl status MultiTimer.service
 journalctl -u MultiTimer.service -f
 ```
 
-`StartService.sh` unterscheidet Erststart und Neustart innerhalb desselben Boots.
-`tools/DownloadData.sh` dient zum Rücklesen des Pi-Datenbestands.
+`StartService.sh` distinguishes the first start from restarts within the same boot.
+`tools/DownloadData.sh` reads back Pi data.
 
-## Geräteidentität und Funktionstausch
+## Device identity and function swaps
 
-Jedes physische Gerät wird anhand seiner MAC-Adresse und Dienstkennung erkannt.
-Im Dashboard lassen sich Funktionen zwischen funktionskompatiblen Geräten bzw.
-einzelnen Schaltausgängen tauschen. Hardwarekonfiguration und Kalibrierung bleiben
-beim physischen Gerät. Die Bedienung beschreibt
-[Dashboard – Geräteidentität und Funktionstausch](../Dashboard/README.DE.md#geräteidentität-und-funktionstausch).
-Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Each physical device is identified by its MAC address and service ID.
+Dashboard can swap functions between functionally compatible devices or individual switching outputs. Hardware configuration and calibration stay with the physical device. Operation is described in [Dashboard – device identity and function swaps](../Dashboard/README.md#device-identity-and-function-swaps).
+Technical details are in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
 
-## Gerätezuordnung und PC-Dateien
+## Device assignments and PC files
 
-Ein Funktionstausch allein erfordert keinen Dateisystem-Upload. Soll später ein
-ESP-Dateisystem neu aufgespielt werden, müssen vor dem Erstellen des Abbilds die
-PC-Daten mit der aktuellen Gerätezuordnung abgeglichen werden. Den folgenden
-Befehl im Stammverzeichnis des AquariumControl-Repositories ausführen:
+A function swap alone does not require a filesystem upload. If an ESP filesystem is to be uploaded later, synchronize the PC data with the current device assignment before creating the image. Run the following command from the AquariumControl repository root:
 
 ```bash
 python3 tools/ReadDeviceStates.py --apply
 ```
 
-Dashboard selbst hat keinen Zugriff auf die PC-Dateien. Für MultiTimer werden die
-laufenden Pi-Daten über `tools/DownloadData.sh` zurückgelesen; der Quelltransfer
-mit `CopyToRasPi.sh` erhält sie auf dem Pi.
+Dashboard itself cannot access PC files. For MultiTimer, use `tools/DownloadData.sh` to read back runtime Pi data; source transfer with `CopyToRasPi.sh` preserves that data on the Pi.
 
-JSON-Editoren: Objektarrays (Profile/Kanäle) werden mit einer ausgerichteten Zeile pro Datensatz dargestellt; Zusatzfelder bleiben erhalten. Channels.json nutzt die verfügbare Seitenbreite.
+JSON editors display object arrays (profiles/channels) with one aligned line per record; additional fields are preserved. Channels.json uses the available page width.
 
-Channels.json besitzt wie Sources.json eine umrahmte Box mit innerem Textfeld. Sources.json ist initial zugeklappt und wird über den Button Sources.json … angezeigt bzw. wieder verborgen. Der lokale Sources-Editor ist nur bei nicht erreichbarem Dashboard freigegeben; der Server prüft dies beim Speichern erneut.
+Channels.json and Sources.json each have a framed box with an inner text field. Sources.json is initially collapsed; the Sources.json button shows or hides it. The local Sources editor is enabled only when Dashboard is unreachable; the server checks this again when saving.
 
-## Kanaltausch aus dem Dashboard
+## Channel swaps through Dashboard
 
-Beim Kanaltausch bezeichnet `PhysPos: "Main X"` die feste Steckdose 1 bis 8; Id, Rolle, Profil und Zeiten wechseln mit der Funktion. Beim Heizungsrollentausch gelten am selben Anschluss anschließend die Grenzen der neuen Rolle. GPIO/Taster/Polarität und Arrayposition bleiben erhalten.
+During a channel swap, `PhysPos: "Main X"` identifies the fixed socket 1–8; Id, role, profile and schedules follow the function. Swapping heating roles applies the new role's thresholds to the same physical connection. GPIOs, buttons, polarity and array positions remain unchanged.
 
-Kanäle und Zeiten werden gemeinsam geprüft und gespeichert. Unterbrochene
-Zuordnungsänderungen werden beim Neustart vor der Hardwareinitialisierung
-abgeschlossen. Erst nach erfolgreicher Übernahme bestätigt MultiTimer die neue
-Zuordnung. Während einer unvollständigen Übernahme ist der Zugriff auf die
-betroffenen Konfigurationsdateien gesperrt.
+Channels and schedules are validated and saved together. Interrupted assignment changes are completed at startup before hardware initialization. MultiTimer confirms the new assignment only after successful application. Access to the affected configuration files is blocked while an update is incomplete.
 
-Belegung und Listboxen stammen aus Channels.json. Eine offene Seite fragt /api/v1/config-revision beim Aktivieren einmal ab und lädt nur bei geänderter Revision nach. Der Dashboard-Bereichswechsel sendet ConfigurationActivated. Ungespeicherte Eingaben bleiben erhalten; bei Änderung erscheint ein Hinweis zum kontrollierten Neuladen. Kein Konfigurationspolling-Timer.
+Assignments and selection lists are derived from Channels.json. When activated, an open page queries `/api/v1/config-revision` once and reloads only if the revision has changed. Switching Dashboard sections sends `ConfigurationActivated`. Unsaved edits are retained; a change notice allows controlled reloading. There is no periodic configuration-polling timer.
 
-## Messwerte
+## Measurements
 
-MultiTimer empfängt Messwerte über UDP-Version 2 als benannte numerische Felder
-im Objekt `Status`. Profile wählen mit `Measurement` den auszuwertenden Messwert,
-beispielsweise `Temperature` oder `BatteryPercent`. Ein leeres Messwertfeld bedeutet
-`Temperature`.
+MultiTimer receives measurements through UDP version 2 as named numeric fields in the `Status` object. Profiles select the field through `Measurement`, for example `Temperature` or `BatteryPercent`. An empty measurement field means `Temperature`.
