@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 1.04 -->
+<!-- README.DE.md, Version: 1.05 -->
 # AquariumControl
 
 [English](README.md)
@@ -26,7 +26,7 @@ NOUS A8T können mithilfe eines Shelly als Messreferenz abgeglichen werden. Das 
 
 ## Lokale Konfiguration und Builds
 
-Die Python-Werkzeuge benötigen Python 3.10 oder neuer. Native Builds verwenden die Projekt-Makefiles. ESP32- und ESP8266-Projekte verwenden unterschiedliche Toolchains; vor dem Bauen die jeweilige Projekt-README lesen. Vorhandene lokale Werkzeugpfade sind konfigurierbar. Dashboard und MultiTimer wurden mit der installierten PC-Toolchain aus einem isolierten Export gebaut und gelinkt. ESP-Builds aus einer frischen Kopie stehen noch aus.
+Die Python-Werkzeuge benötigen Python 3.10 oder neuer. Native Builds verwenden die Projekt-Makefiles. ESP32- und ESP8266-Projekte verwenden unterschiedliche Toolchains; vor dem Bauen die jeweilige Projekt-README lesen. Vorhandene lokale Werkzeugpfade sind konfigurierbar. Dashboard und MultiTimer wurden auf einem PC erfolgreich kompiliert. Ob sich die ESP-Firmware allein mit dem veröffentlichten Repository und einer eigenen Konfiguration bauen lässt, ist noch nicht geprüft. **Erfahrungen mit eigenen Builds sind willkommen: Bitte berichtet, was funktioniert hat und wo Anleitungen oder Abhängigkeiten fehlen.**
 
 Enthalten sind Quellen und Hardwareunterlagen. Gerätespezifische `DevState`-Konfigurationen, WLAN-Zugangsdaten, private Signierschlüssel, Raspberry-Pi-Laufzeitdaten, Mitschnitte, Logs und Buildprodukte sind nicht enthalten. Eigene Konfiguration und Signierdaten außerhalb des öffentlichen Repositorys bereitstellen; siehe [BUILD-SECRETS.md](BUILD-SECRETS.md). **Coming soon:** eine vollständige Erstaufbau-Anleitung und generische Geräte-/Dashboard-Konfigurationsbeispiele. Der Entwicklungsstand ist noch kein sofort betriebsfähiges Komplettpaket.
 

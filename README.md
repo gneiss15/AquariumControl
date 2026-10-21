@@ -1,4 +1,4 @@
-<!-- README.md, Version: 1.08 -->
+<!-- README.md, Version: 1.09 -->
 # AquariumControl
 
 [Deutsch](README.DE.md)
@@ -26,7 +26,7 @@ NOUS A8T meters can be calibrated using a Shelly as the measurement reference. T
 
 ## Local configuration and builds
 
-Python utilities require Python 3.10 or later. Native builds use the project Makefiles. ESP32 and ESP8266 projects use different toolchains; consult each project's README before building. Existing local toolchain paths are configurable. Dashboard and MultiTimer dummy/native builds passed from an isolated extracted export using the installed PC toolchain. Fresh ESP builds are still pending.
+Python utilities require Python 3.10 or later. Native builds use the project Makefiles. ESP32 and ESP8266 projects use different toolchains; consult each project's README before building. Existing local toolchain paths are configurable. Dashboard and MultiTimer have been successfully compiled on a PC. Building the ESP firmware using only the published repository and your own configuration has not yet been verified. **Experiences with your own builds are welcome: please report what worked and where instructions or dependencies are missing.**
 
 The distribution contains source and hardware documentation. Device-specific `DevState` configurations, WLAN credentials, private signing keys, Raspberry Pi runtime data, captures, logs and build products are not included. Supply your own configuration and signing material outside the public repository as described in [BUILD-SECRETS.md](BUILD-SECRETS.md). **Coming soon:** a complete first-time setup guide and generic device/dashboard configuration examples. This work-in-progress repository is not yet a turnkey installation package.
 
