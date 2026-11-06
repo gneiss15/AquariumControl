@@ -1,4 +1,4 @@
-// FeederSimple.ino, Version: 1.11
+// FeederSimple.ino, Version: 1.13
 #include <GnBasics.h>
 #include <GnUdpStatus.h>
 #include <LittleFS.h>
@@ -11,7 +11,7 @@
 #include "FeederWebSocket.h"
 #include "FeedTimes.h"
 #include "FeederTimeSync.h"
-#include "Libs/Common/EspUpdate/EspIndexHtmlCheck.h"
+#include "Common/EspUpdate/EspIndexHtmlCheck.h"
 #include <MyFtpServer.h>
 
 #if !defined( ESP32 )
@@ -118,6 +118,7 @@ void setup(void)
          TGnUdpTemperature Temperature;
          Temperature.Available = FeederTemperature.Enabled();
          Temperature.Valid = FeederTemperature.Valid();
+         Temperature.SampleRevision = FeederTemperature.SampleRevision();
          if( Temperature.Valid )
            Temperature.Celsius = FeederTemperature.TemperatureCelsius();
          return Temperature;

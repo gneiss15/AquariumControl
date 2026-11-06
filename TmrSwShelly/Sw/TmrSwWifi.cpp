@@ -1,9 +1,10 @@
-// TmrSwWifi.cpp, Version: 4.21
+// TmrSwWifi.cpp, Version: 4.24
 //****************************************************************
 // Includes
 //****************************************************************
 
 #include <GnBasics.h>
+#include <GnUdpRxCounters.h>
 #include <GnDeviceIdentity.h>
 #include "TmrSwWifi.h"
 
@@ -18,7 +19,7 @@
 #include <GnTimeSync.h>
 #include "TmrSwStatusApi.h"
 #include "DeviceType.inc.h"
-#include "Libs/Common/EspUpdate/EspSignedArtifact.h"
+#include "Common/EspUpdate/EspSignedArtifact.h"
 #include <algorithm>
 #include <cstring>
 #include <esp_app_desc.h>
@@ -804,6 +805,9 @@ bool TTmrSwWifi::SetupHttpServer( void )
   FHttpServer.on( "/api/v1/sources", HTTP_OPTIONS, SHandleApiOptions );
   FHttpServer.on( "/api/v1/device", HTTP_OPTIONS, SHandleApiOptions );
   FHttpServer.on( "/api/v1/status", HTTP_GET, SHandleStatusApi );
+#if GN_DEBUG_UDP_RX
+  FHttpServer.on( "/api/v1/udp-rx-counters", HTTP_GET, []() { SSendJson(GnUdpRxCountersJson()); } );
+#endif
   FHttpServer.on( "/api/v1/status", HTTP_OPTIONS, SHandleApiOptions );
   FHttpServer.on( "/api/v1/power/calibration", HTTP_GET, SHandlePowerCalibrationApi );
   FHttpServer.on( "/api/v1/power/calibration", HTTP_POST, SHandleSetPowerCalibrationApi );
@@ -841,8 +845,6 @@ bool TTmrSwWifi::SetupHttpServer( void )
 
   FHttpServer.begin();
 
-  MDNS.begin( TmrSwConfig.Hostname.c_str() );
-  MDNS.addService( "http", "tcp", 80 );
 
   return true;
  }

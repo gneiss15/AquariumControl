@@ -1,2 +1,2 @@
-// EspSignedArtifact.cpp, Version: 1.02
-#include "Libs/Common/EspUpdate/EspSignedArtifact.cpp"
+// EspSignedArtifact.cpp, Version: 1.03
+#include "Common/EspUpdate/EspSignedArtifact.cpp"

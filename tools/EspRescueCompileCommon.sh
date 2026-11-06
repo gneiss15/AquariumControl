@@ -1,4 +1,4 @@
-# EspRescueCompileCommon.sh, Version: 1.17
+# EspRescueCompileCommon.sh, Version: 1.18
 # Common implementation sourced by project-specific EspRescueCompile.sh scripts.
 # Do not execute this file directly.
 
@@ -34,8 +34,8 @@ PythonHelper="${PythonHelper:-$ProjectDir/EspCompile.py}"
 RescueSource="${RescueSource:-$PrjsDir/EspRescueUpdate/Sw/EspRescueUpdate.ino}"
 RescueConfigHelper="${RescueConfigHelper:-$PrjsDir/EspRescueUpdate/EspRescueConfig.py}"
 RescueHardwareDefinition="${RescueHardwareDefinition:-$PrjsDir/EspRescueUpdate/Sw/EspRescueHardware.h}"
-RescueSigningHelper="${RescueSigningHelper:-$PrjsDir/Libs/Common/EspUpdate/EspUpdateSigning.py}"
-UpdateCommonDir="${UpdateCommonDir:-$PrjsDir/Libs/Common/EspUpdate}"
+RescueSigningHelper="${RescueSigningHelper:-$PrjsDir/Common/EspUpdate/EspUpdateSigning.py}"
+UpdateCommonDir="${UpdateCommonDir:-$PrjsDir/Common/EspUpdate}"
 DeviceTypeHelper="${DeviceTypeHelper:-$PrjsDir/tools/DeviceTypeArtifacts.py}"
 DeviceTypeFile="${DeviceTypeFile:-$ProjectDir/DeviceType.txt}"
 SecretsFile="${PRJS_SECRETS_FILE:-${SecretsFile:-$PrjsPrivateDir/Secrets.local.json}}"

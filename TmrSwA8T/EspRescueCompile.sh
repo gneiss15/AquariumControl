@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EspRescueCompile.sh, Version: 1.06
+# EspRescueCompile.sh, Version: 1.07
 set -euo pipefail
 
 COMPILE_VERBOSE=
@@ -38,6 +38,6 @@ if $RescueTestNode; then
   )
 fi
 
-# shellcheck source=../Libs/Common/EspRescue/_EspRescueCompileEsp32Common.sh
-source "$PrjsDir/Libs/Common/EspRescue/_EspRescueCompileEsp32Common.sh"
+# shellcheck source=../Common/EspRescue/_EspRescueCompileEsp32Common.sh
+source "$PrjsDir/Common/EspRescue/_EspRescueCompileEsp32Common.sh"
 RestoreDir

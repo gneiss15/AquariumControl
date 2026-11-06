@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CopyToRasPi.sh, Version: 1.15
+# CopyToRasPi.sh, Version: 1.18
 
 set -euo pipefail
 
@@ -10,6 +10,8 @@ RemotePrjsDir="${RASPI_PRJS_DIR:-/home/pi/Prjs}"
 RemoteDir="$RemotePrjsDir/MultiTimer"
 CommonLibDir="$PrjsDir/Libs/GnBasicLib"
 RemoteCommonLibDir="$RemotePrjsDir/Libs/GnBasicLib"
+AqLibDir="$PrjsDir/Libs/GnAqPrjsLib"
+RemoteAqLibDir="$RemotePrjsDir/Libs/GnAqPrjsLib"
 
 PauseOnError()
 {
@@ -38,7 +40,7 @@ CopyToRasPi()
   "$ScriptDir/PreBuild.sh" || return $?
 
   echo "Synchronisiere Aq/MultiTimer nach $RemoteHost:$RemoteDir/ ..."
-  ssh "$RemoteHost" "mkdir -p '$RemoteDir' '$RemoteCommonLibDir' '$RemotePrjsDir/tools'" || return $?
+  ssh "$RemoteHost" "mkdir -p '$RemoteDir' '$RemoteCommonLibDir' '$RemoteAqLibDir' '$RemotePrjsDir/tools'" || return $?
 
   (
     cd "$ScriptDir"
@@ -47,6 +49,7 @@ CopyToRasPi()
       MultiTimer.service \
       Versions.txt \
       Install.sh \
+      EnableRoomTemperature.sh \
       StartService.sh \
       RebootPi.sh \
       FreeCheck.sh \
@@ -72,11 +75,24 @@ CopyToRasPi()
 
   echo "Synchronisiere benötigte GnBasicLib-Quellen ..."
   rsync -v -a \
+    --exclude='/tests/' \
+    --exclude='/generated/' \
     --include='*/' \
     --include='*.h' \
     --include='*.cpp' \
     --exclude='*' \
     "$CommonLibDir/" "$RemoteHost:$RemoteCommonLibDir/" || return $?
+
+  echo "Synchronisiere benötigte GnAqPrjsLib-Quellen ..."
+  rsync -v -a \
+    --exclude='/tests/' \
+    --exclude='/generated/' \
+    --include='*/' \
+    --include='*.h' \
+    --include='*.cpp' \
+    --include='*.py' \
+    --exclude='*' \
+    "$AqLibDir/" "$RemoteHost:$RemoteAqLibDir/" || return $?
 
   echo "Synchronisation abgeschlossen."
 }

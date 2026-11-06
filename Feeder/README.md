@@ -5,9 +5,9 @@
 
 Feeder is a DIY automatic fish feeder with an OLED display and rotary encoder.
 
-Scheduling, configuration, Wi-Fi/web server, status API, temperature sensing and WebSocket support are shared with `FeederSimple` through `../Libs/Common/Feeder`. Servo, OLED and rotary-encoder implementations remain specific to this project.
+Scheduling, configuration, Wi-Fi/web server, status API, temperature sensing and WebSocket support are shared with `FeederSimple` through `../Common/Feeder`. Servo, OLED and rotary-encoder implementations remain specific to this project.
 
-The shared web interface is in `../Libs/Common/Feeder/WebSrc`. `ServoSteps.json` and its configuration page are used only by this servo-based feeder.
+The shared web interface is in `../Common/Feeder/WebSrc`. `ServoSteps.json` and its configuration page are used only by this servo-based feeder.
 
 ## Hardware and documentation
 
@@ -24,7 +24,7 @@ The mechanical model is stored in `Hw/CAD/Feeder.FCStd`. The designed [FeederV2]
 - `DevState/<device-name>/` contains the authoritative persistent device data.
 - `generated/build/main/` and `generated/build/rescue/` contain separate disposable build caches.
 - `generated/bin/<BoardId>_Arduino2/` contains main, rescue, LittleFS and combined artifacts for this Arduino target. Main and rescue clean operations remove only their own files.
-- `generated/Instances/<device-name>/LittleFS/` is the complete LittleFS upload image generated from the shared `Libs/Common/Feeder/WebSrc` and `DevState`; `LittleFS-readable/` is its readable comparison copy.
+- `generated/Instances/<device-name>/LittleFS/` is the complete LittleFS upload image generated from the shared `Common/Feeder/WebSrc` and `DevState`; `LittleFS-readable/` is its readable comparison copy.
 - `generated/Instances/<device-name>/` also holds the FTP readbacks `ftp/`, `ftp-readable/` and `ftp-devstate-readable/`. `ftp/` is the raw device readback, `ftp-readable/` its readable form, and `ftp-devstate-readable/` the selected data for comparison with `DevState`.
 - `generated/data/Versions.txt` is generated for the project-wide fallback data area; it is not an additional version source. Regular instance builds receive their `Versions.txt` in the corresponding `LittleFS/` directory.
 
@@ -109,7 +109,7 @@ The recommended rescue artifact is `generated/bin/wifi_kit_8_Arduino2/Feeder.Res
 
 ## Device identity and function swaps
 
-Each physical device is identified by its MAC address and service ID. Dashboard can swap functions between functionally compatible devices. Hardware configuration and calibration remain with the physical device. See [Dashboard – device identity and function swaps](../Dashboard/README.md#device-identity-and-function-swaps) for operation and [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md) for technical details.
+Each physical device is identified by its MAC address and service ID. Dashboard can swap functions between functionally compatible devices. Hardware configuration and calibration remain with the physical device. See [Dashboard – device identity and function swaps](../Dashboard/README.md#device-identity-and-function-swaps) for operation and [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md) for technical details.
 
 ## Device assignments and PC files
 
@@ -122,3 +122,10 @@ python3 tools/ReadDeviceStates.py --apply
 Dashboard cannot access PC files. Afterwards, rebuild affected filesystem images; images from different hardware types are not interchangeable.
 
 UDP status messages use version 2 and publish optional temperature as `Status.Temperature`: `null` for an invalid reading, omitted when the sensor is disabled.
+
+## Status messages
+
+Regular UDP status broadcasts are sent every ten seconds. Output/input states, overrides, errors and measurement validity changes are reported immediately, as are startup and reconnection. Measurement changes alone do not trigger additional broadcasts.
+When a temperature sensor is enabled, its status is published after each completed measurement in the ten-second measurement cycle, including unchanged readings.
+
+The exact DS18B20 power-on value of +85 °C is rejected as an invalid aquarium reading, even when the scratchpad CRC is correct. The previous sample revision and timestamp are retained; the next regular conversion can recover normally. OneWire timing and read retries remain unchanged.

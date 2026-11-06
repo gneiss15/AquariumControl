@@ -340,20 +340,20 @@
     "Zeitschaltuhr Aq1 & Aq2"
   ],
   "Device.LightTimerAq3": [
-    "Lighting Aq3",
-    "Beleuchtung Aq3"
+    "Light Main · Aq3",
+    "Licht Haupt · Aq3"
   ],
   "Device.HeaterMainAq1": [
-    "Heating Aq1",
-    "Heizung Aq1"
+    "Heater Main · Aq1",
+    "Heizung Haupt · Aq1"
   ],
   "Device.HeaterMainAq2": [
-    "Heating Aq2",
-    "Heizung Aq2"
+    "Heater Main · Aq2",
+    "Heizung Haupt · Aq2"
   ],
   "Device.HeaterMainAq3": [
-    "Heating Aq3",
-    "Heizung Aq3"
+    "Heater Main · Aq3",
+    "Heizung Haupt · Aq3"
   ],
   "Channel.LichtAq1Haupt": [
     "Light Main",
@@ -443,7 +443,15 @@
     "Measurement field",
     "Messwertfeld"
   ],
+  "Meas": [
+    "Measurement field",
+    "Messwertfeld"
+  ],
   "TempId": [
+    "Source",
+    "Quelle"
+  ],
+  "MeasSrc": [
     "Source",
     "Quelle"
   ],
@@ -464,6 +472,10 @@
     "Haupt Aus"
   ],
   "NoTempOn": [
+    "On without temperature",
+    "Ein ohne Temperatur"
+  ],
+  "OnIfNoMeas": [
     "On without temperature",
     "Ein ohne Temperatur"
   ],
@@ -512,7 +524,7 @@
     "Mi"
   ],
   "Weekday.Thu": [
-    "Thr",
+    "Thu",
     "Do"
   ],
   "Weekday.Fri": [
@@ -552,8 +564,8 @@
     "Timer"
   ],
   "Role.HeaterMain": [
-    "Heater main",
-    "Heizung Haupt"
+    "Main switch",
+    "Hauptschalter"
   ],
   "Role.HeaterFloor": [
     "Heater floor",
@@ -675,6 +687,10 @@
     "HW endpoint:",
     "HW-Endpunkt:"
   ],
+  "RoomTemperature": [
+    "Room temperature",
+    "Raumtemperatur"
+  ],
   "TemperatureSource": [
     "Temperature source",
     "Temperaturgeber"
@@ -770,5 +786,169 @@
   "AlarmSoundRelease": [
     "Allow warning sound",
     "Warnton freigeben"
+  ],
+  "ChargeRunOn": [
+    "Charge run-on active",
+    "Ladenachlauf aktiv"
+  ],
+  "ChargeSecondsPerPercent": [
+    "Seconds per percentage point",
+    "Sekunden je Prozentpunkt"
+  ],
+  "ChargeSecPerPct": [
+    "Seconds per percentage point",
+    "Sekunden je Prozentpunkt"
+  ],
+  "ChargeProfileInvalid": [
+    "Active run-on requires BatteryPercent, a positive integer time factor in seconds per percentage point and thresholds within 0–100.",
+    "Aktiver Nachlauf benötigt BatteryPercent, einen positiven ganzzahligen Zeitfaktor in Sekunden je Prozentpunkt und Grenzen innerhalb 0–100."
+  ],
+  "Controller": [
+    "Control",
+    "Regelung"
+  ],
+  "PiActive": [
+    "PI active",
+    "PI aktiv"
+  ],
+  "PiShadow": [
+    "PI observation",
+    "PI-Beobachtung"
+  ],
+  "PiParameters": [
+    "PI parameters and device assignment",
+    "PI-Parameter und Gerätezuordnung"
+  ],
+  "Pi.Setpoint": [
+    "Setpoint (°C)",
+    "Solltemperatur (°C)"
+  ],
+  "Pi.FloorWatts": [
+    "Floor power (W)",
+    "Bodenleistung (W)"
+  ],
+  "Pi.FloorW": [
+    "Floor power (W)",
+    "Bodenleistung (W)"
+  ],
+  "Pi.MainMaxWatts": [
+    "Max. main heater power (W), excluding floor",
+    "Max. Hauptheizleistung (W), ohne Boden"
+  ],
+  "Pi.MainMaxW": [
+    "Max. main heater power (W), excluding floor",
+    "Max. Hauptheizleistung (W), ohne Boden"
+  ],
+  "Pi.CapacityWhPerK": [
+    "Heat capacity (Wh/K)",
+    "Wärmekapazität (Wh/K)"
+  ],
+  "Pi.LossWattsPerK": [
+    "Heat loss (W/K)",
+    "Wärmeverlust (W/K)"
+  ],
+  "Pi.LossWPerK": [
+    "Heat loss (W/K)",
+    "Wärmeverlust (W/K)"
+  ],
+  "Pi.Kp": [
+    "Proportional gain (W/K)",
+    "Proportionalfaktor (W/K)"
+  ],
+  "Pi.TiSeconds": [
+    "Integral time Ti (s), Ki = Kp / Ti",
+    "Integralzeit Ti (s), Ki = Kp / Ti"
+  ],
+  "Pi.TiSec": [
+    "Integral time Ti (s), Ki = Kp / Ti",
+    "Integralzeit Ti (s), Ki = Kp / Ti"
+  ],
+  "Pi.WindowSeconds": [
+    "PWM period (s)",
+    "PWM-Periode (s)"
+  ],
+  "Pi.WindowSec": [
+    "PWM period (s)",
+    "PWM-Periode (s)"
+  ],
+  "Pi.DelaySeconds": [
+    "Thermal delay (s)",
+    "Thermische Verzögerung (s)"
+  ],
+  "Pi.DelaySec": [
+    "Thermal delay (s)",
+    "Thermische Verzögerung (s)"
+  ],
+  "Pi.MainDevice": [
+    "Main device ID",
+    "Hauptgerät-ID"
+  ],
+  "Pi.MainEndpoint": [
+    "Main device ID",
+    "Hauptgerät-ID"
+  ],
+  "Pi.FloorDevice": [
+    "Floor device ID",
+    "Bodengerät-ID"
+  ],
+  "Pi.FloorEndpoint": [
+    "Floor device ID",
+    "Bodengerät-ID"
+  ],
+  "Pi.FloorChannel": [
+    "Floor channel",
+    "Bodenkanal"
+  ],
+  "PiOff": [
+    "Hysteresis",
+    "Hysterese"
+  ],
+  "Role.MainSw": [
+    "Main switch",
+    "Hauptschalter"
+  ],
+  "DashboardAreas": [
+    "Dashboard sections",
+    "Dashboard-Bereiche"
+  ],
+  "SelectDashboardArea": [
+    "Select dashboard section",
+    "Dashboard-Bereich auswählen"
+  ],
+  "CentralHeatProfiles": [
+    "Central control profiles",
+    "Zentrale Regelprofile"
+  ],
+  "SelectChannelAria": [
+    "Select channel",
+    "Kanal auswählen"
+  ],
+  "NetworkInterrupted": [
+    "Wi-Fi or network connection interrupted. Reconnecting automatically.",
+    "WLAN oder Netzwerkverbindung ist unterbrochen. Automatische Wiederverbindung läuft."
+  ],
+  "DashboardRecovering": [
+    "Connection restored. Reloading dashboard…",
+    "Verbindung wiederhergestellt. Dashboard wird neu geladen …"
+  ],
+  "DashboardUnavailable": [
+    "Dashboard server unavailable",
+    "Dashboard-Server nicht erreichbar"
+  ],
+  "RetryAutomatic": [
+    "Retrying automatically.",
+    "Neuer Versuch läuft automatisch."
+  ],
+  "CentralTimes": [
+    "Central time configuration",
+    "Zentrale Zeitkonfiguration"
+  ],
+  "FeederRunning": [
+    "RUNNING",
+    "LÄUFT"
+  ],
+  "FeederReady": [
+    "READY",
+    "BEREIT"
   ]
 }

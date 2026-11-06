@@ -1,11 +1,36 @@
-// DashboardServer.cpp, Version: 1.24
+// DashboardServer.cpp, Version: 1.41
+#define Do_Device_RX
+#define Do_THttpDevice
+#define Do_THttpFeedbackDocument
+#define Do_THttpFeedbackWrite
+#define Do_THttpResult
+#define Do_TJsonCachedStatus
+#define Do_TJsonChannelGroup
+#define Do_TJsonFeedbackConfiguration
+#define Do_TJsonIdentity
+#define Do_TJsonProfile
+#define Do_TJsonProfiles
+#define Do_TJsonRecordingChannels
+#define Do_TJsonRegistryView
+#define Do_TSseRecordingEvent
+#define Do_TSseStatusBatch
+#define Do_TUdpChannel
+#define Do_TUdpLastError
+#define Do_TUdpMeasurement
+#define Do_TUdpStatusData
 #include <GnBasics.h>
 #include "Version.inc.h"
 #include <GnUdpStatus.h>
+#include <GnUdpCompact.h>
+#include <GnUdpControl.h>
+#include <GnUdpSources.h>
+#include <GnJsonResponses.h>
+#include <DeviceUrl.h>
 #include "TimeStore.h"
 #include "AssignmentControl.h"
 #include "HeatProfileStore.h"
 #include "FeedbackMonitor.h"
+#include "ChargeLearningDebug.h"
 
 #include <arpa/inet.h>
 #include <chrono>
@@ -34,7 +59,6 @@ namespace
  {
 constexpr std::size_t MaxRequestHeaderSize = 16384;
 constexpr std::size_t MaxRequestBodySize = 262144;
-constexpr std::size_t MaxUdpPacketSize = 8192;
 constexpr uint32_t DeviceOnlineMaxAgeMs = 20000;
 constexpr uint32_t DeviceRequestMinimumIntervalMs = 1000;
 volatile std::sig_atomic_t StopRequested = 0;
@@ -120,6 +144,10 @@ struct TStatusStream
   int Fd;
   TGNString Pending;
   std::map<TGNString, TGNString> Tokens;
+  bool Configuration = false;
+  bool Initialized = false;
+  uint64_t ConfigurationGeneration = 0;
+  std::chrono::steady_clock::time_point Heartbeat{};
  };
 
 class TDashboardServer
@@ -133,13 +161,16 @@ class TDashboardServer
 
  private:
   TGNString                           DeviceStatusJson( TGNString const & Id );
-  void                                OpenStatusStream( int ClientFd );
+  void                                OpenStatusStream( int ClientFd, bool Configuration = false );
+  void                                UpdateRecordingConfiguration(void);
   void                                UpdateStatusStreams(void);
   bool                                OpenSocket(void);
   bool                                OpenUdpSocket(void);
   void                                CloseSocket(void);
   void                                CloseUdpSocket(void);
   void                                HandleUdpPackets(void);
+  void CacheUdpStatus(TGNString const & Packet,uint64_t ReceivedMs);
+  void FlushPendingUdp(void);
   void                                HandleDeviceStatusRequest( int ClientFd, TGNString const & Method,
                                                                  TGNString const & Id, bool SendBody );
   void                                HandleSystemDeviceInfoRequest( int ClientFd, TGNString const & Method,
@@ -162,7 +193,6 @@ class TDashboardServer
   bool                                SendAll( int ClientFd, char const * Data, std::size_t Size ) const;
   std::filesystem::path               ResolvePath( TGNString const & RequestPath ) const;
   static TGNString                    DecodeUrl( TGNString const & Value );
-  static void                         AppendJsonString( TGNString & Json, TGNString const & Value );
   static char const *                 GetContentType( std::filesystem::path const & FileName );
   static TGNString                    GetClientAddress( sockaddr_in const & Address );
 
@@ -174,12 +204,20 @@ class TDashboardServer
   TAssignmentControl                   AssignmentControl;
   TFeedbackMonitor                    FeedbackMonitor;
   TGNString                           FeedbackRevision;
-  TGNString                           FeedbackConfiguration = "{\"Version\":1,\"Monitors\":[]}";
+  TGNString                           FeedbackConfiguration = GnWriteJson(TJsonFeedbackConfiguration{});
   std::vector<TStatusStream> StatusStreams;
+  std::map<TGNString,TGNString> RecordingConfiguration;
+  bool RecordingDirty = true;
+  uint64_t RecordingGeneration = 0;
+  TGNString RecordingRegistryRevision;
+  bool RecordingRegistryPending = false;
   std::chrono::steady_clock::time_point SystemStatusAt{};
   TGNString SystemStatus;
   int                                 ServerFd;
   int                                 UdpFd;
+  TGnUdpControl UdpControl;
+  TGnUdpDescriptions UdpDescriptions;
+  std::map<TGNString,std::pair<TGNString,uint64_t>> PendingUdp;
   std::map<TGNString, TUdpDeviceState> Devices;
   std::map<TGNString, std::chrono::steady_clock::time_point> LastDeviceRequests;
  };
@@ -241,7 +279,7 @@ TGNString TDashboardServer::ReadDataVersion(void) const
 
 bool TDashboardServer::Run(void)
  {
-  if( !OpenSocket() || !OpenUdpSocket() )
+  if( !OpenSocket() || !OpenUdpSocket() || !UdpControl.Setup(GnUdpDescriptionPort(Registry.WireId(SystemDeviceId))) )
     return false;
 
   std::cout << "Dashboard server: http://0.0.0.0:" << Port << "/\n";
@@ -265,6 +303,15 @@ bool TDashboardServer::Run(void)
      {
       auto View = Registry.View(); FeedbackMonitor.Bind( View ); json_object_put( View );
       FeedbackRevision = Registry.Revision();
+     }
+    TGNString Info, Address; uint16_t ReplyPort;
+    for( unsigned I=0; I<64 && UdpControl.Read(Info,Address,ReplyPort); ++I )
+     {
+      TGnWireDocument Packet(Info);
+      const auto Root=Packet.Root();
+      const auto Type=MessageType(Root);
+      if(ValidateReceivedMessage(Root,Type) && Type==TMsgType::Info && UdpDescriptions.AcceptInfo(Root))
+        FlushPendingUdp(); // Retain original reception time.
      }
     pollfd PollFds[2]{};
     PollFds[0].fd = ServerFd;
@@ -391,15 +438,11 @@ void TDashboardServer::SendUdpRequest( std::vector<TGNString> const & Ids )
   if( UdpFd < 0 )
     return;
 
-  TGNString Json = "{\"Version\":" + std::to_string( GnUdpStatusVersion ) +
-                    ",\"Type\":\"Request\",\"ID\":[";
-  for( size_t Index = 0; Index < Ids.size(); ++Index )
-   {
-    if( Index != 0 )
-      Json += ',';
-    AppendJsonString( Json, Ids[Index] );
-   }
-  Json += "]}";
+  TUdpRequestMessage Request;
+  Request.ID = Ids;
+  const TGNString Json = GnWriteUdpMessage( Request );
+  if( Json.empty() )
+    return;
 
   ifaddrs * Interfaces = nullptr;
   if( getifaddrs( &Interfaces ) != 0 )
@@ -431,69 +474,104 @@ void TDashboardServer::RequestDeviceIfNeeded( TGNString const & Id )
 
 void TDashboardServer::HandleUdpPackets(void)
  {
-  char Buffer[MaxUdpPacketSize + 1];
   while( true )
    {
-    const ssize_t Count = recvfrom( UdpFd, Buffer, MaxUdpPacketSize, MSG_DONTWAIT, nullptr, nullptr );
-    if( Count < 0 )
+    sockaddr_in From{};
+    TGNString Packet;
+    if(!GnReadUdpDatagram(UdpFd,Packet,From))
      {
-      if( errno == EAGAIN || errno == EWOULDBLOCK )
-        return;
-      std::cerr << "UDP receive failed: " << strerror( errno ) << '\n';
+      if(errno != EAGAIN && errno != EWOULDBLOCK)
+        std::cerr << "UDP receive failed: " << strerror(errno) << '\n';
       return;
      }
-    if( Count == 0 )
-      return;
-    Buffer[Count] = '\0';
+    if(Packet.empty())continue;
+    char Sender[INET_ADDRSTRLEN]; inet_ntop(AF_INET,&From.sin_addr,Sender,sizeof(Sender));
+    TGnWireDocument Wire(Packet); auto W=Wire.Root();
+    const auto Type=MessageType(W);
+    if(!ValidateReceivedMessage(W,Type))continue;
+    if(Type==TMsgType::SourceRequest)
+     {
+      if(Registry.Pending())continue;
+      for(auto const & Device:Registry.Devices())
+       {
+        if(Device.second.Id.size()<2 || (Device.second.Id.substr(17)!="@1" && Device.second.Id.substr(17)!="@4"))continue;
+        auto * Envelope=json_object_new_object(); Registry.AddPreparation(Device.first,Envelope);
+        TGnWireValue E(Envelope);
+        const auto Source=E.Get("Identity").Get("Srcs").Get(W.Get("Func").Text()).Text();
+        const auto Reply=GnUdpSourceReply(Registry.WireId(SystemDeviceId),W.Get("Func").Text(),Source,Registry.Revision());
+        json_object_put(Envelope);
+        if(!Reply.empty())UdpControl.Send(Reply,Sender,ntohs(From.sin_port));
+        break;
+       }
+      continue;
+     }
+    if(Type!=TMsgType::Status)continue;
+    const auto WireId=W.Get("ID").Text(); bool Known=Registry.AcceptWireId(WireId);
+    for(auto const & Source:Registry.ExternalSources())Known=Known||Source.second==WireId;
+    if(!Known)continue;
+    TGNString Request;
+    const auto Now=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    const auto Expanded=UdpDescriptions.Expand(W,Now,Request);
+    if(!Request.empty())UdpControl.Send(Request,Sender,GnUdpDescriptionPort(WireId));
+    if(Expanded.empty()){if(PendingUdp.size()<32||PendingUdp.count(WireId))PendingUdp[WireId]={Packet,Now};continue;}
+    PendingUdp.erase(WireId);
+    CacheUdpStatus(Expanded,Now);
+   }
+ }
 
-    json_object * Root = json_tokener_parse( Buffer );
+void TDashboardServer::CacheUdpStatus(TGNString const & Expanded,uint64_t ReceivedMs)
+ {
+    json_object * Root = json_tokener_parse( Expanded.c_str() );
     if( Root == nullptr || !json_object_is_type( Root, json_type_object ) )
      {
       if( Root != nullptr )
         json_object_put( Root );
-      continue;
+      return;
      }
 
-    json_object * Version = nullptr;
-    json_object * Type = nullptr;
-    json_object * Id = nullptr;
-    json_object * Status = nullptr;
-    const bool Valid =
-      json_object_object_get_ex( Root, "Version", &Version ) &&
-      json_object_is_type( Version, json_type_int ) &&
-      GnUdpStatusVersionSupported( json_object_get_int( Version ) ) &&
-      json_object_object_get_ex( Root, "Type", &Type ) &&
-      json_object_is_type( Type, json_type_string ) &&
-      TGNString( json_object_get_string( Type ) ) == "Status" &&
-      json_object_object_get_ex( Root, "ID", &Id ) &&
-      json_object_is_type( Id, json_type_string ) &&
-      json_object_object_get_ex( Root, "Status", &Status ) &&
-      json_object_is_type( Status, json_type_object );
+    json_object * Id=nullptr,*Status=nullptr;
+    // ReceiveUdp validates the envelope. Here NULL is evaluated according to
+    // the cache operation: an ID and an object snapshot are necessary.
+    const bool Valid=json_object_object_get_ex(Root,"ID",&Id) &&
+      json_object_is_type(Id,json_type_string) &&
+      json_object_object_get_ex(Root,"Status",&Status) && json_object_is_type(Status,json_type_object);
     if( !Valid )
      {
       json_object_put( Root );
-      continue;
+      return;
      }
 
     const TGNString DeviceId = json_object_get_string( Id );
     if( DeviceId.empty() )
      {
       json_object_put( Root );
-      continue;
+      return;
      }
-    const auto Received = std::chrono::steady_clock::now();
+    const auto Received = std::chrono::steady_clock::time_point(std::chrono::milliseconds(ReceivedMs));
     FeedbackMonitor.Receive( Root, std::chrono::duration_cast<std::chrono::milliseconds>( Received.time_since_epoch() ).count() );
     // Only registered external senders enter the display cache; they remain
     // separate from managed devices and never require configuration APIs.
     bool External = false;
     for( auto const & Source : Registry.ExternalSources() )
       External = External || Source.second == DeviceId;
-    if( !External && !Registry.AcceptWireId( DeviceId ) ) { json_object_put( Root ); continue; }
+    if( !External && !Registry.AcceptWireId( DeviceId ) ) { json_object_put( Root ); return; }
+    ChargeLearningDebug::Receive(RootDirectory,Root);
     TUdpDeviceState & State = Devices[External ? DeviceId : Registry.Function( DeviceId )];
     State.StatusJson = json_object_to_json_string_ext( Status, JSON_C_TO_STRING_PLAIN );
-    State.ReceivedAt = std::chrono::steady_clock::now();
+    State.ReceivedAt = Received;
     ++State.Revision;
     json_object_put( Root );
+ }
+
+void TDashboardServer::FlushPendingUdp(void)
+ {
+  for(auto I=PendingUdp.begin();I!=PendingUdp.end();)
+   {
+    TGNString Request;
+    const auto Expanded=UdpDescriptions.Expand(I->second.first,I->second.second,Request);
+    if(Expanded.empty()){++I;continue;}
+    CacheUdpStatus(Expanded,I->second.second);
+    I=PendingUdp.erase(I);
    }
  }
 
@@ -506,12 +584,16 @@ void TDashboardServer::HandleSystemDeviceInfoRequest( int ClientFd, TGNString co
     return;
    }
 
-  TGNString Json = "{\"ApiVersion\":1,\"DeviceType\":\"System\",\"DeviceId\":\"";
-  Json += Registry.WireId( SystemDeviceId );
-  Json += "\",\"Name\":\"";
-  Json += SystemDeviceName;
-  Json += "\",\"Capabilities\":[\"Status\",\"ErrorStatus\",\"Measurements\"]}\n";
-  SendJson( ClientFd, Json, SendBody );
+  THttpDevice Device;
+  Device.ApiVer=1;
+  Device.DevType="System";
+  Device.DevId=Registry.WireId(SystemDeviceId);
+  Device.Name=SystemDeviceName;
+  Device.FirmwareVer=ProjectVersion::ServerRevision;
+  Device.Caps=std::vector<TGNString>{"Status","ErrorStatus","Measurements"};
+  Device.CfgUrl=DeviceUrl("http",Port,"/");
+  Device.Events=nullptr; // System status is distributed by the Dashboard SSE stream.
+  SendJson(ClientFd,GnWriteJson(Device)+"\n",SendBody);
  }
 
 TGNString TDashboardServer::BuildSystemStatusJson(void)
@@ -549,92 +631,36 @@ TGNString TDashboardServer::BuildSystemStatusJson(void)
     Errors.emplace_back( "Systemlast konnte nicht gelesen werden." );
 
   const std::time_t CurrentTime = std::time( nullptr );
-  TGNString Json = "{\"DeviceId\":\"";
-  Json += Registry.WireId( SystemDeviceId );
-  Json += "\",\"CurrentTime\":" + std::to_string( static_cast<long long>( CurrentTime ) );
-  Json += ",\"Healthy\":";
-  Json += Errors.empty() ? "true" : "false";
-  Json += ",\"LastError\":null,\"Errors\":[";
-  for( size_t Index = 0; Index < Errors.size(); ++Index )
+  TUdpStatusData Status;
+  Status.DevId=Registry.WireId(SystemDeviceId);
+  Status.CurrentTime=static_cast<uint64_t>(CurrentTime);
+  Status.Healthy=Errors.empty();
+  Status.LastErr=nullptr;
+  Status.Errs=Errors;
+  Status.Chs=std::vector<TUdpChannel>{};
+  const auto AddMeasurement=[&](char const * Kind,char const * Name,double Value,
+                                bool Valid,uint8_t Decimals,char const * Unit,char const * Error)
    {
-    if( Index != 0 )
-      Json += ',';
-    AppendJsonString( Json, Errors[Index] );
-   }
-  Json += "],\"Measurements\":[{\"Id\":\"CpuTemperature\",\"Name\":\"CPU-Temperatur\",\"Value\":";
-  if( TemperatureValid )
-   {
-    std::ostringstream Value;
-    Value << std::fixed << std::setprecision( 1 ) << CpuTemperature;
-    Json += Value.str();
-   }
-   else
-    Json += "null";
-  Json += ",\"Unit\":\"°C\",\"Decimals\":1,\"Valid\":";
-  Json += TemperatureValid ? "true" : "false";
-  Json += ",\"UpdatedAt\":" + std::to_string( static_cast<long long>( CurrentTime ) );
-  Json += ",\"Error\":";
-  if( TemperatureValid )
-    Json += "null";
-   else
-    AppendJsonString( Json, "CPU-Temperatur konnte nicht gelesen werden." );
-  Json += "},{\"Id\":\"Load1\",\"Name\":\"Systemlast (1 min)\",\"Value\":";
-  if( LoadValid )
-   {
-    std::ostringstream Value;
-    Value << std::fixed << std::setprecision( 2 ) << LoadOneMinute;
-    Json += Value.str();
-   }
-   else
-    Json += "null";
-  Json += ",\"Decimals\":2,\"Valid\":";
-  Json += LoadValid ? "true" : "false";
-  Json += ",\"UpdatedAt\":" + std::to_string( static_cast<long long>( CurrentTime ) );
-  Json += ",\"Error\":";
-  if( LoadValid )
-    Json += "null";
-   else
-    AppendJsonString( Json, "Systemlast konnte nicht gelesen werden." );
-  Json += "},{\"Id\":\"Load5\",\"Name\":\"Systemlast (5 min)\",\"Value\":";
-  if( LoadValid )
-   {
-    std::ostringstream Value;
-    Value << std::fixed << std::setprecision( 2 ) << LoadFiveMinutes;
-    Json += Value.str();
-   }
-   else
-    Json += "null";
-  Json += ",\"Decimals\":2,\"Valid\":";
-  Json += LoadValid ? "true" : "false";
-  Json += ",\"UpdatedAt\":" + std::to_string( static_cast<long long>( CurrentTime ) );
-  Json += ",\"Error\":";
-  if( LoadValid )
-    Json += "null";
-   else
-    AppendJsonString( Json, "Systemlast konnte nicht gelesen werden." );
-  Json += "},{\"Id\":\"Load15\",\"Name\":\"Systemlast (15 min)\",\"Value\":";
-  if( LoadValid )
-   {
-    std::ostringstream Value;
-    Value << std::fixed << std::setprecision( 2 ) << LoadFifteenMinutes;
-    Json += Value.str();
-   }
-   else
-    Json += "null";
-  Json += ",\"Decimals\":2,\"Valid\":";
-  Json += LoadValid ? "true" : "false";
-  Json += ",\"UpdatedAt\":" + std::to_string( static_cast<long long>( CurrentTime ) );
-  Json += ",\"Error\":";
-  if( LoadValid )
-    Json += "null";
-   else
-    AppendJsonString( Json, "Systemlast konnte nicht gelesen werden." );
-  Json += "}],\"Channels\":[]}";
-  auto Status = json_tokener_parse( Json.c_str() );
-  const auto Now = std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now().time_since_epoch() ).count();
-  json_object_object_add( Status, "FeedbackMonitors", FeedbackMonitor.Status( Now ) );
-  Json = json_object_to_json_string_ext( Status, JSON_C_TO_STRING_PLAIN ); json_object_put( Status );
-  return Json;
+    TUdpMeasurement Measurement;
+    Measurement.Kind=Kind;Measurement.Name=Name;
+    if(Valid)Measurement.Value=Value;else Measurement.Value=nullptr;
+    Measurement.Valid=Valid;Measurement.Decimals=Decimals;
+    Measurement.UpdatedAt=static_cast<uint64_t>(CurrentTime);
+    if(Unit && *Unit)Measurement.Unit=Unit;
+    if(Valid)Measurement.Err=nullptr;else Measurement.Err=Error;
+    Status.Meas.push_back(std::move(Measurement));
+   };
+  AddMeasurement("CpuTemperature","CPU-Temperatur",CpuTemperature,TemperatureValid,1,"°C","CPU-Temperatur konnte nicht gelesen werden.");
+  AddMeasurement("Load1","Systemlast (1 min)",LoadOneMinute,LoadValid,2,"","Systemlast konnte nicht gelesen werden.");
+  AddMeasurement("Load5","Systemlast (5 min)",LoadFiveMinutes,LoadValid,2,"","Systemlast konnte nicht gelesen werden.");
+  AddMeasurement("Load15","Systemlast (15 min)",LoadFifteenMinutes,LoadValid,2,"","Systemlast konnte nicht gelesen werden.");
+  const auto Now=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  json_object * Evaluations=FeedbackMonitor.Status(Now);
+  TGNString Error;
+  const bool Valid=GnRead(TGnWireValue(Evaluations),Status.FeedbackMonitors,Error);
+  json_object_put(Evaluations);
+  if(!Valid)return {};
+  return GnWriteJson(Status);
  }
 
 void TDashboardServer::HandleDeviceStatusRequest( int ClientFd, TGNString const & Method,
@@ -662,12 +688,13 @@ TGNString TDashboardServer::DeviceStatusJson( TGNString const & Id )
     if( SystemStatusAt.time_since_epoch().count() == 0 || Now - SystemStatusAt >= std::chrono::seconds( 5 ) )
      { SystemStatus = BuildSystemStatusJson(); SystemStatusAt = Now; }
     const auto Revision = std::chrono::duration_cast<std::chrono::milliseconds>( SystemStatusAt.time_since_epoch() ).count();
-    TGNString Json = "{\"ID\":\"";
-    Json += Registry.WireId( SystemDeviceId );
-    Json += "\",\"Online\":true,\"Revision\":" + std::to_string( Revision );
-
-    Json += ",\"AgeMilliseconds\":0,\"Status\":" + SystemStatus + "}\n";
-    return Json;
+    TJsonCachedStatus Reply;
+    Reply.ID = Registry.WireId( SystemDeviceId );
+    Reply.Online = true;
+    Reply.Rev = uint64_t( Revision );
+    Reply.AgeMs = uint32_t( 0 );
+    if( !GnReadJsonValue( SystemStatus, Reply.Status ) )return {};
+    return GnWriteJson( Reply ) + "\n";
    }
 
   const auto Entry = Devices.find( Registry.Function( Id ) );
@@ -694,18 +721,14 @@ TGNString TDashboardServer::DeviceStatusJson( TGNString const & Id )
   if( !External && ( Entry == Devices.end() || !Online ) )
     RequestDeviceIfNeeded( Id );
 
-  TGNString Json = "{\"ID\":";
-  AppendJsonString( Json, Id );
-  Json += ",\"Online\":";
-  Json += Online ? "true" : "false";
-  Json += ",\"Revision\":" + std::to_string( Revision );
-  Json += ",\"AgeMilliseconds\":";
-  if( AgeMs == UINT32_MAX )
-    Json += "null";
-   else
-    Json += std::to_string( AgeMs );
-  Json += ",\"Status\":" + StatusJson + "}\n";
-  return Json;
+  TJsonCachedStatus Reply;
+  Reply.ID = Id;
+  Reply.Online = Online;
+  Reply.Rev = Revision;
+  if( AgeMs == UINT32_MAX )Reply.AgeMs = nullptr;
+  else Reply.AgeMs = AgeMs;
+  if( !GnReadJsonValue( StatusJson, Reply.Status ) )return {};
+  return GnWriteJson( Reply ) + "\n";
  }
 
 void TDashboardServer::CloseSocket(void)
@@ -717,7 +740,7 @@ void TDashboardServer::CloseSocket(void)
  }
 
 
-void TDashboardServer::OpenStatusStream( int ClientFd )
+void TDashboardServer::OpenStatusStream( int ClientFd, bool Configuration )
  {
   if( StatusStreams.size() >= 32 )
    { SendError( ClientFd, 503, "Service Unavailable", "Too many status streams", true ); return; }
@@ -726,31 +749,59 @@ void TDashboardServer::OpenStatusStream( int ClientFd )
   StatusStreams.push_back( { ClientFd,
     "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\n"
     "X-Content-Type-Options: nosniff\r\nX-Accel-Buffering: no\r\nConnection: keep-alive\r\n\r\nretry: 2000\n\n", {} } );
+  StatusStreams.back().Configuration = Configuration;
   UpdateStatusStreams();
+ }
+
+// Read configuration only on subscription or a known configuration change.
+// Each profile/channel group has its own token, so clients receive only changed parts.
+void TDashboardServer::UpdateRecordingConfiguration(void)
+ {
+  if( !RecordingDirty && RecordingRegistryRevision == Registry.Revision() &&
+      RecordingRegistryPending == Registry.Pending() ) return;
+  unsigned Code = 0; TGNString Profiles, Channels;
+  HeatProfileStore.HandleCentralRequest("GET","",Code,Profiles);
+  if( Code != 200 ) return;
+  TimeStore.HandleCentralRequest("GET","",Code,Channels);
+  if( Code != 200 ) return;
+  TJsonProfiles ProfileRows;
+  TJsonRecordingChannels ChannelRows;
+  if(!GnReadJsonValue(Profiles,ProfileRows) || !GnReadJsonValue(Channels,ChannelRows))return;
+  std::map<TGNString,TGNString> Current;
+  for(auto const & Profile:ProfileRows.Profs)
+    Current["p:"+Profile.ProfName.Value]=GnWriteJson(Profile);
+  for(auto const & Channel:ChannelRows.Chs)
+    Current["c:"+Channel.first]=GnWriteJson(Channel.second);
+  auto View=Registry.View();
+  Current["registry"]=TGnWireValue(View).Json();
+  json_object_put(View);
+  RecordingConfiguration = std::move(Current);
+  RecordingRegistryRevision = Registry.Revision();
+  RecordingRegistryPending = Registry.Pending();
+  RecordingDirty = false;
+  ++RecordingGeneration;
  }
 
 void TDashboardServer::UpdateStatusStreams(void)
  {
   if( StatusStreams.empty() ) return;
+  bool ConfigurationWanted = false, StatusWanted = false;
+  for( auto const & Stream : StatusStreams )
+   { ConfigurationWanted |= Stream.Configuration; StatusWanted |= !Stream.Configuration; }
+  if( ConfigurationWanted ) UpdateRecordingConfiguration();
   // Resolve current identities every time; removed devices must not linger.
-  std::map<TGNString, TGNString> Envelopes;
-  Envelopes[Registry.WireId( SystemDeviceId )] = DeviceStatusJson( SystemDeviceId );
-  auto View = Registry.View();
-  json_object * Rows = nullptr;
-  if( json_object_object_get_ex( View, "Devices", &Rows ) )
-    for( size_t Index = 0; Index < json_object_array_length( Rows ); ++Index )
+  std::map<TGNString,TJsonCachedStatus> Envelopes;
+  if(StatusWanted)
+   {
+    const auto AddEnvelope=[&](TGNString const & Id)
      {
-      auto Row = json_object_array_get_idx( Rows, Index );
-      json_object * Id = nullptr;
-      if( json_object_object_get_ex( Row, "DeviceId", &Id ) )
-       {
-        const TGNString Key = json_object_get_string( Id );
-        Envelopes[Key] = DeviceStatusJson( Key );
-       }
-     }
-  json_object_put( View );
-  for( auto const & Source : Registry.ExternalSources() )
-    Envelopes[Source.second] = DeviceStatusJson( Source.second );
+      TJsonCachedStatus State;
+      if(GnReadJsonValue(DeviceStatusJson(Id),State))Envelopes[State.ID]=std::move(State);
+     };
+    AddEnvelope(SystemDeviceId);
+    for(auto const & Device:Registry.Devices())AddEnvelope(Device.second.Id);
+    for(auto const & Source:Registry.ExternalSources())AddEnvelope(Source.second);
+   }
   for( auto It = StatusStreams.begin(); It != StatusStreams.end(); )
    {
     pollfd State{ It->Fd, POLLIN, 0 };
@@ -760,28 +811,79 @@ void TDashboardServer::UpdateStatusStreams(void)
       char Byte;
       if( recv( It->Fd, &Byte, 1, MSG_PEEK | MSG_DONTWAIT ) == 0 ) Failed = true;
      }
-    TGNString Batch = "[";
-    const auto Append = [&]( TGNString const & Json ) { if( Batch.size() > 1 ) Batch += ','; Batch += Json; };
-    for( auto const & Entry : Envelopes )
+    if( It->Configuration )
      {
-      auto Root = json_tokener_parse( Entry.second.c_str() );
-      json_object * Revision = nullptr; json_object * Online = nullptr;
-      json_object_object_get_ex( Root, "Revision", &Revision );
-      json_object_object_get_ex( Root, "Online", &Online );
-      const TGNString Token = TGNString( json_object_get_string( Revision ) ) + ':' + json_object_get_string( Online );
-      if( It->Tokens[Entry.first] != Token ) { It->Tokens[Entry.first] = Token; Append( json_object_to_json_string_ext( Root, JSON_C_TO_STRING_PLAIN ) ); }
-      json_object_put( Root );
+      if( !RecordingDirty && It->ConfigurationGeneration != RecordingGeneration )
+       {
+        TSseRecordingEvent Event;
+        Event.Snapshot=!It->Initialized;
+        Event.Profs=std::map<TGNString,std::variant<TJsonProfile,TGnJsonNull>>{};
+        Event.Chs=std::map<TGNString,std::variant<TJsonChannelGroup,TGnJsonNull>>{};
+        bool Changed=!It->Initialized;
+        const auto Add=[&](TGNString const & Key,TGNString const & Value)
+         {
+          if(Key=="registry")
+           {
+            if(Value.empty())Event.Registry=nullptr;
+            else
+             {
+              TJsonRegistryView Row;
+              if(!GnReadJsonValue(Value,Row))throw std::runtime_error("Invalid recording registry");
+              Event.Registry=std::move(Row);
+             }
+           }
+          else if(Key.rfind("p:",0)==0)
+           {
+            auto & Row=Event.Profs.Value[Key.substr(2)];
+            if(Value.empty())Row=TGnJsonNull{};
+            else if(!GnReadJsonValue(Value,Row))throw std::runtime_error("Invalid recording profile");
+           }
+          else
+           {
+            auto & Row=Event.Chs.Value[Key.substr(2)];
+            if(Value.empty())Row=TGnJsonNull{};
+            else if(!GnReadJsonValue(Value,Row))throw std::runtime_error("Invalid recording channels");
+           }
+          Changed=true;
+         };
+        for(auto const & Entry:RecordingConfiguration)
+          if(!It->Tokens.count(Entry.first) || It->Tokens[Entry.first]!=Entry.second)Add(Entry.first,Entry.second);
+        for(auto const & Previous:It->Tokens)
+          if(!RecordingConfiguration.count(Previous.first))Add(Previous.first,"");
+        if(Changed)It->Pending+=TGNString("event: configuration\ndata: ")+GnWriteJson(Event)+"\n\n";
+        It->Tokens = RecordingConfiguration; It->Initialized = true;
+        It->ConfigurationGeneration = RecordingGeneration;
+       }
+      const auto Now = std::chrono::steady_clock::now();
+      if( Now-It->Heartbeat >= std::chrono::seconds(15) )
+       { It->Pending += ": keepalive\n\n"; It->Heartbeat = Now; }
+     }
+    else
+     {
+    TSseStatusBatch Batch;
+    for(auto const & Entry:Envelopes)
+     {
+      auto const & State=Entry.second;
+      const TGNString Token=(State.Rev.IsNull?TGNString("null"):std::to_string(State.Rev.Value))+':'+(State.Online?"true":"false");
+      if(It->Tokens[Entry.first]!=Token)
+       {
+        It->Tokens[Entry.first]=Token;
+        Batch.Value.push_back(State);
+       }
      }
     for( auto Old = It->Tokens.begin(); Old != It->Tokens.end(); )
       if( !Envelopes.count( Old->first ) )
        {
-        TGNString Json = "{\"ID\":"; AppendJsonString( Json, Old->first );
-        Json += ",\"Online\":false,\"Revision\":null,\"Status\":null}";
-        Append( Json ); Old = It->Tokens.erase( Old );
+        TJsonCachedStatus Removed;
+        Removed.ID = Old->first;
+        Removed.Online = false;
+        Removed.Rev = nullptr;
+        Removed.Status = nullptr;
+        Batch.Value.push_back(std::move(Removed)); Old = It->Tokens.erase(Old);
        }
       else ++Old;
-    Batch += ']';
-    if( Batch.size() > 2 ) It->Pending += "data: " + Batch + "\n\n";
+    if(!Batch.Value.empty())It->Pending+="data: "+GnWriteJson(Batch)+"\n\n";
+     }
     if( It->Pending.size() > 262144 ) Failed = true;
     if( !Failed && !It->Pending.empty() )
      {
@@ -827,6 +929,12 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
     RequestPath.erase( QueryPos );
 
   TGNString DecodedPath = DecodeUrl( RequestPath );
+  if( DecodedPath == "/api/recording-events" )
+   {
+    if( Method != "GET" ) SendError(ClientFd,405,"Method Not Allowed","GET supported",SendBody);
+    else { RecordingDirty = true; OpenStatusStream(ClientFd,true); }
+    return;
+   }
   if( DecodedPath == "/api/events" )
    {
     if( Method != "GET" ) SendError( ClientFd, 405, "Method Not Allowed", "GET supported", SendBody );
@@ -850,11 +958,19 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
     json_object * External = json_object_new_object();
     for( auto const & Source : Registry.ExternalSources() )
       json_object_object_add( External, Source.first.c_str(), json_object_new_string( Source.second.c_str() ) );
-    json_object_object_add( Configuration, "ExternalSources", External );
+    json_object_object_add( Configuration, "ExternalSrcs", External );
     SendJson( ClientFd, json_object_to_json_string_ext( Configuration, JSON_C_TO_STRING_PLAIN ), SendBody );
     json_object_put( Configuration );
     return;
    }
+
+#if GN_DEBUG_UDP_RX
+  if( DecodedPath == "/api/v1/udp-rx-counters" && ( Method == "GET" || Method == "HEAD" ) )
+   {
+    SendJson(ClientFd,GnUdpRxCountersJson(),SendBody);
+    return;
+   }
+#endif
 
   if( DecodedPath == "/api/v1/device" )
    {
@@ -870,7 +986,7 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
       return;
      }
     SendJson( ClientFd, TGNString( "{\n  \"ServerVersion\": \"" ) +
-                          ProjectVersion::ServerRevision + "\",\n  \"DataVersion\": \"" +
+                          ProjectVersion::ServerRevision + "\",\n  \"DataVer\": \"" +
                           ReadDataVersion() + "\"\n}\n", SendBody );
     return;
    }
@@ -889,29 +1005,36 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
     return;
    }
 
+#if GN_DEBUG_CHARGE_LEARNING
+  if( DecodedPath == "/api/debug/charge-learning" )
+   {
+    if(Method!="GET" && Method!="HEAD") { SendError(ClientFd,405,"Method Not Allowed","Read only",SendBody);return; }
+    SendJson(ClientFd,ChargeLearningDebug::Read(RootDirectory),SendBody);return;
+   }
+#endif
   if( DecodedPath == "/api/feedback-monitors" )
    {
     if( Method == "GET" || Method == "HEAD" )
-     { SendJson( ClientFd, "{\"Configuration\":" + FeedbackConfiguration + "}", SendBody ); return; }
+     {
+      THttpFeedbackDocument Document;
+      if(!GnReadJsonValue(FeedbackConfiguration,Document.Cfg))
+       {SendError(ClientFd,500,"Internal Server Error","Invalid feedback configuration",SendBody);return;}
+      SendJson(ClientFd,GnWriteJson(Document),SendBody);return;
+     }
     if( Method != "PUT" ) { SendError( ClientFd, 405, "Method Not Allowed", "GET and PUT supported", SendBody ); return; }
     if( Registry.Pending() ) { SendError( ClientFd, 409, "Conflict", "Assignment distribution pending", SendBody ); return; }
-    auto Request = json_tokener_parse( Body.c_str() );
-    auto Current = json_tokener_parse( FeedbackConfiguration.c_str() );
-    json_object * Configuration = nullptr, * Previous = nullptr;
-    const bool Valid = Request && json_object_object_get_ex( Request, "Configuration", &Configuration ) &&
-      json_object_object_get_ex( Request, "Previous", &Previous );
-    if( !Valid || !json_object_equal( Current, Previous ) )
-     {
-      if( Request ) { json_object_put( Request ); }
-      json_object_put( Current );
-      SendError( ClientFd, 409, "Conflict", "Reload feedback monitor configuration first", SendBody ); return;
-     }
-    json_object_put( Current );
+    THttpFeedbackWrite Request;
+    if(!GnReadJsonValue(Body,Request) || !Request.Previous.Known() || !Request.Cfg.Known())
+     {SendError(ClientFd,400,"Bad Request","Invalid feedback configuration update",SendBody);return;}
+    TGnWireDocument Current(FeedbackConfiguration),Previous(GnWriteJson(Request.Previous.Value));
+    if(!json_object_equal(Current.Root().V,Previous.Root().V))
+     {SendError(ClientFd,409,"Conflict","Reload feedback monitor configuration first",SendBody);return;}
+    const TGNString Text=GnWriteJson(Request.Cfg.Value);
+    TGnWireDocument Configuration(Text);
     TFeedbackMonitor Candidate;
-    try { Candidate.Configure( Configuration ); auto View = Registry.View(); Candidate.Bind( View ); json_object_put( View ); }
-    catch( std::exception const & Error )
-     { json_object_put( Request ); SendError( ClientFd, 400, "Bad Request", Error.what(), SendBody ); return; }
-    const TGNString Text = json_object_to_json_string_ext( Configuration, JSON_C_TO_STRING_PLAIN );
+    try {Candidate.Configure(Configuration.Root().V);auto View=Registry.View();Candidate.Bind(View);json_object_put(View);}
+    catch(std::exception const & Error)
+     {SendError(ClientFd,400,"Bad Request",Error.what(),SendBody);return;}
     auto Directory = RootDirectory / "data"; std::filesystem::create_directories( Directory );
     auto Pattern = ( Directory / ".FeedbackMonitors.XXXXXX" ).string();
     std::vector<char> Temporary( Pattern.begin(), Pattern.end() ); Temporary.push_back( '\0' );
@@ -926,11 +1049,11 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
     if( File >= 0 ) { Saved = Saved && fsync( File ) == 0; if( close( File ) != 0 ) Saved = false; }
     if( Saved ) Saved = rename( Temporary.data(), ( Directory / "FeedbackMonitors.json" ).c_str() ) == 0;
     if( !Saved )
-     { if( File >= 0 ) unlink( Temporary.data() ); json_object_put( Request ); SendError( ClientFd, 500, "Internal Server Error", "Cannot save feedback monitor configuration", SendBody ); return; }
+     { if( File >= 0 ) unlink( Temporary.data() ); SendError( ClientFd, 500, "Internal Server Error", "Cannot save feedback monitor configuration", SendBody ); return; }
     const int Parent = open( Directory.c_str(), O_RDONLY | O_DIRECTORY );
     if( Parent >= 0 ) { fsync( Parent ); close( Parent ); }
     FeedbackMonitor = std::move( Candidate ); FeedbackConfiguration = Text; FeedbackRevision = Registry.Revision();
-    json_object_put( Request ); SendJson( ClientFd, "{\"Ok\":true}", SendBody ); return;
+    SendJson( ClientFd, GnJsonResult(true), SendBody ); return;
    }
 
   if( DecodedPath == "/api/device-registry" )
@@ -968,6 +1091,7 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
     unsigned StatusCode = 500;
     TGNString Response;
     TimeStore.HandleCentralRequest( Method, Body, StatusCode, Response );
+    if( Method == "PUT" && StatusCode == 200 ) RecordingDirty = true;
     const char * StatusText = StatusCode == 200 ? "OK" : StatusCode == 400 ? "Bad Request" :
                               StatusCode == 405 ? "Method Not Allowed" : "Internal Server Error";
     SendHeader( ClientFd, StatusCode, StatusText, "application/json; charset=utf-8", Response.size() );
@@ -985,6 +1109,7 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
     unsigned StatusCode = 500;
     TGNString Response;
     TimeStore.HandleSyncRequest( Body, StatusCode, Response );
+    if( StatusCode == 200 ) RecordingDirty = true;
     const char * StatusText = StatusCode == 200 ? "OK" : StatusCode == 400 ? "Bad Request" :
                               "Internal Server Error";
     SendHeader( ClientFd, StatusCode, StatusText, "application/json; charset=utf-8", Response.size() );
@@ -1002,6 +1127,7 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
     unsigned StatusCode = 500;
     TGNString Response;
     HeatProfileStore.HandleCentralRequest( Method, Body, StatusCode, Response );
+    if( Method == "PUT" && StatusCode == 200 ) RecordingDirty = true;
     if( Method == "PUT" && StatusCode == 200 )
      {
       json_object * Result = json_tokener_parse( Response.c_str() );
@@ -1126,7 +1252,7 @@ void TDashboardServer::HandleLayoutsRequest( int ClientFd, TGNString const & Met
     if( std::filesystem::is_regular_file( FileName ) )
       SendFile( ClientFd, FileName, SendBody );
     else
-      SendJson( ClientFd, "{\n  \"Version\": 1,\n  \"Layouts\": []\n}\n", SendBody );
+      SendJson( ClientFd, "{\n  \"Ver\": 1,\n  \"Layouts\": []\n}\n", SendBody );
     return;
    }
 
@@ -1310,24 +1436,6 @@ TGNString TDashboardServer::DecodeUrl( TGNString const & Value )
     Result.push_back( Value[Index] == '+' ? ' ' : Value[Index] );
    }
   return Result;
- }
-
-void TDashboardServer::AppendJsonString( TGNString & Json, TGNString const & Value )
- {
-  Json += '"';
-  for( char Character : Value )
-   {
-    switch( Character )
-     {
-      case '"': Json += "\\\""; break;
-      case '\\': Json += "\\\\"; break;
-      case '\n': Json += "\\n"; break;
-      case '\r': Json += "\\r"; break;
-      case '\t': Json += "\\t"; break;
-      default: Json += Character; break;
-     }
-   }
-  Json += '"';
  }
 
 char const * TDashboardServer::GetContentType( std::filesystem::path const & FileName )

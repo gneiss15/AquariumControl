@@ -1,4 +1,4 @@
-<!-- index.html, Version: 1.29 -->
+<!-- index.html, Version: 1.34 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -10,13 +10,16 @@
 </head>
 <body>
   <header class="AppHeader">
-    <h1 id="DashboardTitle" data-tr="DashboardTitle">Aquarium Dashboard</h1>
+    <div class="HeaderTitle">
+      <time id="BrowserClock" class="BrowserClock" aria-live="off"></time>
+      <h1 id="DashboardTitle" data-tr="DashboardTitle">Aquarium Dashboard</h1>
+    </div>
     <div class="HeaderActions">
       <div class="HeaderInfo">
         <span id="DashboardVersionLine">Version ?</span>
         <span id="LastDashboardUpdate" aria-live="polite" data-tr="NoDataYet">Noch keine Daten</span>
       </div>
-      <button id="FeedbackSoundToggle" class="SecondaryButton" type="button" aria-pressed="false" data-tr="AlarmSoundOn">Warnton aktivieren</button>
+      <button id="FeedbackSoundToggle" class="IconButton" type="button" aria-pressed="false" data-tr-title="AlarmSoundOn" title="Warnton aktivieren" aria-label="Warnton aktivieren"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg></button>
       <button id="FeedbackSoundAcknowledge" class="SecondaryButton" type="button" data-tr="AlarmAcknowledge" hidden>Warnton quittieren</button>
       <button id="ReloadButton" class="IconButton" type="button" data-tr-title="ReloadDashboard" title="Dashboard neu laden" aria-label="Dashboard neu laden">↻</button>
       <div class="MenuDdLi LanguageMenu">
@@ -31,9 +34,9 @@
     <button id="ConnectionRetryButton" class="SecondaryButton" type="button" data-tr="CheckNow">Jetzt prüfen</button>
   </div>
 
-  <nav id="TabBar" class="TabBar" aria-label="Dashboard-Bereiche">
-    <label class="VisuallyHidden" for="PageSelector">Dashboard-Bereich</label>
-    <select id="PageSelector" class="PageSelector" aria-label="Dashboard-Bereich auswählen">
+  <nav id="TabBar" class="TabBar" data-tr-aria="DashboardAreas" aria-label="Dashboard-Bereiche">
+    <label class="VisuallyHidden" for="PageSelector" data-tr="DashboardAreas">Dashboard-Bereich</label>
+    <select id="PageSelector" class="PageSelector" data-tr-aria="SelectDashboardArea" aria-label="Dashboard-Bereich auswählen">
       <option value="Overview" data-tr="Overview">Übersicht</option>
       <option value="Times" data-tr="Times">Zeiten</option>
       <option value="HeatProfiles" data-tr="HeatProfiles">Heizprofile</option>
@@ -57,11 +60,13 @@
       </div>
       <p id="AssignmentMode"></p>
       <div id="AssignmentMessage" class="DashboardMessage" role="status" hidden></div>
+      <div class="AssignmentsTableScroll" tabindex="0" data-tr-aria="DeviceAssignments" aria-label="Gerätezuordnung">
       <table class="TimesTable AssignmentsTable">
         <thead><tr><th data-tr="Function">Funktion</th><th>IP / Port</th><th data-tr="PhysicalDevice">Gerät (MAC)</th><th data-tr="CapabilityId">Fähigkeiten</th><th data-tr="Status">Status</th></tr></thead>
         <tbody id="AssignmentRows"></tbody>
       </table>
-      <button id="FeedbackEditorToggle" class="SecondaryButton" type="button" aria-controls="FeedbackEditorPanel" aria-expanded="false" data-tr="FeedbackMonitoring">Rückmeldeüberwachung</button>
+      </div>
+      <button id="FeedbackEditorToggle" class="SecondaryButton DisclosureToggle" type="button" aria-controls="FeedbackEditorPanel" aria-expanded="false" data-tr="FeedbackMonitoring">Rückmeldeüberwachung</button>
       <section id="FeedbackEditorPanel" class="DeviceEditorBox" hidden>
         <h2 data-tr="FeedbackMonitoring">Rückmeldeüberwachung</h2>
         <p data-tr="FeedbackEditorNote">Schaltfunktion, unabhängige Rückmeldequelle, Telegrammkennung, boolesches Rückmeldefeld und Toleranzzeit in Sekunden festlegen. Fehlende oder unbekannte Werte gelten nicht als AUS und lösen keinen Warnton aus.</p>
@@ -70,7 +75,7 @@
         <button id="FeedbackEditorSave" class="SecondaryButton" type="button" data-tr="Save">Speichern</button>
         <button id="FeedbackEditorReload" class="SecondaryButton" type="button" data-tr="Reload">Neu laden</button>
       </section>
-      <button id="DeviceSwapToggle" class="SecondaryButton" type="button" aria-controls="DeviceSwapPanel" aria-expanded="false" data-tr="DeviceSwap">Gerätetausch</button>
+      <button id="DeviceSwapToggle" class="SecondaryButton DisclosureToggle" type="button" aria-controls="DeviceSwapPanel" aria-expanded="false" data-tr="DeviceSwap">Gerätetausch</button>
       <section id="DeviceSwapPanel" class="DeviceSwapBox" aria-labelledby="DeviceSwapTitle" hidden>
         <h2 id="DeviceSwapTitle" data-tr="DeviceSwap">Gerätetausch</h2>
         <div class="DeviceSwapRow">
@@ -82,7 +87,7 @@
         <button id="AssignmentSwap" class="SecondaryButton" type="button" data-tr="SwapFunctions" disabled>Funktionen tauschen</button>
         <p data-tr="AssignmentFinishNote">Verbraucher erst nach bestätigter Übernahme wieder anschließen. Anzeigenamen der Geräte im Heimnetz bei Bedarf separat ändern.</p>
         <p class="AssignmentFsNote" data-tr="AssignmentFsNote">Nach dem Tausch sind zuvor erzeugte FS-Binaries veraltet. Vor einem FS-Upload Gerätedaten vom PC aus abgleichen und im passenden Hardwareprojekt neu bauen. Am PC zuerst ins Prjs-Stammverzeichnis wechseln und ausführen: python3 Aq/tools/ReadDeviceStates.py --apply. Danach in jedem betroffenen Hardwareprojekt (z. B. Aq/TmrSwA8T und Aq/TmrSwShelly) ./EspCompile.sh ausführen.</p>
-        <button id="DeviceEditorToggle" class="SecondaryButton" type="button" aria-controls="DeviceEditorPanel" aria-expanded="false" data-tr="DeviceEditor">Geräte bearbeiten …</button>
+        <button id="DeviceEditorToggle" class="SecondaryButton DisclosureToggle" type="button" aria-controls="DeviceEditorPanel" aria-expanded="false" data-tr="DeviceEditor">Geräte bearbeiten …</button>
         <section id="DeviceEditorPanel" class="DeviceEditorBox" hidden>
           <h3 data-tr="DeviceEditor">Geräte bearbeiten …</h3>
           <p data-tr="DeviceEditorNote">Geräte hinzufügen/entfernen oder Stammdaten ändern. Bestehende Funktionen und MACs werden hier nicht getauscht. Entfernen ist nur ohne verwendete Zeitpläne oder Temperaturreferenzen möglich.</p>
@@ -93,7 +98,7 @@
         </section>
       </section>
     </section>
-    <section id="Times" class="TabPage" aria-label="Zentrale Zeitkonfiguration">
+    <section id="Times" class="TabPage" data-tr-aria="CentralTimes" aria-label="Zentrale Zeitkonfiguration">
       <div class="TimesToolbar">
         <label for="TimeSetSelector" data-tr="Device">Gerät</label>
         <select id="TimeSetSelector"></select>
@@ -111,7 +116,7 @@
         </table>
       </div>
     </section>
-    <section id="HeatProfiles" class="TabPage" aria-label="Zentrale Heizprofile">
+    <section id="HeatProfiles" class="TabPage" data-tr-aria="CentralHeatProfiles" aria-label="Zentrale Heizprofile">
       <div class="TimesToolbar">
         <strong data-tr="ProfileFile">HeatProfiles.json</strong>
         <button id="HeatProfileAddButton" class="SecondaryButton" type="button" data-tr="AddProfile">Profil hinzufügen</button>
@@ -124,7 +129,7 @@
       <section class="ChannelProfilesSection" aria-labelledby="ChannelProfilesTitle">
         <h2 id="ChannelProfilesTitle" data-tr="ChannelProfiles">Heizprofil-Zuordnungen</h2>
         <div class="ChannelAssignmentToolbar">
-          <select id="ChannelAssignmentSelector" aria-label="Kanal auswählen"></select>
+          <select id="ChannelAssignmentSelector" data-tr-aria="SelectChannelAria" aria-label="Kanal auswählen"></select>
           <button id="ChannelAssignmentAddButton" class="SecondaryButton" type="button" data-tr="AddChannelAssignment">Gerät hinzufügen</button>
           <button id="ChannelProfilesSaveButton" class="SecondaryButton" type="button" data-tr="SaveDistribute">Speichern / verteilen</button>
         </div>
@@ -161,6 +166,7 @@
     </section>
   </div>
 
-  <script type="module" src="Dashboard.js"></script>
+  <script src="Messages.js"></script>
+<script type="module" src="Dashboard.js"></script>
 </body>
 </html>

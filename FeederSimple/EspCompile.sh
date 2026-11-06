@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EspCompile.sh, Version: 1.22
+# EspCompile.sh, Version: 1.25
 
 set -euo pipefail
 
@@ -58,10 +58,11 @@ PreBuildSuccessMessage="Pre-build: configuration JSON and revision updated"
 
 ArduinoLibraries=(
   "$PrjsDir/Libs/GnBasicLib"
+  "$PrjsDir/Libs/GnAqPrjsLib"
   "$PrjsDir/Libs/GnFtpServer"
 )
-ExtraBuildProperties=( "compiler.cpp.extra_flags=-I@SKETCH_DIR@ -I$PrjsDir" "build.float=" )
-CommonSourceDirs=( Libs/Common/Feeder Libs/Common/EspUpdate )
+ExtraBuildProperties=( "compiler.cpp.extra_flags=-DGN_FEEDER_UDP=1 -I@SKETCH_DIR@ -I$PrjsDir" "build.float=" )
+CommonSourceDirs=( Common/Feeder Common/EspUpdate )
 
 # shellcheck source=../tools/EspCompileCommon.sh
 source "$PrjsDir/tools/EspCompileCommon.sh"

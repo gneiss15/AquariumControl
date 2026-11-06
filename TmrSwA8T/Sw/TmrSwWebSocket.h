@@ -1,3 +1,3 @@
-// TmrSwWebSocket.h, Version: 1.02
+// TmrSwWebSocket.h, Version: 1.03
 #pragma once
-#include "Libs/Common/TmrSw/TmrSwWebSocket.h"
+#include "Common/TmrSw/TmrSwWebSocket.h"

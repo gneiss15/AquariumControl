@@ -1,7 +1,19 @@
-// TimeStore.cpp, Version: 1.19
+// TimeStore.cpp, Version: 1.29
+#define Do_THttpResult
+#define Do_THttpTimePayload
+#define Do_TJsonFeedTime
+#define Do_TJsonHeatConfig
+#define Do_TJsonInterval
+#define Do_TJsonProfile
+#define Do_TJsonSwitchTime
+#define Do_TUdpLastError
 #include "TimeStore.h"
+#include <GnJsonResponses.h>
 
 #include <GnUdpStatus.h>
+#include <GnHeaterControl.h>
+#include <GnProfileModel.h>
+#include <GnChargeProfileJson.h>
 #include <arpa/inet.h>
 #include <cmath>
 #include <ctime>
@@ -15,7 +27,7 @@
 
 namespace
  {
-constexpr char EmptyStore[] = "{\n  \"Version\": 1,\n  \"Sets\": [],\n  \"Times\": []\n}\n";
+constexpr char EmptyStore[] = "{\n  \"Ver\": 1,\n  \"Sets\": [],\n  \"Times\": []\n}\n";
 constexpr auto RetryInterval = std::chrono::seconds( 30 );
 
 TGNString JsonText( json_object * Object, bool Pretty = true )
@@ -84,8 +96,8 @@ json_object * LoadStore( std::filesystem::path const & FileName )
     return nullptr;
    }
   json_object * Channels = nullptr;
-  if( !json_object_object_get_ex( Root, "Channels", &Channels ) )
-    json_object_object_add( Root, "Channels", json_object_new_object() );
+  if( !json_object_object_get_ex( Root, "Chs", &Channels ) )
+    json_object_object_add( Root, "Chs", json_object_new_object() );
   else if( !json_object_is_type( Channels, json_type_object ) )
    {
     json_object_put( Root );
@@ -162,7 +174,7 @@ json_object * FindSet( json_object * Root, TGNString const & Device, TGNString c
   for( size_t Index = 0; Index < json_object_array_length( Sets ); ++Index )
    {
     json_object * Set = json_object_array_get_idx( Sets, Index );
-    if( StringValue( Set, "Device" ) == Device && StringValue( Set, "Type" ) == Type )
+    if( StringValue( Set, "Dev" ) == Device && StringValue( Set, "Type" ) == Type )
       return Set;
    }
   return nullptr;
@@ -180,7 +192,7 @@ json_object * EnsureSet( json_object * Root, TGNString const & Device, TGNString
   json_object * Sets = nullptr;
   json_object_object_get_ex( Root, "Sets", &Sets );
   json_object * Set = json_object_new_object();
-  json_object_object_add( Set, "Device", json_object_new_string( Device.c_str() ) );
+  json_object_object_add( Set, "Dev", json_object_new_string( Device.c_str() ) );
   json_object_object_add( Set, "Type", json_object_new_string( Type.c_str() ) );
   json_object_object_add( Set, "Format", json_object_new_string( Format.c_str() ) );
   json_object_object_add( Set, "TimeStamp", json_object_new_string( "" ) );
@@ -198,73 +210,50 @@ json_object * CloneJson( json_object * Value )
 
 bool ValidateProfileRows( json_object * Rows )
  {
-  if( !json_object_is_type( Rows, json_type_array ) )
-    return false;
+  std::vector<TJsonProfile> Profiles;
+  TGNString Error;
+  if( !GnRead( TGnWireValue( Rows ), Profiles, Error ) )return false;
   std::map<TGNString,bool> Ids;
-  for( size_t Index = 0; Index < json_object_array_length( Rows ); ++Index )
+  for( auto const & Profile : Profiles )
    {
-    json_object * Row = json_object_array_get_idx( Rows, Index );
-    json_object * IdValue = nullptr;
-    json_object * TempIdValue = nullptr;
-    json_object * NoTempOn = nullptr;
-    json_object * Measurement = nullptr;
-    const bool HasMeasurement = json_object_is_type( Row, json_type_object ) &&
-      json_object_object_get_ex( Row, "Measurement", &Measurement );
-    if( ( HasMeasurement && ( !json_object_is_type( Measurement, json_type_string ) ||
-          !GnUdpMeasurementFieldValid( json_object_get_string( Measurement ) ) ) ) ||
-        !json_object_is_type( Row, json_type_object ) || json_object_object_length( Row ) != ( HasMeasurement ? 8 : 7 ) ||
-        !json_object_object_get_ex( Row, "Id", &IdValue ) || !json_object_is_type( IdValue, json_type_string ) ||
-        !json_object_object_get_ex( Row, "TempId", &TempIdValue ) || !json_object_is_type( TempIdValue, json_type_string ) ||
-        !json_object_object_get_ex( Row, "NoTempOn", &NoTempOn ) || !json_object_is_type( NoTempOn, json_type_boolean ) )
-      return false;
-    const TGNString Id = json_object_get_string( IdValue );
-    if( Id.empty() || TGNString( json_object_get_string( TempIdValue ) ).empty() || Ids[ Id ] )
-      return false;
-    Ids[ Id ] = true;
-    double FloorOn = 0, FloorOff = 0, MainOn = 0, MainOff = 0;
-    const char * Names[] = { "FloorOn", "FloorOff", "MainOn", "MainOff" };
-    double * Values[] = { &FloorOn, &FloorOff, &MainOn, &MainOff };
-    for( size_t ValueIndex = 0; ValueIndex < 4; ++ValueIndex )
-     {
-      json_object * Value = nullptr;
-      if( !json_object_object_get_ex( Row, Names[ ValueIndex ], &Value ) ||
-          ( !json_object_is_type( Value, json_type_double ) && !json_object_is_type( Value, json_type_int ) ) )
-        return false;
-      *Values[ ValueIndex ] = json_object_get_double( Value );
-      if( !std::isfinite( *Values[ ValueIndex ] ) )
-        return false;
-     }
-    if( FloorOn >= FloorOff || MainOn >= MainOff )
-      return false;
+    THeaterProfile Values;
+    if(!GnApplyHeatProfile(Profile,Values))return false;
+    if( Ids[Profile.ProfName] )return false;
+    Ids[Profile.ProfName] = true;
    }
   return true;
  }
 
 bool RowToEntry( json_object * Row, TGNString const & Device, TGNString const & Type,
-                 TGNString const & Kind, json_object * & Entry )
+                 TGNString const & Kind, size_t Position, json_object * & Entry )
  {
-  if( !json_object_is_type( Row, json_type_array ) )
-    return false;
-  const size_t Count = json_object_array_length( Row );
-  if( Count < 2 )
-    return false;
-  json_object * IdObject = json_object_array_get_idx( Row, Count - 1 );
-  if( !json_object_is_type( IdObject, json_type_string ) )
-    return false;
-  const char * Id = json_object_get_string( IdObject );
-  if( Id == nullptr || *Id == '\0' )
-    return false;
-
-  json_object * Data = json_object_new_array();
-  for( size_t Index = 0; Index + 1 < Count; ++Index )
-    json_object_array_add( Data, CloneJson( json_object_array_get_idx( Row, Index ) ) );
-
-  Entry = json_object_new_object();
-  json_object_object_add( Entry, "Id", json_object_new_string( Id ) );
-  json_object_object_add( Entry, "Device", json_object_new_string( Device.c_str() ) );
-  json_object_object_add( Entry, "Type", json_object_new_string( Type.c_str() ) );
-  json_object_object_add( Entry, "Kind", json_object_new_string( Kind.c_str() ) );
-  json_object_object_add( Entry, "Data", Data );
+  TGNString Error;
+  if(Kind=="SwitchTime")
+   {
+    TJsonSwitchTime Value;
+    if(!GnRead(TGnWireValue(Row),Value,Error) || !Value.Time.Known() ||
+       !Value.Days.Known() || !Value.State.Known())return false;
+   }
+  else if(Kind=="Interval")
+   {
+    TJsonInterval Value;
+    if(!GnRead(TGnWireValue(Row),Value,Error) || !Value.Start.Known() ||
+       !Value.Period.Known() || !Value.OnDuration.Known() || !Value.Days.Known() ||
+       !Value.Ch.Known())return false;
+   }
+  else if(Kind=="FeedTime")
+   {
+    TJsonFeedTime Value;
+    if(!GnRead(TGnWireValue(Row),Value,Error) || !Value.Time.Known() ||
+       !Value.Days.Known() || !Value.Portions.Known())return false;
+   }
+  else return false;
+  // Local editor key; never interpret an optional comment as an identifier.
+  const TGNString Id=Device+":"+Kind+":"+std::to_string(Position);
+  Entry=json_object_new_object();
+  SetString(Entry,"Id",Id);SetString(Entry,"Dev",Device);
+  SetString(Entry,"Type",Type);SetString(Entry,"Kind",Kind);
+  json_object_object_add(Entry,"Data",CloneJson(Row));
   return true;
  }
 
@@ -278,43 +267,25 @@ bool ExpandContent( json_object * Content, TGNString const & Device, TGNString c
     for( size_t Index = 0; Index < json_object_array_length( Rows ); ++Index )
      {
       json_object * Entry = nullptr;
-      if( !RowToEntry( json_object_array_get_idx( Rows, Index ), Device, Type, Kind, Entry ) )
+      if( !RowToEntry( json_object_array_get_idx( Rows, Index ), Device, Type, Kind, Index, Entry ) )
         return false;
       Entries.push_back( Entry );
      }
     return true;
    };
 
-  if( Type == "FeedTimes" )
-    return AddRows( Content, "FeedTime" );
-  if( Type != "SwitchTimes" )
-    return false;
-  if( Format == "TmrSw" && json_object_is_type( Content, json_type_object ) )
-   {
-    json_object * SwitchTimes = nullptr;
-    json_object * Intervals = nullptr;
-    json_object * Channels = nullptr;
-    json_object_object_get_ex( Content, "SwitchTimes", &SwitchTimes );
-    json_object_object_get_ex( Content, "Intervals", &Intervals );
-    json_object_object_get_ex( Content, "Channels", &Channels );
-    if( SwitchTimes == nullptr || !json_object_is_type( SwitchTimes, json_type_array ) ||
-        ( Intervals != nullptr && !json_object_is_type( Intervals, json_type_array ) ) ||
-        ( Channels != nullptr && !json_object_is_type( Channels, json_type_object ) ) )
-      return false;
-    return AddRows( SwitchTimes, "SwitchTime" ) &&
-      ( Intervals == nullptr || AddRows( Intervals, "Interval" ) );
-   }
-  if( Format == "MyTimer" )
-   {
-    json_object * SwitchTimes = nullptr;
-    json_object * Intervals = nullptr;
-    if( !json_object_is_type( Content, json_type_object ) ||
-        !json_object_object_get_ex( Content, "SwitchTimes", &SwitchTimes ) ||
-        !json_object_object_get_ex( Content, "Intervals", &Intervals ) )
-      return false;
-    return AddRows( SwitchTimes, "SwitchTime" ) && AddRows( Intervals, "Interval" );
-   }
-  return AddRows( Content, "SwitchTime" );
+  if(Type=="FeedTimes")return AddRows(Content,"FeedTime");
+  if(Type!="SwitchTimes" || !json_object_is_type(Content,json_type_object))return false;
+  (void)Format;
+  json_object * SwitchTimes=nullptr,* Intervals=nullptr,* Channels=nullptr;
+  const bool HasSwitch=json_object_object_get_ex(Content,"SwitchTimes",&SwitchTimes);
+  const bool HasIntervals=json_object_object_get_ex(Content,"Intervals",&Intervals);
+  const bool HasChannels=json_object_object_get_ex(Content,"Chs",&Channels);
+  if(!HasSwitch && !HasIntervals && !HasChannels)return false;
+  if(HasChannels && !json_object_is_type(Channels,json_type_object))return false;
+  // Missing leaves the array unchanged; explicit null clears it.
+  return (!HasSwitch || !SwitchTimes || AddRows(SwitchTimes,"SwitchTime")) &&
+         (!HasIntervals || !Intervals || AddRows(Intervals,"Interval"));
  }
 
 void ReleaseEntries( std::vector<json_object *> & Entries )
@@ -327,7 +298,7 @@ void ReleaseEntries( std::vector<json_object *> & Entries )
 bool EntryMatches( json_object * Entry, TGNString const & Device, TGNString const & Type,
                    TGNString const & Kind )
  {
-  return StringValue( Entry, "Device" ) == Device && StringValue( Entry, "Type" ) == Type &&
+  return StringValue( Entry, "Dev" ) == Device && StringValue( Entry, "Type" ) == Type &&
          StringValue( Entry, "Kind" ) == Kind;
  }
 
@@ -392,17 +363,13 @@ bool MergeContent( json_object * Root, TGNString const & Device, TGNString const
     return false;
    }
 
-  bool IncludesIntervals = Format == "MyTimer";
-  if( Format == "TmrSw" && json_object_is_type( Content, json_type_object ) )
-   {
-    json_object * Intervals = nullptr;
-    IncludesIntervals = json_object_object_get_ex( Content, "Intervals", &Intervals ) &&
-                        json_object_is_type( Intervals, json_type_array );
-   }
-
+  json_object * Ignored=nullptr;
+  const bool IncludesSwitch=Type=="SwitchTimes" && json_object_object_get_ex(Content,"SwitchTimes",&Ignored);
+  const bool IncludesIntervals=Type=="SwitchTimes" && json_object_object_get_ex(Content,"Intervals",&Ignored);
   const char * Kinds[] = { "SwitchTime", "Interval", "FeedTime" };
   for( char const * Kind : Kinds )
    {
+    if( TGNString( Kind ) == "SwitchTime" && !IncludesSwitch )continue;
     if( TGNString( Kind ) == "Interval" && !IncludesIntervals )
       continue;
     std::vector<json_object *> KindEntries;
@@ -425,12 +392,12 @@ bool MergeProfileRows( json_object * ExistingRows, json_object * IncomingRows,
   for( size_t IncomingIndex = 0; IncomingIndex < json_object_array_length( IncomingRows ); ++IncomingIndex )
    {
     json_object * IncomingProfile = json_object_array_get_idx( IncomingRows, IncomingIndex );
-    const TGNString IncomingId = StringValue( IncomingProfile, "Id" );
+    const TGNString IncomingId = StringValue( IncomingProfile, "ProfName" );
     bool Replaced = false;
     for( size_t ExistingIndex = 0; ExistingIndex < json_object_array_length( MergedRows ); ++ExistingIndex )
      {
       json_object * ExistingProfile = json_object_array_get_idx( MergedRows, ExistingIndex );
-      if( StringValue( ExistingProfile, "Id" ) != IncomingId ) continue;
+      if( StringValue( ExistingProfile, "ProfName" ) != IncomingId ) continue;
       if( JsonText( ExistingProfile, false ) != JsonText( IncomingProfile, false ) )
         json_object_array_put_idx( MergedRows, ExistingIndex, CloneJson( IncomingProfile ) );
       Replaced = true;
@@ -465,12 +432,12 @@ bool ProfilesChangedByIncoming( json_object * ExistingRows, json_object * Incomi
   for( size_t IncomingIndex = 0; IncomingIndex < json_object_array_length( IncomingRows ); ++IncomingIndex )
    {
     json_object * IncomingProfile = json_object_array_get_idx( IncomingRows, IncomingIndex );
-    const TGNString IncomingId = StringValue( IncomingProfile, "Id" );
+    const TGNString IncomingId = StringValue( IncomingProfile, "ProfName" );
     bool Found = false;
     for( size_t ExistingIndex = 0; ExistingIndex < json_object_array_length( ExistingRows ); ++ExistingIndex )
      {
       json_object * ExistingProfile = json_object_array_get_idx( ExistingRows, ExistingIndex );
-      if( StringValue( ExistingProfile, "Id" ) != IncomingId ) continue;
+      if( StringValue( ExistingProfile, "ProfName" ) != IncomingId ) continue;
       if( JsonText( ExistingProfile, false ) != JsonText( IncomingProfile, false ) )
         return true;
       Found = true;
@@ -488,7 +455,7 @@ bool SaveMergedProfiles( std::filesystem::path const & ProfilesFile, json_object
   if( !MergeProfileRows( ExistingRows, IncomingRows, MergedRows ) )
     return false;
   json_object * Profiles = json_object_new_object();
-  json_object_object_add( Profiles, "Profiles", MergedRows );
+  json_object_object_add( Profiles, "Profs", MergedRows );
   SetString( Profiles, "TimeStamp", Revision );
   const bool Saved = SaveStore( ProfilesFile, Profiles );
   json_object_put( Profiles );
@@ -497,8 +464,8 @@ bool SaveMergedProfiles( std::filesystem::path const & ProfilesFile, json_object
 
   json_object * Sync = json_object_from_file( ( ProfilesFile.parent_path() / "HeatProfiles.sync.json" ).c_str() );
   if( Sync == nullptr )
-    Sync = json_tokener_parse( "{\"Version\":1,\"Revision\":\"\",\"Sets\":[]}" );
-  SetString( Sync, "Revision", Revision );
+    Sync = json_tokener_parse( "{\"Ver\":1,\"Rev\":\"\",\"Sets\":[]}" );
+  SetString( Sync, "Rev", Revision );
   json_object * SyncSets = nullptr;
   if( json_object_object_get_ex( Sync, "Sets", &SyncSets ) && json_object_is_type( SyncSets, json_type_array ) )
     for( size_t Index = 0; Index < json_object_array_length( SyncSets ); ++Index )
@@ -550,9 +517,9 @@ bool SameTimeContent( json_object * Central, json_object * Incoming )
   json_object * CentralCopy = CloneJson( Central );
   json_object * IncomingCopy = CloneJson( Incoming );
   if( json_object_is_type( CentralCopy, json_type_object ) )
-    json_object_object_del( CentralCopy, "Channels" );
+    json_object_object_del( CentralCopy, "Chs" );
   if( json_object_is_type( IncomingCopy, json_type_object ) )
-    json_object_object_del( IncomingCopy, "Channels" );
+    json_object_object_del( IncomingCopy, "Chs" );
   const bool Same = JsonText( CentralCopy, false ) == JsonText( IncomingCopy, false );
   if( CentralCopy != nullptr ) json_object_put( CentralCopy );
   if( IncomingCopy != nullptr ) json_object_put( IncomingCopy );
@@ -572,12 +539,12 @@ bool SameChannelHardware( json_object * ExistingRow, json_object * IncomingRow )
   if( json_object_is_type( ExistingCopy, json_type_object ) )
    {
     json_object_object_del( ExistingCopy, "Role" );
-    json_object_object_del( ExistingCopy, "Profile" );
+    json_object_object_del( ExistingCopy, "Prof" );
    }
   if( json_object_is_type( IncomingCopy, json_type_object ) )
    {
     json_object_object_del( IncomingCopy, "Role" );
-    json_object_object_del( IncomingCopy, "Profile" );
+    json_object_object_del( IncomingCopy, "Prof" );
    }
   const bool Same = JsonText( ExistingCopy, false ) == JsonText( IncomingCopy, false );
   if( ExistingCopy != nullptr ) json_object_put( ExistingCopy );
@@ -629,15 +596,12 @@ void StoreDeviceChannels( json_object * Channels, TGNString const & Device,
 
 json_object * EntryToRow( json_object * Entry )
  {
-  json_object * Data = nullptr;
-  if( !json_object_object_get_ex( Entry, "Data", &Data ) || !json_object_is_type( Data, json_type_array ) )
-    return nullptr;
-  const TGNString Id = StringValue( Entry, "Id" );
-  if( Id.empty() )
-    return nullptr;
-  json_object * Row = CloneJson( Data );
-  json_object_array_add( Row, json_object_new_string( Id.c_str() ) );
-  return Row;
+  json_object * Data=nullptr;
+  if(!json_object_object_get_ex(Entry,"Data",&Data))return nullptr;
+  const TGNString Kind=StringValue(Entry,"Kind");
+  if(Kind=="SwitchTime" && json_object_is_type(Data,json_type_object))return CloneJson(Data);
+  if((Kind=="Interval" || Kind=="FeedTime") && json_object_is_type(Data,json_type_array))return CloneJson(Data);
+  return nullptr;
  }
 
 json_object * BuildContent( json_object * Root, TGNString const & Device, TGNString const & Type,
@@ -666,7 +630,7 @@ json_object * BuildContent( json_object * Root, TGNString const & Device, TGNStr
   for( size_t Index = 0; Index < json_object_array_length( Times ); ++Index )
    {
     json_object * Entry = json_object_array_get_idx( Times, Index );
-    if( StringValue( Entry, "Device" ) != Device || StringValue( Entry, "Type" ) != Type )
+    if( StringValue( Entry, "Dev" ) != Device || StringValue( Entry, "Type" ) != Type )
       continue;
     const TGNString Kind = StringValue( Entry, "Kind" );
     json_object * Row = EntryToRow( Entry );
@@ -684,7 +648,7 @@ json_object * BuildContent( json_object * Root, TGNString const & Device, TGNStr
     json_object_object_add( Content, "Intervals", IntervalRows );
   json_object * Channels = nullptr;
   json_object * DeviceChannelState = nullptr;
-  json_object_object_get_ex( Root, "Channels", &Channels );
+  json_object_object_get_ex( Root, "Chs", &Channels );
   if( Channels != nullptr && json_object_object_get_ex( Channels, Device.c_str(), &DeviceChannelState ) )
    {
     json_object * DeviceChannels = ChannelRowsFor( Channels, Device );
@@ -695,15 +659,15 @@ json_object * BuildContent( json_object * Root, TGNString const & Device, TGNStr
     if( Profiles != nullptr && json_object_is_type( Profiles, json_type_object ) )
      {
       json_object * ProfileRows = nullptr;
-      if( json_object_object_get_ex( Profiles, "Profiles", &ProfileRows ) )
-        json_object_object_add( ChannelConfig, "Profiles", CloneJson( ProfileRows ) );
+      if( json_object_object_get_ex( Profiles, "Profs", &ProfileRows ) )
+        json_object_object_add( ChannelConfig, "Profs", CloneJson( ProfileRows ) );
       else
-        json_object_object_add( ChannelConfig, "Profiles", json_object_new_array() );
+        json_object_object_add( ChannelConfig, "Profs", json_object_new_array() );
      }
     else
-      json_object_object_add( ChannelConfig, "Profiles", json_object_new_array() );
-    json_object_object_add( ChannelConfig, "Channels", CloneJson( DeviceChannels ) );
-    json_object_object_add( Content, "Channels", ChannelConfig );
+      json_object_object_add( ChannelConfig, "Profs", json_object_new_array() );
+    json_object_object_add( ChannelConfig, "Chs", CloneJson( DeviceChannels ) );
+    json_object_object_add( Content, "Chs", ChannelConfig );
     if( Profiles != nullptr ) json_object_put( Profiles );
    }
   return Content;
@@ -712,11 +676,11 @@ json_object * BuildContent( json_object * Root, TGNString const & Device, TGNStr
 json_object * BuildSetPayload( json_object * Root, json_object * Set,
                                std::filesystem::path const & ProfilesFile )
  {
-  const TGNString Device = StringValue( Set, "Device" );
+  const TGNString Device = StringValue( Set, "Dev" );
   const TGNString Type = StringValue( Set, "Type" );
   const TGNString Format = StringValue( Set, "Format" );
   json_object * Payload = json_object_new_object();
-  json_object_object_add( Payload, "Device", json_object_new_string( Device.c_str() ) );
+  json_object_object_add( Payload, "Dev", json_object_new_string( Device.c_str() ) );
   json_object_object_add( Payload, "Type", json_object_new_string( Type.c_str() ) );
   json_object_object_add( Payload, "Format", json_object_new_string( Format.c_str() ) );
   json_object_object_add( Payload, "TimeStamp", json_object_new_string( StringValue( Set, "TimeStamp" ).c_str() ) );
@@ -740,16 +704,18 @@ bool ValidateCentralTimes( json_object * Root )
       !json_object_object_get_ex( Root, "Times", &Times ) || !json_object_is_type( Times, json_type_array ) )
     return false;
   json_object * Channels = nullptr;
-  if( json_object_object_get_ex( Root, "Channels", &Channels ) && !json_object_is_type( Channels, json_type_object ) )
+  if( json_object_object_get_ex( Root, "Chs", &Channels ) && !json_object_is_type( Channels, json_type_object ) )
     return false;
   for( size_t Index = 0; Index < json_object_array_length( Times ); ++Index )
    {
     json_object * Entry = json_object_array_get_idx( Times, Index );
     json_object * Data = nullptr;
     if( !json_object_is_type( Entry, json_type_object ) || StringValue( Entry, "Id" ).empty() ||
-        StringValue( Entry, "Device" ).empty() || StringValue( Entry, "Type" ).empty() ||
+        StringValue( Entry, "Dev" ).empty() || StringValue( Entry, "Type" ).empty() ||
         StringValue( Entry, "Kind" ).empty() ||
-        !json_object_object_get_ex( Entry, "Data", &Data ) || !json_object_is_type( Data, json_type_array ) )
+        !json_object_object_get_ex( Entry, "Data", &Data ) ||
+        !((StringValue(Entry,"Kind")=="SwitchTime" && json_object_is_type(Data,json_type_object)) ||
+          (StringValue(Entry,"Kind")!="SwitchTime" && json_object_is_type(Data,json_type_array))) )
       return false;
    }
   return true;
@@ -760,7 +726,7 @@ bool ValidateCentralChannels( json_object * Channels, json_object * ProfileRows 
   if( !json_object_is_type( Channels, json_type_object ) || !ValidateProfileRows( ProfileRows ) ) return false;
   std::map<TGNString,bool> ProfileIds;
   for( size_t Index = 0; Index < json_object_array_length( ProfileRows ); ++Index )
-    ProfileIds[ StringValue( json_object_array_get_idx( ProfileRows, Index ), "Id" ) ] = true;
+    ProfileIds[ StringValue( json_object_array_get_idx( ProfileRows, Index ), "ProfName" ) ] = true;
   json_object_object_foreach( Channels, Device, State )
    {
     if( TGNString( Device ).empty() || !json_object_is_type( State, json_type_object ) ||
@@ -774,13 +740,13 @@ bool ValidateCentralChannels( json_object * Channels, json_object * ProfileRows 
       if( !json_object_is_type( Row, json_type_object ) ) return false;
       const TGNString Id = StringValue( Row, "Id" );
       const TGNString Role = StringValue( Row, "Role" );
-      const TGNString Profile = StringValue( Row, "Profile" );
+      const TGNString Profile = StringValue( Row, "Prof" );
       json_object * RoleValue = nullptr;
       const bool HasRole = json_object_object_get_ex( Row, "Role", &RoleValue );
       json_object * ProfileValue = nullptr;
-      const bool HasProfile = json_object_object_get_ex( Row, "Profile", &ProfileValue );
+      const bool HasProfile = json_object_object_get_ex( Row, "Prof", &ProfileValue );
       if( Id.empty() || ChannelIds[ Id ] ||
-          ( HasRole && Role != "Timer" && Role != "HeaterMain" && Role != "HeaterFloor" ) ||
+          ( HasRole && Role != "Timer" && Role != "HeaterMain" && Role != "MainSw" && Role != "HeaterFloor" ) ||
           ( !HasRole && HasProfile ) ) return false;
       ChannelIds[ Id ] = true;
       if( !HasRole || Role == "Timer" )
@@ -798,9 +764,9 @@ bool CopySetMetadataForManualSave( json_object * OldRoot, json_object * NewRoot,
  {
   json_object * OldChannels = nullptr;
   json_object * NewChannels = nullptr;
-  if( json_object_object_get_ex( OldRoot, "Channels", &OldChannels ) &&
-      !json_object_object_get_ex( NewRoot, "Channels", &NewChannels ) )
-    json_object_object_add( NewRoot, "Channels", CloneJson( OldChannels ) );
+  if( json_object_object_get_ex( OldRoot, "Chs", &OldChannels ) &&
+      !json_object_object_get_ex( NewRoot, "Chs", &NewChannels ) )
+    json_object_object_add( NewRoot, "Chs", CloneJson( OldChannels ) );
   if( OldChannels != nullptr && NewChannels != nullptr && json_object_is_type( NewChannels, json_type_object ) )
    {
     std::vector<TGNString> ChangedDevices;
@@ -838,7 +804,7 @@ bool CopySetMetadataForManualSave( json_object * OldRoot, json_object * NewRoot,
     const TGNString NewSignature = ContentSignature( NewRoot, Device, Type, Format, ProfilesFile );
 
     json_object * Set = json_object_new_object();
-    json_object_object_add( Set, "Device", json_object_new_string( Device.c_str() ) );
+    json_object_object_add( Set, "Dev", json_object_new_string( Device.c_str() ) );
     json_object_object_add( Set, "Type", json_object_new_string( Type.c_str() ) );
     json_object_object_add( Set, "Format", json_object_new_string( Format.c_str() ) );
     json_object_array_add( NewSets, Set );
@@ -854,7 +820,7 @@ bool CopySetMetadataForManualSave( json_object * OldRoot, json_object * NewRoot,
   for( size_t Index = 0; Index < json_object_array_length( NewTimes ); ++Index )
    {
     json_object * Entry = json_object_array_get_idx( NewTimes, Index );
-    AddSet( StringValue( Entry, "Device" ), StringValue( Entry, "Type" ) );
+    AddSet( StringValue( Entry, "Dev" ), StringValue( Entry, "Type" ) );
    }
 
   json_object * OldSets = nullptr;
@@ -862,11 +828,11 @@ bool CopySetMetadataForManualSave( json_object * OldRoot, json_object * NewRoot,
   for( size_t Index = 0; Index < json_object_array_length( OldSets ); ++Index )
    {
     json_object * OldSet = json_object_array_get_idx( OldSets, Index );
-    AddSet( StringValue( OldSet, "Device" ), StringValue( OldSet, "Type" ) );
+    AddSet( StringValue( OldSet, "Dev" ), StringValue( OldSet, "Type" ) );
    }
 
   json_object_object_add( NewRoot, "Sets", NewSets );
-  json_object_object_add( NewRoot, "Version", json_object_new_int( 1 ) );
+  json_object_object_add( NewRoot, "Ver", json_object_new_int( 1 ) );
   return AnyChanged;
  }
 
@@ -952,7 +918,7 @@ bool TTimeStore::HandleCentralRequest( TGNString const & Method, TGNString const
     if( Root == nullptr )
      {
       StatusCode = 500;
-      Response = "{\"Ok\":false,\"Error\":\"Invalid central Times.json\"}";
+      Response = GnJsonResult(false,"Invalid central Times.json");
       return true;
      }
     StatusCode = 200;
@@ -964,7 +930,7 @@ bool TTimeStore::HandleCentralRequest( TGNString const & Method, TGNString const
   if( Method != "PUT" )
    {
     StatusCode = 405;
-    Response = "{\"Ok\":false,\"Error\":\"Method not allowed\"}";
+    Response = GnJsonResult(false,"Method not allowed");
     return true;
    }
 
@@ -973,23 +939,23 @@ bool TTimeStore::HandleCentralRequest( TGNString const & Method, TGNString const
    {
     if( Incoming != nullptr ) json_object_put( Incoming );
     StatusCode = 400;
-    Response = "{\"Ok\":false,\"Error\":\"Invalid time configuration\"}";
+    Response = GnJsonResult(false,"Invalid time configuration");
     return true;
    }
   json_object * IncomingChannels = nullptr;
-  if( json_object_object_get_ex( Incoming, "Channels", &IncomingChannels ) )
+  if( json_object_object_get_ex( Incoming, "Chs", &IncomingChannels ) )
    {
     json_object * Profiles = json_object_from_file( ProfilesFile.c_str() );
     json_object * ProfileRows = nullptr;
     const bool ValidChannels = Profiles != nullptr &&
-      json_object_object_get_ex( Profiles, "Profiles", &ProfileRows ) &&
+      json_object_object_get_ex( Profiles, "Profs", &ProfileRows ) &&
       ValidateCentralChannels( IncomingChannels, ProfileRows );
     if( Profiles != nullptr ) json_object_put( Profiles );
     if( !ValidChannels )
      {
       json_object_put( Incoming );
       StatusCode = 400;
-      Response = "{\"Ok\":false,\"Error\":\"Invalid channel assignments or unknown heater profile\"}";
+      Response = GnJsonResult(false,"Invalid channel assignments or unknown heater profile");
       return true;
      }
    }
@@ -998,19 +964,19 @@ bool TTimeStore::HandleCentralRequest( TGNString const & Method, TGNString const
    {
     json_object_put( Incoming );
     StatusCode = 500;
-    Response = "{\"Ok\":false,\"Error\":\"Invalid existing Times.json\"}";
+    Response = GnJsonResult(false,"Invalid existing Times.json");
     return true;
    }
   if( IncomingChannels != nullptr )
    {
     json_object * OldChannels = nullptr;
-    json_object_object_get_ex( OldRoot, "Channels", &OldChannels );
+    json_object_object_get_ex( OldRoot, "Chs", &OldChannels );
     if( !SameChannelTopology( OldChannels, IncomingChannels ) )
      {
       json_object_put( OldRoot );
       json_object_put( Incoming );
       StatusCode = 400;
-      Response = "{\"Ok\":false,\"Error\":\"Channel editing cannot add, remove or reorder channel rows\"}";
+      Response = GnJsonResult(false,"Channel editing cannot add, remove or reorder channel rows");
       return true;
      }
    }
@@ -1022,12 +988,12 @@ bool TTimeStore::HandleCentralRequest( TGNString const & Method, TGNString const
   if( !Saved )
    {
     StatusCode = 500;
-    Response = "{\"Ok\":false,\"Error\":\"Cannot save Times.json\"}";
+    Response = GnJsonResult(false,"Cannot save Times.json");
     return true;
    }
   TryPushUnsynced();
   StatusCode = 200;
-  Response = Changed ? "{\"Ok\":true,\"Changed\":true}" : "{\"Ok\":true,\"Changed\":false}";
+  Response = GnJsonChangedResult(Changed);
   return true;
  }
 
@@ -1036,17 +1002,21 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
  {
   json_object * Incoming = json_tokener_parse( Body.c_str() );
   json_object * Content = nullptr;
-  const TGNString WireDevice = StringValue( Incoming, "Device" );
-  const TGNString Device = Registry.Function( WireDevice );
-  const TGNString Type = StringValue( Incoming, "Type" );
-  const TGNString Format = StringValue( Incoming, "Format" );
-  const TGNString TimeStamp = StringValue( Incoming, "TimeStamp" );
-  if( Incoming == nullptr || Device.empty() || Type.empty() || Format.empty() || TimeStamp.empty() ||
-      !json_object_object_get_ex( Incoming, "Content", &Content ) )
+  THttpTimePayload Payload;
+  TGNString Error;
+  const bool Parsed=Incoming && GnRead(TGnWireValue(Incoming),Payload,Error);
+  const TGNString WireDevice=Payload.Dev.Value;
+  const TGNString Device=Registry.Function(WireDevice);
+  const TGNString Type=Payload.Type.Value;
+  const TGNString Format=Payload.Format.Value;
+  const TGNString TimeStamp=Payload.TimeStamp.Value;
+  if(!Parsed || Device.empty() || !Payload.Dev.Known() || !Payload.Type.Known() ||
+     !Payload.Format.Known() || !Payload.TimeStamp.Known() || !Payload.Content.Known() ||
+     !json_object_object_get_ex(Incoming,"Content",&Content))
    {
     if( Incoming != nullptr ) json_object_put( Incoming );
     StatusCode = 400;
-    Response = "{\"Ok\":false,\"Error\":\"Invalid sync payload\"}";
+    Response = GnJsonResult(false,"Invalid sync payload");
     return true;
    }
 
@@ -1054,13 +1024,13 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
    {
     json_object_put( Incoming );
     StatusCode = 409;
-    Response = "{\"Ok\":false,\"Error\":\"IdentityMismatch\"}";
+    Response = GnJsonResult(false,"IdentityMismatch");
     return true;
    }
   if( !Registry.AcceptWireId( WireDevice ) )
    {
     json_object_put( Incoming );
-    StatusCode = 409; Response = "{\"Ok\":false,\"Error\":\"StableDeviceIdRequired\"}"; return true;
+    StatusCode = 409; Response = GnJsonResult(false,"StableDeviceIdRequired"); return true;
    }
   const bool AssignmentRequired = Registry.NeedsAssignment( Device, Incoming );
 
@@ -1069,7 +1039,7 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
    {
     json_object_put( Incoming );
     StatusCode = 500;
-    Response = "{\"Ok\":false,\"Error\":\"Invalid central Times.json\"}";
+    Response = GnJsonResult(false,"Invalid central Times.json");
     return true;
    }
   json_object * Set = FindSet( Root, Device, Type );
@@ -1081,7 +1051,7 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
     json_object_put( Root );
     json_object_put( Incoming );
     StatusCode = 400;
-    Response = "{\"Ok\":false,\"Error\":\"Invalid content or missing UUID\"}";
+    Response = GnJsonResult(false,"Invalid schedule content");
     return true;
    }
   ReleaseEntries( CheckEntries );
@@ -1090,26 +1060,26 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
   if( Type == "SwitchTimes" && json_object_is_type( Content, json_type_object ) )
    {
     json_object * IncomingChannels = nullptr;
-    json_object_object_get_ex( Content, "Channels", &IncomingChannels );
+    json_object_object_get_ex( Content, "Chs", &IncomingChannels );
     json_object * ChannelRows = nullptr;
     if( IncomingChannels != nullptr &&
         ( !json_object_is_type( IncomingChannels, json_type_object ) ||
-          !json_object_object_get_ex( IncomingChannels, "Channels", &ChannelRows ) ||
+          !json_object_object_get_ex( IncomingChannels, "Chs", &ChannelRows ) ||
           !json_object_is_type( ChannelRows, json_type_array ) ) )
      {
       StatusCode = 400;
-      Response = "{\"Ok\":false,\"Error\":\"Invalid device Channels payload\"}";
+      Response = GnJsonResult(false,"Invalid device Channels payload");
       json_object_put( Root );
       json_object_put( Incoming );
       return true;
      }
     if( IncomingChannels != nullptr )
      {
-      json_object_object_get_ex( IncomingChannels, "Profiles", &IncomingProfileRows );
+      json_object_object_get_ex( IncomingChannels, "Profs", &IncomingProfileRows );
       if( IncomingProfileRows != nullptr && !ValidateProfileRows( IncomingProfileRows ) )
        {
         StatusCode = 400;
-        Response = "{\"Ok\":false,\"Error\":\"Invalid device HeatProfiles payload\"}";
+        Response = GnJsonResult(false,"Invalid device HeatProfiles payload");
         json_object_put( Root );
         json_object_put( Incoming );
         return true;
@@ -1119,12 +1089,12 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
 
   json_object * Profiles = json_object_from_file( ProfilesFile.c_str() );
   json_object * CentralProfileRows = nullptr;
-  if( Profiles == nullptr || !json_object_object_get_ex( Profiles, "Profiles", &CentralProfileRows ) ||
+  if( Profiles == nullptr || !json_object_object_get_ex( Profiles, "Profs", &CentralProfileRows ) ||
       !ValidateProfileRows( CentralProfileRows ) )
    {
     if( Profiles != nullptr ) json_object_put( Profiles );
     StatusCode = 500;
-    Response = "{\"Ok\":false,\"Error\":\"Invalid central HeatProfiles.json\"}";
+    Response = GnJsonResult(false,"Invalid central HeatProfiles.json");
     json_object_put( Root );
     json_object_put( Incoming );
     return true;
@@ -1139,14 +1109,14 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
     ( ProfileRevision.empty() || TimeStamp > ProfileRevision ) );
 
   json_object * RootChannels = nullptr;
-  json_object_object_get_ex( Root, "Channels", &RootChannels );
+  json_object_object_get_ex( Root, "Chs", &RootChannels );
   json_object * IncomingChannelRows = nullptr;
   if( Type == "SwitchTimes" && json_object_is_type( Content, json_type_object ) )
    {
     json_object * IncomingChannels = nullptr;
-    json_object_object_get_ex( Content, "Channels", &IncomingChannels );
+    json_object_object_get_ex( Content, "Chs", &IncomingChannels );
     if( IncomingChannels != nullptr )
-      json_object_object_get_ex( IncomingChannels, "Channels", &IncomingChannelRows );
+      json_object_object_get_ex( IncomingChannels, "Chs", &IncomingChannelRows );
    }
   json_object * CentralChannelRows = ChannelRowsFor( RootChannels, Device );
   const TGNString ChannelRevision = ChannelTimeStampFor( RootChannels, Device );
@@ -1174,7 +1144,7 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
      {
       if( Profiles != nullptr ) json_object_put( Profiles );
       StatusCode = 400;
-      Response = "{\"Ok\":false,\"Error\":\"Cannot merge device content\"}";
+      Response = GnJsonResult(false,"Cannot merge device content");
       json_object_put( Root );
       json_object_put( Incoming );
       return true;
@@ -1193,7 +1163,7 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
      {
       json_object_put( Profiles );
       StatusCode = 500;
-      Response = "{\"Ok\":false,\"Error\":\"Cannot save central HeatProfiles.json\"}";
+      Response = GnJsonResult(false,"Cannot save central HeatProfiles.json");
       json_object_put( Root );
       json_object_put( Incoming );
       return true;
@@ -1220,7 +1190,7 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
    {
     if( Profiles != nullptr ) json_object_put( Profiles );
     StatusCode = 500;
-    Response = "{\"Ok\":false,\"Error\":\"Cannot save device content\"}";
+    Response = GnJsonResult(false,"Cannot save device content");
     json_object_put( Root );
     json_object_put( Incoming );
     return true;
@@ -1235,7 +1205,7 @@ bool TTimeStore::HandleSyncRequest( TGNString const & Body,
       DeviceRevisionBehind || AssignmentRequired )
    {
     json_object * Payload = BuildSetPayload( Root, Set, ProfilesFile );
-    SetString( Payload, "Device", WireDevice );
+    SetString( Payload, "Dev", WireDevice );
     Registry.AddPreparation( Device, Payload );
     json_object_object_add( Payload, "Action", json_object_new_string( "UseCentral" ) );
     StatusCode = 200;
@@ -1344,7 +1314,7 @@ bool TTimeStore::TryPushSet( TGNString const & Device, TGNString const & Type )
     return false;
    }
   json_object * Payload = BuildSetPayload( Root, Set, ProfilesFile );
-  SetString( Payload, "Device", Registry.WireId( Device ) );
+  SetString( Payload, "Dev", Registry.WireId( Device ) );
   Registry.AddPreparation( Device, Payload );
   const TGNString Body = JsonText( Payload, false );
   json_object_put( Payload );
@@ -1380,7 +1350,7 @@ void TTimeStore::TryPushUnsynced(void)
    {
     json_object * Set = json_object_array_get_idx( Sets, Index );
     if( !BoolValue( Set, "Synced", false ) )
-      Pending.emplace_back( StringValue( Set, "Device" ), StringValue( Set, "Type" ) );
+      Pending.emplace_back( StringValue( Set, "Dev" ), StringValue( Set, "Type" ) );
    }
   json_object_put( Root );
   for( auto const & Item : Pending )
@@ -1411,8 +1381,8 @@ void TTimeStore::MarkAllPending(void)
    }
   json_object * ProfileSync = json_object_from_file( ( ProfilesFile.parent_path() / "HeatProfiles.sync.json" ).c_str() );
   if( ProfileSync == nullptr )
-    ProfileSync = json_tokener_parse( "{\"Version\":1,\"Revision\":\"\",\"Sets\":[]}" );
-  SetString( ProfileSync, "Revision", Revision );
+    ProfileSync = json_tokener_parse( "{\"Ver\":1,\"Rev\":\"\",\"Sets\":[]}" );
+  SetString( ProfileSync, "Rev", Revision );
   SaveStore( ProfilesFile.parent_path() / "HeatProfiles.sync.json", ProfileSync );
   json_object_put( ProfileSync );
   if( SaveStore( FileName, Root ) )
@@ -1426,7 +1396,7 @@ bool TTimeStore::PrepareAssignment(void)
   if( !Root ) return false;
   json_object * Sets = nullptr, * Channels = nullptr;
   json_object_object_get_ex( Root, "Sets", &Sets );
-  json_object_object_get_ex( Root, "Channels", &Channels );
+  json_object_object_get_ex( Root, "Chs", &Channels );
   json_object * Journal = json_object_from_file( ( RootDirectory / "data/DeviceAssignments.json" ).c_str() ), * Pending = nullptr;
   if( Journal ) json_object_object_get_ex( Journal, "PendingOperation", &Pending );
   if( StringValue( Pending, "Kind" ) == "EndpointSwap" )
@@ -1435,7 +1405,7 @@ bool TTimeStore::PrepareAssignment(void)
     if( !json_object_object_get_ex( Pending, "TimesTarget", &Target ) || !json_object_is_type( Target, json_type_object ) )
      { if( Journal ) json_object_put( Journal ); json_object_put( Root ); return false; }
     auto Committed = CloneJson( Target ); json_object_put( Root ); Root = Committed;
-    json_object_object_get_ex( Root, "Sets", &Sets ); json_object_object_get_ex( Root, "Channels", &Channels );
+    json_object_object_get_ex( Root, "Sets", &Sets ); json_object_object_get_ex( Root, "Chs", &Channels );
    }
   if( StringValue( Pending, "Kind" ) == "EditDevices" )
    {
@@ -1443,7 +1413,7 @@ bool TTimeStore::PrepareAssignment(void)
     for( size_t I = 0; I < json_object_array_length( Sets ); ++I )
      {
       auto Set = json_object_array_get_idx( Sets, I );
-      if( Registry.Devices().count( StringValue( Set, "Device" ) ) ) json_object_array_add( CurrentSets, json_object_get( Set ) );
+      if( Registry.Devices().count( StringValue( Set, "Dev" ) ) ) json_object_array_add( CurrentSets, json_object_get( Set ) );
      }
     json_object_object_add( Root, "Sets", CurrentSets ); Sets = CurrentSets;
     for( auto const & Item : Registry.Devices() )
@@ -1452,7 +1422,7 @@ bool TTimeStore::PrepareAssignment(void)
       EnsureSet( Root, Item.first, Service == '3' ? "FeedTimes" : "SwitchTimes", Service == '3' ? "Feeder" : Service == '1' ? "MyTimer" : "TmrSw" );
       if( Service != '3' && ChannelRowsFor( Channels, Item.first ) == nullptr )
        {
-        if( Channels == nullptr ) { Channels = json_object_new_object(); json_object_object_add( Root, "Channels", Channels ); }
+        if( Channels == nullptr ) { Channels = json_object_new_object(); json_object_object_add( Root, "Chs", Channels ); }
         auto State = json_object_new_object(); SetString( State, "TimeStamp", Registry.Revision() );
         json_object_object_add( State, "Rows", json_object_new_array() ); json_object_object_add( Channels, Item.first.c_str(), State );
        }

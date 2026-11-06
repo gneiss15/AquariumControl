@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EspCompile.sh, Version: 1.07
+# EspCompile.sh, Version: 1.09
 set -euo pipefail
 
 COMPILE_VERBOSE=
@@ -37,13 +37,14 @@ PreBuildSuccessMessage="Pre-build: A8T web/config files and revision updated"
 
 ArduinoLibraries=(
   "$PrjsDir/Libs/GnBasicLib"
+  "$PrjsDir/Libs/GnAqPrjsLib"
   "$PrjsDir/Libs/GnFtpServer"
 )
 ExtraBuildProperties=(
   "compiler.cpp.extra_flags=-I@SKETCH_DIR@"
   "upload.maximum_size=$MaxApplicationSize"
 )
-CommonSourceDirs=( Libs/Common/EspUpdate Libs/Common/TmrSw )
+CommonSourceDirs=( Common/EspUpdate Common/TmrSw )
 
 # shellcheck source=../tools/EspCompileCommon.sh
 source "$PrjsDir/tools/EspCompileCommon.sh"

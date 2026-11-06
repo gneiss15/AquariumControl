@@ -1,4 +1,4 @@
-// TmrSwHw.h, Version: 3.04
+// TmrSwHw.h, Version: 3.05
 #ifndef TmrSwHwH
 #define TmrSwHwH
 
@@ -31,6 +31,7 @@ class TTmrSwHw : public TSingleton<TTmrSwHw>, TLoopInstance
   bool                HasInput(void) const                           { return true; }
   bool                HasOutput(void) const                          { return TmrSwShellyHardware::RelayConfirmed; }
   bool                PowerMeterValid(void) const;
+  uint32_t            PowerMeterAgeMs(void) const;
   uint32_t            PowerMeterCfEdges(void) const;
   uint32_t            PowerMeterCf1Edges(void) const;
   uint32_t            PowerMeterVoltageIntervals(void) const;

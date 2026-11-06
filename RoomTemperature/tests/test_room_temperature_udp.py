@@ -33,7 +33,9 @@ class UdpTest(unittest.TestCase):
                               BroadcastAddress='127.255.255.255', Port=udp.getsockname()[1])
                 cfg = path / 'Config.json'
                 cfg.write_text(json.dumps(config))
-                process = subprocess.Popen([sys.executable, str(ROOT / 'RoomTemperature.py'),
+                launcher = path / 'RunSender.py'
+                launcher.write_text('import sys\nsys.path.insert(0,'+repr(str(ROOT))+')\nimport RoomTemperature as S\nS.SYSFS_DIRECTORY='+repr(str(path))+'\nS.BroadcastAddress="127.255.255.255"\nS.UdpPort='+str(udp.getsockname()[1])+'\nraise SystemExit(S.main())\n')
+                process = subprocess.Popen([sys.executable, str(launcher),
                                             '--config', str(cfg)], stdout=subprocess.PIPE,
                                            stderr=subprocess.PIPE, text=True)
 
@@ -45,29 +47,29 @@ class UdpTest(unittest.TestCase):
                             packet = json.loads(udp.recvfrom(65535)[0])
                         except socket.timeout:
                             break
-                        if packet.get('Type') == 'Status' and packet.get('ID') == config['DeviceId']:
+                        if packet.get('Type') == 2 and packet.get('ID') == config['DeviceId']:
                             return packet
                     self.fail('No status received from actual sender process')
 
                 def request():
                     # Avoid the deliberate one-second request rate limit.
                     time.sleep(1.1)
-                    packet = {'Version': 2, 'Type': 'Request', 'ID': [config['DeviceId']]}
+                    packet = {'Ver': 3, 'Type': 1, 'ID': [config['DeviceId']]}
                     udp.sendto(json.dumps(packet).encode(), ('127.255.255.255', config['Port']))
 
                 try:
                     packet = receive()
-                    self.assertEqual(packet['Version'], 2)
-                    self.assertEqual(packet['Status']['Temperature'], 22.375)
+                    self.assertEqual(packet['Ver'], 3)
+                    self.assertEqual(packet['Status']['Temp'], 22.375)
                     write(24000, 'NO')
                     request()
                     packet = receive(timeout=4)
-                    self.assertIsNone(packet['Status']['Temperature'])
+                    self.assertIsNone(packet['Status']['Temp'])
                     self.assertFalse(packet['Status']['Healthy'])
                     write(24000)
                     request()
                     packet = receive(timeout=4)
-                    self.assertEqual(packet['Status']['Temperature'], 24)
+                    self.assertEqual(packet['Status']['Temp'], 24)
                     self.assertTrue(packet['Status']['Healthy'])
                 finally:
                     process.terminate()

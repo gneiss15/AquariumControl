@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CopyToRasPi.sh, Version: 1.32
+# CopyToRasPi.sh, Version: 1.35
 
 set -euo pipefail
 
@@ -11,6 +11,8 @@ RemoteDir="$RemotePrjsDir/Dashboard"
 RemoteDataDir="$RemoteDir/data"
 CommonLibDir="$PrjsDir/Libs/GnBasicLib"
 RemoteCommonLibDir="$RemotePrjsDir/Libs/GnBasicLib"
+AqLibDir="$PrjsDir/Libs/GnAqPrjsLib"
+RemoteAqLibDir="$RemotePrjsDir/Libs/GnAqPrjsLib"
 ProjectDataDir="$ScriptDir/data"
 RasPiSnapshotDir="$ScriptDir/generated/raspi"
 RasPiReadableDir="$ScriptDir/generated/raspi-readable"
@@ -394,7 +396,7 @@ CopyToRasPi()
   esac
 
   echo "Synchronisiere Dashboard nach $RemoteHost:$RemoteDir/ ..."
-  ssh "$RemoteHost" "mkdir -p '$RemoteDataDir' '$RemoteCommonLibDir' '$RemotePrjsDir/tools'" || return $?
+  ssh "$RemoteHost" "mkdir -p '$RemoteDataDir' '$RemoteCommonLibDir' '$RemoteAqLibDir' '$RemotePrjsDir/tools'" || return $?
 
   (
     cd "$ScriptDir"
@@ -404,6 +406,7 @@ CopyToRasPi()
       DashboardServer.cpp \
       FeedbackMonitor.cpp \
       FeedbackMonitor.h \
+      ChargeLearningDebug.h \
       FeedbackMonitors.json \
       DashboardServer.service \
       Devices.json \
@@ -447,11 +450,24 @@ CopyToRasPi()
 
   echo "Synchronisiere benötigte GnBasicLib-Quellen ..."
   rsync -v -a \
+    --exclude='/tests/' \
+    --exclude='/generated/' \
     --include='*/' \
     --include='*.h' \
     --include='*.cpp' \
     --exclude='*' \
     "$CommonLibDir/" "$RemoteHost:$RemoteCommonLibDir/" || return $?
+
+  echo "Synchronisiere benötigte GnAqPrjsLib-Quellen ..."
+  rsync -v -a \
+    --exclude='/tests/' \
+    --exclude='/generated/' \
+    --include='*/' \
+    --include='*.h' \
+    --include='*.cpp' \
+    --include='*.py' \
+    --exclude='*' \
+    "$AqLibDir/" "$RemoteHost:$RemoteAqLibDir/" || return $?
 
   echo "Synchronisation abgeschlossen."
 }

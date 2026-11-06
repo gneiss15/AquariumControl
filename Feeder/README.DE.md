@@ -5,9 +5,9 @@
 
 Feeder ist ein DIY Futterautomat mit OLED und Drehencoder.
 
-Zeitplan, Konfiguration, WLAN/Webserver, Status-API, Temperatur und WebSocket werden gemeinsam mit `FeederSimple` aus `../Libs/Common/Feeder` eingebunden. Die Servo-, OLED- und Drehencoder-Implementierung bleibt ausschließlich in diesem Projekt.
+Zeitplan, Konfiguration, WLAN/Webserver, Status-API, Temperatur und WebSocket werden gemeinsam mit `FeederSimple` aus `../Common/Feeder` eingebunden. Die Servo-, OLED- und Drehencoder-Implementierung bleibt ausschließlich in diesem Projekt.
 
-Die gemeinsame Weboberfläche liegt unter `../Libs/Common/Feeder/WebSrc`. `ServoSteps.json` und die zugehörige Konfigurationsseite werden nur von diesem Servo-Feeder verwendet.
+Die gemeinsame Weboberfläche liegt unter `../Common/Feeder/WebSrc`. `ServoSteps.json` und die zugehörige Konfigurationsseite werden nur von diesem Servo-Feeder verwendet.
 
 ## Hardware und Dokumentation
 
@@ -24,7 +24,7 @@ Das mechanische Modell liegt in `Hw/CAD/Feeder.FCStd`. Die konstruierte Variante
 - `DevState/<Gerätename>/` enthält die maßgeblichen persistenten Gerätedaten.
 - `generated/build/main/` und `generated/build/rescue/` enthalten getrennte, löschbare Build-Caches.
 - `generated/bin/<BoardId>_Arduino2/` enthält Main-, Rescue-, LittleFS- und Combined-Artefakte dieses Arduino-Ziels. Main- und Rescue-Clean löschen jeweils nur ihre eigenen Dateien.
-- `generated/Instances/<Gerätename>/LittleFS/` ist das aus der gemeinsamen `Libs/Common/Feeder/WebSrc` und `DevState` erzeugte vollständige LittleFS-Uploadabbild; `LittleFS-readable/` ist dessen lesbare Vergleichskopie.
+- `generated/Instances/<Gerätename>/LittleFS/` ist das aus der gemeinsamen `Common/Feeder/WebSrc` und `DevState` erzeugte vollständige LittleFS-Uploadabbild; `LittleFS-readable/` ist dessen lesbare Vergleichskopie.
 - Unter `generated/Instances/<Gerätename>/` liegen außerdem die FTP-Readbacks `ftp/`, `ftp-readable/` und `ftp-devstate-readable/`. `ftp/` ist der rohe Geräte-Readback, `ftp-readable/` dessen lesbare Darstellung und `ftp-devstate-readable/` der ausgewählte Vergleich mit `DevState`.
 - `generated/data/Versions.txt` ist die generierte Versionsdatei für den projektweiten Fallback-Datenbereich; sie ist keine zusätzliche Versionsquelle. Reguläre Instanz-Builds erhalten ihre `Versions.txt` im jeweiligen `LittleFS/`.
 
@@ -114,7 +114,7 @@ Jedes physische Gerät wird anhand seiner MAC-Adresse und Dienstkennung erkannt.
 Im Dashboard lassen sich Funktionen zwischen funktionskompatiblen Geräten tauschen.
 Hardwarekonfiguration und Kalibrierung bleiben beim physischen Gerät. Die Bedienung
 beschreibt [Dashboard – Geräteidentität und Funktionstausch](../Dashboard/README.DE.md#geräteidentität-und-funktionstausch).
-Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md).
 
 ## Gerätezuordnung und PC-Dateien
 
@@ -134,3 +134,10 @@ austauschbar.
 UDP-Statusmeldungen verwenden Version 2 mit dem optionalen Temperaturmesswert in
 `Status.Temperature`: bei ungültiger Messung `null`, bei deaktiviertem Sensor
 kein Feld.
+
+## Statusmeldungen
+
+Regelmäßige UDP-Statusmeldungen erfolgen alle zehn Sekunden. Ein-/Ausgangszustände, Übersteuerungen, Fehler und Änderungen der Messwertgültigkeit werden sofort gemeldet, ebenso Start und Wiederverbindung. Reine Messwertänderungen lösen keine zusätzlichen Broadcasts aus.
+Bei aktiviertem Temperatursensor wird der Status nach jeder abgeschlossenen Messung im Zehn-Sekunden-Messzyklus gesendet, auch bei unveränderter Temperatur.
+
+Der exakte DS18B20-Einschaltwert +85 °C wird auch bei korrekter Scratchpad-CRC als ungültige Aquarienmessung verworfen. Die bisherige Sample-Revision und der Zeitstempel bleiben erhalten; die nächste reguläre Konversion kann wieder einen gültigen Wert liefern. OneWire-Zeiten und Leseversuche bleiben unverändert.

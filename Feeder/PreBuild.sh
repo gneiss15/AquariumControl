@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# PreBuild.sh, Version: 1.14
+# PreBuild.sh, Version: 1.18
 
 set -Eeuo pipefail
 
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
+python3 "$PrjsDir/Libs/GnAqPrjsLib/tools/GenerateUdp.py"
 # shellcheck source=../tools/_TrashPaths.sh
 source "$PrjsDir/tools/_TrashPaths.sh"
 DeviceName="${PRJS_DEVICE_NAME:?PRJS_DEVICE_NAME not set}"
@@ -22,9 +23,9 @@ CleanupPreBuild()
   [ -z "$StagingDataDir" ] || rm -rf -- "$StagingDataDir"
 }
 trap CleanupPreBuild EXIT
-WebSrcDir="$PrjsDir/Libs/Common/Feeder/WebSrc"
+WebSrcDir="$PrjsDir/Common/Feeder/WebSrc"
 BuildWebSrcDir="$BuildRoot/WebSrc"
-PrepareWebSrc="$PrjsDir/Libs/Common/EspUpdate/PrepareWebSrc.py"
+PrepareWebSrc="$PrjsDir/Common/EspUpdate/PrepareWebSrc.py"
 UpdateWebFiles="$PrjsDir/tools/UpdateWebFiles.sh"
 ValidateJsonFiles="$PrjsDir/tools/ValidateJsonFiles.py"
 
@@ -32,7 +33,8 @@ ValidateJsonFiles="$PrjsDir/tools/ValidateJsonFiles.py"
 [ -d "$DeviceStateDir" ] || { echo "Device state directory not found: $DeviceStateDir" >&2; exit 1; }
 [ -f "$DeviceStateDir/Config.json" ] || { echo "Device Config.json not found: $DeviceStateDir/Config.json" >&2; exit 1; }
 python3 "$ValidateJsonFiles" "$WebSrcDir" "$DeviceStateDir"
-python3 "$PrepareWebSrc" "$WebSrcDir" "$BuildWebSrcDir"
+python3 "$PrepareWebSrc" "$WebSrcDir" "$BuildWebSrcDir" \
+  --device-type-file "${PRJS_DEVICE_TYPE_FILE:-$ProjectDir/DeviceType.txt}"
 
 mkdir -p -- "$DataDir"
 
@@ -43,7 +45,7 @@ for SourceFile in "$DeviceStateDir"/*.json; do
   [ "$(basename -- "$SourceFile")" = "Config.json" ] && continue
   install -m 0644 "$SourceFile" "$DataDir/$(basename -- "$SourceFile")"
 done
-PRJS_DATA_DIR="$DataDir" PRJS_DEVICE_CONFIG_FILE="$DeviceStateDir/Config.json" \
+PRJS_INITIAL_FUNCTION="$DeviceName" PRJS_DATA_DIR="$DataDir" PRJS_DEVICE_CONFIG_FILE="$DeviceStateDir/Config.json" \
   bash "$PrjsDir/tools/UpdateJsonFiles.sh" "$ProjectDir/Sw/FeederConfig.inc.h" Config.json ConfigEntries.json "$DataDir" aligned
 PRJS_DATA_DIR="$DataDir" PRJS_WEB_SRC_DIR="$WebSrcDir" python3 "$PrjsDir/tools/UpdateVersionFiles.py" "$ProjectDir"
 popd >/dev/null

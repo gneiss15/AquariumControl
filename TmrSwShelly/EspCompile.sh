@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# EspCompile.sh, Version: 1.07
+# EspCompile.sh, Version: 1.11
 set -Eeuo pipefail
 
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
+python3 "$PrjsDir/Libs/GnAqPrjsLib/tools/GenerateUdp.py"
 source "$PrjsDir/tools/_PruneDeviceFsArtifacts.sh"
 source "$ProjectDir/EspBoardConfig.sh"
 BuildRoot="$ProjectDir/generated/build/main"
@@ -12,6 +13,7 @@ MainInputDir="$BuildRoot/sketch/TmrSwShelly"
 IdfProjectDir="$BuildRoot/IdfProject"
 BinDir="$ProjectDir/generated/bin/$BinSubDir"
 InstancesDir="$ProjectDir/generated/Instances"
+DevStateRoot="${PRJS_DEV_STATE_ROOT:-$ProjectDir/DevState}"
 BuildMode="incremental"
 ShowStatus=false
 SelectedDevice=""
@@ -70,14 +72,14 @@ done
 DeviceNames=()
 if [ -n "$SelectedDevice" ]; then
   [[ "$SelectedDevice" =~ ^[A-Za-z][A-Za-z0-9_-]*$ ]] || { echo "Invalid device name." >&2; exit 2; }
-  [ -d "$ProjectDir/DevState/$SelectedDevice" ] || { echo "Device state not found: $SelectedDevice" >&2; exit 2; }
+  [ -d "$DevStateRoot/$SelectedDevice" ] || { echo "Device state not found: $SelectedDevice" >&2; exit 2; }
   DeviceNames=( "$SelectedDevice" )
 else
-  mapfile -t DeviceNames < <(find "$ProjectDir/DevState" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+  mapfile -t DeviceNames < <(find "$DevStateRoot" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 fi
 [ "${#DeviceNames[@]}" -gt 0 ] || { echo "No DevState devices found." >&2; exit 1; }
 if "$EnableLittleFs"; then
-  python3 "$PrjsDir/tools/DeviceFsArtifactName.py" --check-directory "$ProjectDir/DevState"
+  python3 "$PrjsDir/tools/DeviceFsArtifactName.py" --check-directory "$DevStateRoot"
 fi
 
 
@@ -88,7 +90,7 @@ if [ "$BuildMode" = full-clean-only ]; then
   rm -rf -- "$BinDir/TmrSwShelly.ino.bin_signed"
   for DeviceName in "${DeviceNames[@]}"; do
     rm -rf -- "$InstancesDir/$DeviceName/LittleFS.NoId.bin" \
-      "$BinDir/$(FsArtifactName "$ProjectDir/DevState/$DeviceName/Config.json").ino.littlefs_signed" \
+      "$BinDir/$DeviceName.ino.littlefs_signed" \
       "$InstancesDir/$DeviceName/main-build-verification.json"
   done
 fi
@@ -163,16 +165,17 @@ python3 "$PrjsDir/tools/SyncGeneratedFiles.py" file "$ProjectDir/generated/Proje
 python3 "$PrjsDir/tools/PrepareIdfProject.py" "$ProjectDir" "$IdfProjectDir"
 for DeviceName in "${DeviceNames[@]}"; do
   Status "Preparing LittleFS data for $DeviceName"
-  DeviceStateDir="$ProjectDir/DevState/$DeviceName"
+  DeviceStateDir="$DevStateRoot/$DeviceName"
   ConfigFile="$DeviceStateDir/Config.json"
   if [[ ! -f "$ConfigFile" ]]; then
-    [[ "$DeviceName" == Shelly1 ]] || { echo "Device Config.json required" >&2; exit 1; }
+    [[ "$DeviceName" == ShellySw1 ]] || { echo "Device Config.json required" >&2; exit 1; }
     # Bootstrap only the new service instance from external private defaults.
     ConfigInput="$InstancesDir/$DeviceName/config-input"
     (cd "$ProjectDir"; bash "$PrjsDir/tools/UpdateJsonFiles.sh" "$ProjectDir/Sw/TmrSwConfig.inc.h" Config.json ConfigEntries.json "$ConfigInput" aligned)
     ConfigFile="$ConfigInput/Config.json"
   fi
-  PRJS_DEVICE_NAME="$DeviceName" PRJS_DEVICE_CONFIG_FILE="$ConfigFile" PRJS_BUILD_ROOT="$BuildRoot" bash "$ProjectDir/PreBuild.sh"
+  PRJS_DEVICE_NAME="$DeviceName" PRJS_DEVICE_STATE_DIR="$DeviceStateDir" PRJS_DEVICE_CONFIG_FILE="$ConfigFile" PRJS_BUILD_ROOT="$BuildRoot" \
+    PRJS_DEVICE_TYPE_FILE="$DeviceTypeFile" bash "$ProjectDir/PreBuild.sh"
   python3 "$PrjsDir/tools/CreateReadableLittleFS.py" "$InstancesDir/$DeviceName/LittleFS" "$InstancesDir/$DeviceName/LittleFS-readable"
 done
 # shellcheck source=/dev/null
@@ -192,7 +195,7 @@ for DeviceName in "${DeviceNames[@]}"; do
       Output="$BinDir/TmrSwShelly.ino.bin_signed"
     else
       Input="$InstancesDir/$DeviceName/LittleFS.NoId.bin"
-      Output="$BinDir/$(FsArtifactName "$ProjectDir/DevState/$DeviceName/Config.json").ino.littlefs_signed"
+      Output="$BinDir/$(FsArtifactName "$InstancesDir/$DeviceName/LittleFS/Config.json").ino.littlefs_signed"
     fi
     python3 "$PrjsDir/tools/DeviceTypeArtifacts.py" wrap "$DeviceTypeFile" "$Kind" "$Input" "$Output.unsigned"
     python3 "$PrjsDir/tools/DeviceTypeArtifacts.py" sign "$Output.unsigned" "$PrivateDir/private.key" "$Output"

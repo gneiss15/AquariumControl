@@ -1,4 +1,4 @@
-// StatusApi.h, Version: 2.42
+// StatusApi.h, Version: 2.44
 #pragma once
 #include <GnBasics.h>
 #include <GnCoopTimer.h>
@@ -6,6 +6,7 @@
 #include "Scheduler.h"
 #include "Types.h"
 #include "TimeSync.h"
+#include "RoomTemperature.h"
 #include <ctime>
 #include <mutex>
 #include <vector>
@@ -16,7 +17,7 @@ class TStatusApi
                                                     TStatusApi( TIHardware & hardware, TScheduler & scheduler,
                                                                 const TChannelConfigs & channels, TGNString deviceId,
                                                                 TGNString name, unsigned webSocketPort,
-                                                                std::vector<TGNString> configErrors );
+                                                                std::vector<TGNString> configErrors, TRoomTemperature * RoomTemperature = nullptr );
   TGNString                                         DeviceJson(void) const;
   void                                              ClearConfigErrors(void);
   TGNString                                         StatusJson(void);
@@ -32,9 +33,9 @@ class TStatusApi
   static uint64_t                                   StatusSignature( TGNString const & json );
   void                                              UpdateTimeSyncStatus(void);
   static const char *                               Platform(void);
-  static void                                       AppendJsonString( TGNString & json, const TGNString & value );
   static void                                       AppendInteger( TGNString & json, long long value );
 
+  TRoomTemperature *                                FRoomTemperature;
   TIHardware &                                      FHardware;
   TScheduler &                                      FScheduler;
   const TChannelConfigs &                           FChannels;

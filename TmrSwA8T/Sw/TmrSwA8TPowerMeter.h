@@ -1,8 +1,9 @@
-// TmrSwA8TPowerMeter.h, Version: 1.04
+// TmrSwA8TPowerMeter.h, Version: 1.06
 #pragma once
 
 #include <Arduino.h>
 #include <GnBasics.h>
+#include <GnPowerMeterCycle.h>
 
 class TTmrSwA8TPowerMeter : public TSingleton<TTmrSwA8TPowerMeter>, TLoopInstance
  {
@@ -12,12 +13,9 @@ class TTmrSwA8TPowerMeter : public TSingleton<TTmrSwA8TPowerMeter>, TLoopInstanc
 
   bool                FHardwareReady;
   bool                FLoadEnabled;
-  bool                FVoltageValid;
+  TGnPowerMeterCycle   FCycle;
   uint32_t            FVoltageIntervals;
   uint32_t            FCurrentIntervals;
-  float               FVoltage;
-  float               FCurrent;
-  float               FActivePower;
   uint32_t            FVoltageCal;
   uint32_t            FCurrentCal;
   uint32_t            FPowerCal;
@@ -33,16 +31,17 @@ class TTmrSwA8TPowerMeter : public TSingleton<TTmrSwA8TPowerMeter>, TLoopInstanc
   void                LoadEnabled( bool Enabled );
   bool                Available(void) const;
   bool                HardwareReady(void) const                      { return FHardwareReady; }
-  bool                Valid(void) const                              { return Available() && FHardwareReady && FVoltageValid; }
+  bool                Valid(void) const                              { return Available() && FHardwareReady && FCycle.Valid( millis() ); }
+  uint32_t            AgeMs(void) const                             { return FCycle.AgeMs(millis()); }
   uint32_t            CfEdges(void) const;
   uint32_t            Cf1Edges(void) const;
   uint32_t            VoltageIntervals(void) const                   { return FVoltageIntervals; }
   uint32_t            CurrentIntervals(void) const                   { return FCurrentIntervals; }
   int                 SelectorLevel(void) const;
   bool                LoadEnabled(void) const                        { return FLoadEnabled; }
-  float               Voltage(void) const                            { return Available() ? FVoltage : 0.0f; }
-  float               Current(void) const                            { return Available() ? FCurrent : 0.0f; }
-  float               ActivePower(void) const                        { return Available() ? FActivePower : 0.0f; }
+  float               Voltage(void) const                            { return Available() ? FCycle.Sample().Voltage : 0.0f; }
+  float               Current(void) const                            { return Available() ? FCycle.Sample().Current : 0.0f; }
+  float               ActivePower(void) const                        { return Available() ? FCycle.Sample().Power : 0.0f; }
   uint32_t            VoltageCal(void) const                          { return FVoltageCal; }
   uint32_t            CurrentCal(void) const                          { return FCurrentCal; }
   uint32_t            PowerCal(void) const                            { return FPowerCal; }

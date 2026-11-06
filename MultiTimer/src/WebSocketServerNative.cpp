@@ -1,5 +1,7 @@
-// WebSocketServerNative.cpp, Version: 2.38
+// WebSocketServerNative.cpp, Version: 2.42
+#define Do_TWsStatusEvent
 #include <GnBasics.h>
+#include <GnJsonSchema.h>
 #include "BuildConfig.h"
 #if defined( SYSTEM_DUMMY ) || defined( SYSTEM_RASPI )
   #include "WebSocketProtocol.h"
@@ -175,11 +177,16 @@ bool TWebSocketServer::TImplementation::ReadHandshake( int Socket, TGNString & R
 
 TGNString TWebSocketServer::TImplementation::BuildEvent( unsigned long long Sequence, TGNString const & Status )
  {
-  TGNString Event = StringFormat( "{\"Type\":\"Status\",\"Sequence\":%llu,\"Timestamp\":%lld,\"Status\":",
-                                  Sequence, static_cast<long long>( std::time( nullptr ) ) );
-  Event += Status;
-  Event += '}';
-  return Event;
+  TGnWireDocument Document( Status );
+  std::unique_ptr<TWsStatusEvent> Storage( new(std::nothrow) TWsStatusEvent{} );
+  if( !Storage )return {};
+  auto & Event = *Storage;
+  TGNString Error;
+  if( !GnRead( Document.Root(), Event.Status, Error ) )
+    return {};
+  Event.Seq = Sequence;
+  Event.Timestamp = static_cast<uint64_t>( std::time( nullptr ) );
+  return GnWriteJson( Event );
  }
 
 bool TWebSocketServer::TImplementation::SendFrame( int Socket, uint8_t OpCode, TGNString const & Payload )

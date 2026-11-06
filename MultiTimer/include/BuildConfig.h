@@ -1,4 +1,4 @@
-// BuildConfig.h, Version: 2.53
+// BuildConfig.h, Version: 2.54
 #pragma once
 
 #include "../Version.inc.h"
@@ -18,3 +18,7 @@ constexpr char const * MultiTimerVersion = ProjectVersion::FirmwareRevision;
 #endif
 
 constexpr unsigned MaxEspChannels = 64;
+
+#ifndef GN_DEBUG_FILE_LOG
+  #define GN_DEBUG_FILE_LOG 0
+#endif

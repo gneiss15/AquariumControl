@@ -1,5 +1,8 @@
-// AssignmentControl.cpp, Version: 1.07
+// AssignmentControl.cpp, Version: 1.10
+#define Do_THttpResult
+#define Do_TUdpLastError
 #include "AssignmentControl.h"
+#include <GnJsonResponses.h>
 #include "EndpointAssignments.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -28,10 +31,10 @@ bool Flag( json_object * Object, char const * Key )
 int SensorCapability( json_object * Status )
  {
   json_object * Measurements = nullptr;
-  if( !Status || !json_object_object_get_ex( Status, "Measurements", &Measurements ) ||
+  if( !Status || !json_object_object_get_ex( Status, "Meas", &Measurements ) ||
       !json_object_is_type( Measurements, json_type_array ) ) return -1;
   for( size_t I = 0; I < json_object_array_length( Measurements ); ++I )
-    if( Text( json_object_array_get_idx( Measurements, I ), "Id" ) == "Temperature" ) return 2;
+    if( Text( json_object_array_get_idx( Measurements, I ), "Kind" ) == "Temperature" ) return 2;
   return 0;
  }
 json_object * GetDevice( TDeviceRegistry::TDevice const & Device, char const * Path )
@@ -126,22 +129,21 @@ json_object * TAssignmentControl::Inspect(void)
   for( size_t I = 0; I < json_object_array_length( Rows ); ++I )
    {
     json_object * Row = json_object_array_get_idx( Rows, I );
-    auto const & Device = FRegistry.Devices().at( Text( Row, "Function" ) );
+    auto const & Device = FRegistry.Devices().at( Text( Row, "Func" ) );
     if( Device.Id.back() == '2' ) continue; // Dashboard service is not a remote participant.
     json_object * Info = GetDevice( Device, "/api/v1/device" ), * Identity = nullptr, * Version = nullptr;
     json_object * Expected = json_object_new_object(), * ExpectedIdentity = nullptr, * ExpectedSources = nullptr, * Sources = nullptr;
     FRegistry.AddPreparation( Device.Function, Expected );
     json_object_object_get_ex( Expected, "Identity", &ExpectedIdentity );
-    json_object_object_get_ex( ExpectedIdentity, "Sources", &ExpectedSources );
+    json_object_object_get_ex( ExpectedIdentity, "Srcs", &ExpectedSources );
     const bool Identified = Info && json_object_object_get_ex( Info, "Identity", &Identity ) &&
-      json_object_object_get_ex( Identity, "Version", &Version ) && json_object_is_type( Version, json_type_int ) &&
-      json_object_get_int( Version ) >= 3 && Text( Identity, "DeviceId" ) == Device.Id && Flag( Identity, "Prepared" );
-    const bool SourcesMatch = Identified && json_object_object_get_ex( Identity, "Sources", &Sources ) &&
+      json_object_object_get_ex( Identity, "Ver", &Version ) && json_object_is_type( Version, json_type_int ) &&
+      json_object_get_int( Version ) >= 3 && Text( Identity, "ServiceId" ) == Device.Id && Flag( Identity, "Prepared" );
+    const bool SourcesMatch = Identified && json_object_object_get_ex( Identity, "Srcs", &Sources ) &&
       json_object_equal( Sources, ExpectedSources );
-    const bool Ready = SourcesMatch && Text( Identity, "Function" ) == Device.Function &&
-      Text( Identity, "Mode" ) == "MAC";
-    const bool Applied = Ready && Text( Identity, "Mode" ) == "MAC" &&
-      Text( Identity, "AppliedRevision" ) == FRegistry.Revision() &&
+    const bool Ready = SourcesMatch && Text( Identity, "Func" ) == Device.Function;
+    const bool Applied = Ready &&
+      Text( Identity, "AppliedRev" ) == FRegistry.Revision() &&
       FRegistry.RestartConfirmed( Device.Function, Identity );
     if( Device.Id.back() == '3' )
      {
@@ -157,7 +159,7 @@ json_object * TAssignmentControl::Inspect(void)
     json_object_object_add( Row, "Online", json_object_new_boolean( Info != nullptr ) );
     json_object_object_add( Row, "Ready", json_object_new_boolean( Ready ) );
     json_object_object_add( Row, "Applied", json_object_new_boolean( Applied ) );
-    json_object_object_add( Row, "FirmwareVersion", json_object_new_string( Text( Info, "FirmwareVersion" ).c_str() ) );
+    json_object_object_add( Row, "FirmwareVer", json_object_new_string( Text( Info, "FirmwareVer" ).c_str() ) );
     if( Identity ) json_object_object_add( Row, "Identity", json_object_get( Identity ) );
     AllReady = AllReady && Ready;
     AllApplied = AllApplied && Applied;
@@ -168,7 +170,7 @@ json_object * TAssignmentControl::Inspect(void)
    {
     TGNString Error;
     if( FRegistry.Complete( Error ) ) json_object_object_add( View, "Pending", json_object_new_boolean( false ) );
-    else json_object_object_add( View, "Error", json_object_new_string( Error.c_str() ) );
+    else json_object_object_add( View, "Err", json_object_new_string( Error.c_str() ) );
    }
   try
    {
@@ -179,11 +181,11 @@ json_object * TAssignmentControl::Inspect(void)
       for( size_t J = 0; J < json_object_array_length( Rows ); ++J )
        {
         auto Device = json_object_array_get_idx( Rows, J ); json_object * Capability = nullptr;
-        if( Text( Endpoint, "DeviceId" ) != Text( Device, "DeviceId" ) ||
+        if( Text( Endpoint, "DevId" ) != Text( Device, "DevId" ) ||
             !json_object_object_get_ex( Device, "SensorCapabilityId", &Capability ) ) continue;
         const int Value = json_object_get_int( Capability );
         json_object_object_add( Endpoint, "Available", json_object_new_boolean( Value == 2 ) );
-        if( Value == 0 ) json_object_object_add( Endpoint, "Capabilities", json_object_new_int( 0 ) );
+        if( Value == 0 ) json_object_object_add( Endpoint, "Caps", json_object_new_int( 0 ) );
        }
      }
     json_object_object_add( View, "Endpoints", Endpoints );
@@ -207,7 +209,7 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
     Code = Status;
     json_object * Result = json_object_new_object();
     json_object_object_add( Result, "Ok", json_object_new_boolean( false ) );
-    json_object_object_add( Result, "Error", json_object_new_string( Error ) );
+    json_object_object_add( Result, "Err", json_object_new_string( Error ) );
     Response = json_object_to_json_string_ext( Result, JSON_C_TO_STRING_PLAIN ); json_object_put( Result );
    };
   if( Method != "POST" ) { Fail( 405, "GET and POST supported" ); return; }
@@ -220,7 +222,7 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
    {
     if( !FRegistry.Pending() ) { Fail( 409, "NoPendingOperation" ); return; }
     if( !FTimes.PrepareAssignment() ) { Fail( 500, "CannotPrepareDistribution" ); return; }
-    Code = 202; Response = "{\"Ok\":true,\"Pending\":true}"; return;
+    Code = 202; Response = GnJsonPendingResult(true); return;
    }
   if( Operation == "EditDevices" )
    {
@@ -236,22 +238,22 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
       json_object_object_get_ex( Row, "ServiceId", &Service ); json_object_object_get_ex( Row, "HttpPort", &Port );
       if( !Flag( Row, "Active" ) || json_object_get_int( Service ) <= 2 ) continue;
       const auto Id = Text( Row, "MAC" ) + "@" + std::to_string( json_object_get_int( Service ) );
-      const auto FunctionId = Text( Row, "Function" );
+      const auto FunctionId = Text( Row, "Func" );
       auto Old = FRegistry.Devices().find( FRegistry.Function( Id ) );
-      const auto Hostname = Flag( Row, "UseHardwareName" ) ? Text( Row, "HardwareName" ) : FunctionId;
+      const auto Hostname = Flag( Row, "UseHwName" ) ? Text( Row, "HwName" ) : FunctionId;
       const bool Changed = Old == FRegistry.Devices().end() || Old->second.IP != Text( Row, "IP" ) ||
         Old->second.Port != unsigned( json_object_get_int( Port ) ) || FRegistry.HostnameFor( Id, FunctionId ) != Hostname;
       if( !Changed ) continue;
-      TDeviceRegistry::TDevice Candidate{ FunctionId, Id, Text( Row, "IP" ), Text( Row, "DeviceType" ), Text( Row, "HardwareName" ), unsigned( json_object_get_int( Port ) ) };
+      TDeviceRegistry::TDevice Candidate{ FunctionId, Id, Text( Row, "IP" ), Text( Row, "DevType" ), Text( Row, "HwName" ), unsigned( json_object_get_int( Port ) ) };
       json_object * Info = GetDevice( Candidate, "/api/v1/device" ), * Identity = nullptr, * Version = nullptr, * Boot = nullptr;
-      const bool Valid = Info && Text( Info, "DeviceType" ) == Candidate.DeviceType &&
-        json_object_object_get_ex( Info, "Identity", &Identity ) && Text( Identity, "DeviceId" ) == Id &&
-        json_object_object_get_ex( Identity, "Version", &Version ) && json_object_get_int( Version ) >= 3 &&
-        json_object_object_get_ex( Identity, "BootCounter", &Boot ) && json_object_get_int64( Boot ) > 0;
+      const bool Valid = Info && Text( Info, "DevType" ) == Candidate.DeviceType &&
+        json_object_object_get_ex( Info, "Identity", &Identity ) && Text( Identity, "ServiceId" ) == Id &&
+        json_object_object_get_ex( Identity, "Ver", &Version ) && json_object_get_int( Version ) >= 3 &&
+        json_object_object_get_ex( Identity, "BootCnt", &Boot ) && json_object_get_int64( Boot ) > 0;
       if( !Valid ) { if( Info ) json_object_put( Info ); Fail( 409, "New or changed device is offline or has wrong identity/type" ); return; }
       auto Config = GetDevice( Candidate, "/Config.json" );
       if( !Config ) { json_object_put( Info ); Fail( 409, "Cannot read new device configuration" ); return; }
-      if( Text( Config, "Hostname" ) != Hostname || Text( Identity, "Function" ) != FunctionId )
+      if( Text( Config, "Hostname" ) != Hostname || Text( Identity, "Func" ) != FunctionId )
        {
         auto Entry = json_object_new_object(), Fields = json_object_new_object();
         #define GN_FUNCTION_CONFIG_FIELD( Name ) \
@@ -261,16 +263,16 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
         if( json_object_object_length( Fields ) != 4 )
          { json_object_put( Entry ); json_object_put( Fields ); json_object_put( Config ); json_object_put( Info ); Fail( 409, "Invalid new device configuration" ); return; }
         json_object_object_add( Fields, "Hostname", json_object_new_string( Hostname.c_str() ) );
-        json_object_object_add( Entry, "FunctionConfig", Fields ); json_object_object_add( Entry, "BootCounter", json_object_get( Boot ) );
+        json_object_object_add( Entry, "FuncCfg", Fields ); json_object_object_add( Entry, "BootCnt", json_object_get( Boot ) );
         json_object_object_add( Transfer, Id.c_str(), Entry );
        }
       json_object_put( Config ); json_object_put( Info );
      }
     TGNString Error;
     if( !FRegistry.EditDevices( Rows, Transfer, Error ) ) { Fail( 409, Error.c_str() ); return; }
-    if( !FRegistry.Pending() ) { Code = 200; Response = "{\"Ok\":true,\"Pending\":false}"; return; }
+    if( !FRegistry.Pending() ) { Code = 200; Response = GnJsonPendingResult(false); return; }
     if( !FTimes.PrepareAssignment() ) { Fail( 500, "JournalCommittedDistributionPending" ); return; }
-    Code = 202; Response = "{\"Ok\":true,\"Pending\":true}"; return;
+    Code = 202; Response = GnJsonPendingResult(true); return;
    }
   if( Operation == "SwapEndpoints" )
    {
@@ -286,7 +288,7 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
         for( size_t I = 0; I < json_object_array_length( Endpoints ); ++I )
          { auto R = json_object_array_get_idx( Endpoints, I ); if( Text( R, "EndpointId" ) == Text( Request, Key ) ) Selected = R; }
         if( !Selected ) { Fail( 400, "UnknownEndpoint" ); return; }
-        auto It = FRegistry.Devices().find( Text( Selected, "Device" ) );
+        auto It = FRegistry.Devices().find( Text( Selected, "Dev" ) );
         if( It->second.Id.back() == '3' )
          {
           auto Status = GetDevice( It->second, "/api/v1/status" );
@@ -295,7 +297,7 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
          }
         auto Info = GetDevice( It->second, "/api/v1/device" ); TRelease InfoRelease{ Info };
         json_object * Version = nullptr, * Capability = nullptr;
-        json_object_object_get_ex( Selected, "Capabilities", &Capability );
+        json_object_object_get_ex( Selected, "Caps", &Capability );
         if( !Info || ( json_object_get_int( Capability ) == 1 &&
             ( !json_object_object_get_ex( Info, "EndpointAssignments", &Version ) || json_object_get_int( Version ) != 1 ) ) )
          { Fail( 409, "EndpointFirmwareUpdateRequired" ); return; }
@@ -303,7 +305,7 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
       TGNString Error;
       if( !SwapEndpoints( FRegistry, Text( Request, "First" ), Text( Request, "Second" ), Error ) ) { Fail( 409, Error.c_str() ); return; }
       if( !FTimes.PrepareAssignment() ) { Fail( 500, "JournalCommittedDistributionPending" ); return; }
-      Code = 202; Response = "{\"Ok\":true,\"Pending\":true}"; return;
+      Code = 202; Response = GnJsonPendingResult(true); return;
      }
     catch( std::exception const & Error ) { Fail( 409, Error.what() ); return; }
    }
@@ -327,7 +329,7 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
       for( auto const * Device : { &A->second, &B->second } )
        {
         json_object * Status = GetDevice( *Device, "/api/v1/status" ), * Channels = nullptr, * State = nullptr;
-        const bool Idle = Status && json_object_object_get_ex( Status, "Channels", &Channels ) &&
+        const bool Idle = Status && json_object_object_get_ex( Status, "Chs", &Channels ) &&
           json_object_array_length( Channels ) == 1 &&
           json_object_object_get_ex( json_object_array_get_idx( Channels, 0 ), "State", &State ) &&
           json_object_is_type( State, json_type_boolean ) && !json_object_get_boolean( State );
@@ -351,7 +353,7 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
     json_object * Config = GetDevice( Source, "/Config.json" ), * Info = GetDevice( Target, "/api/v1/device" );
     json_object * Identity = nullptr, * Boot = nullptr;
     bool Valid = Config && Info && json_object_object_get_ex( Info, "Identity", &Identity ) &&
-      Text( Identity, "DeviceId" ) == Target.Id && json_object_object_get_ex( Identity, "BootCounter", &Boot ) &&
+      Text( Identity, "ServiceId" ) == Target.Id && json_object_object_get_ex( Identity, "BootCnt", &Boot ) &&
       json_object_is_type( Boot, json_type_int ) && json_object_get_int64( Boot ) > 0;
     json_object * Fields = json_object_new_object();
     #define GN_FUNCTION_CONFIG_FIELD( Name ) \
@@ -367,8 +369,8 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
     if( Valid )
      {
       json_object * Row = json_object_new_object();
-      json_object_object_add( Row, "FunctionConfig", Fields );
-      json_object_object_add( Row, "BootCounter", json_object_get( Boot ) );
+      json_object_object_add( Row, "FuncCfg", Fields );
+      json_object_object_add( Row, "BootCnt", json_object_get( Boot ) );
       json_object_object_add( Transfer, Target.Id.c_str(), Row );
      }
     else json_object_put( Fields );
@@ -380,7 +382,7 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
   if( !FRegistry.Change( First, Second, Transfer, Error ) )
    { Fail( 409, Error.c_str() ); return; }
   if( !FTimes.PrepareAssignment() ) { Fail( 500, "JournalCommittedDistributionPending" ); return; }
-  Code = 202; Response = "{\"Ok\":true,\"Pending\":true}";
+  Code = 202; Response = GnJsonPendingResult(true);
  }
 
 void TAssignmentControl::Tick(void)

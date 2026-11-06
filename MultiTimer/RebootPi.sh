@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RebootPi.sh, Version: 1.02
+# RebootPi.sh, Version: 1.03
 
 ###############################################################################
 # Enshure current user is root
@@ -14,7 +14,9 @@ LogDateFmt="+%F %R:%S"
 ##############################
 # Start (main)
 ##############################
-echo $(date "$LogDateFmt") Rebooting >> $LogFile
+if [[ "${GN_DEBUG_FILE_LOG:-0}" == 1 ]]; then
+  printf '%s Rebooting\n' "$(date "$LogDateFmt")" >> "$LogFile"
+fi
 ##############################
 # Reboot
 ##############################

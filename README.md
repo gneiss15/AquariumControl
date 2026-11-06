@@ -1,4 +1,4 @@
-<!-- README.md, Version: 1.10 -->
+<!-- README.md, Version: 1.12 -->
 # AquariumControl
 
 [Deutsch](README.DE.md)
@@ -16,6 +16,7 @@ The project’s own files use the [PolyForm Noncommercial License 1.0.0](LICENSE
 - [Nous A8T](TmrSwA8T/README.md) and [Shelly](TmrSwShelly/README.md): switch firmware with power measurement and heating-profile consumers.
 - [Feeder](Feeder/README.md) and [FeederSimple](FeederSimple/README.md): feeding devices and temperature publishers.
 - [HeatHistory](HeatHistory/README.md): passive CSV recorder and on-demand charts, optionally as a PC user service.
+- [LaptopBattery](LaptopBattery/README.md): Linux laptop battery/AC publisher with a persistent learning switch and boot counter.
 - `Libs/`: shared code; `tools/`: build, synchronization and calibration tools.
 
 Takeover/initial migration is maintained separately in [ShellyNousTakeover](https://github.com/gneiss15/ShellyNousTakeover). Compatible Main applications are maintained here in AquariumControl.

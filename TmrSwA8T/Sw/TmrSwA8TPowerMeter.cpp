@@ -1,4 +1,4 @@
-// TmrSwA8TPowerMeter.cpp, Version: 1.08
+// TmrSwA8TPowerMeter.cpp, Version: 1.09
 #include "TmrSwA8TPowerMeter.h"
 #include "TmrSwA8THardware.h"
 #include <driver/ledc.h>
@@ -178,12 +178,8 @@ esp_err_t SetupGate( unsigned Index )
 TTmrSwA8TPowerMeter::TTmrSwA8TPowerMeter(void)
 : FHardwareReady( false )
 , FLoadEnabled( false )
-, FVoltageValid( false )
 , FVoltageIntervals( 0 )
 , FCurrentIntervals( 0 )
-, FVoltage( 0.0f )
-, FCurrent( 0.0f )
-, FActivePower( 0.0f )
 , FVoltageCal( DefaultVoltageCal )
 , FCurrentCal( DefaultCurrentCal )
 , FPowerCal( DefaultPowerCal )
@@ -238,6 +234,7 @@ void TTmrSwA8TPowerMeter::LoadEnabled( bool Enabled )
   portENTER_CRITICAL( &MeterMux );
   if( Enabled != FLoadEnabled )
    {
+    FCycle.Reset();
     ChangedLoad[0] = true;
     ChangedLoad[1] = true;
    }
@@ -285,6 +282,7 @@ bool TTmrSwA8TPowerMeter::SetCalValues( uint32_t VoltageCal, uint32_t CurrentCal
   FVoltageCal = VoltageCal;
   FCurrentCal = CurrentCal;
   FPowerCal = PowerCal;
+  FCycle.Reset();
   return true;
  }
 
@@ -324,16 +322,18 @@ int TTmrSwA8TPowerMeter::SelectorLevel(void) const
     if( !Pending ) continue;
     const double Frequency = Valid ? double( Count ) / GateSeconds[Index] : 0.0;
     if( Index == 1 )
-      FActivePower = float( Frequency * double( uint64_t( HjlPowerRatio ) * FPowerCal ) / 1e7 );
+      FCycle.Add( TGnPowerMeterCycle::Power,
+        float( Frequency * double( uint64_t( HjlPowerRatio ) * FPowerCal ) / 1e7 ), Valid, millis() );
     else if( Voltage )
      {
-      FVoltage = float( Frequency * double( uint64_t( HjlVoltageRatio ) * FVoltageCal ) / 1e7 );
-      FVoltageValid = Valid && Count > 0;
+      FCycle.Add( TGnPowerMeterCycle::Voltage,
+        float( Frequency * double( uint64_t( HjlVoltageRatio ) * FVoltageCal ) / 1e7 ), Valid && Count > 0, millis() );
       if( Valid ) FVoltageIntervals += uint32_t( Count );
      }
     else
      {
-      FCurrent = float( Frequency * double( uint64_t( HjlCurrentRatio ) * FCurrentCal ) / 1e9 );
+      FCycle.Add( TGnPowerMeterCycle::Current,
+        float( Frequency * double( uint64_t( HjlCurrentRatio ) * FCurrentCal ) / 1e9 ), Valid, millis() );
       if( Valid ) FCurrentIntervals += uint32_t( Count );
      }
    }

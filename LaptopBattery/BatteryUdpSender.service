@@ -1,0 +1,15 @@
+# BatteryUdpSender.service, Version: 1.04
+[Unit]
+Description=Battery charge UDP status broadcaster
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@LAPTOP_USER@
+ExecStart=/usr/bin/python3 /usr/local/bin/BatteryUdpSender.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,2 +1,2 @@
-Firmware=3.08
-LittleFS=2.71
+Firmware=3.13
+LittleFS=2.72

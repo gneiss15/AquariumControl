@@ -1,4 +1,4 @@
-// Feeder.ino, Version: 1.19
+// Feeder.ino, Version: 1.21
 //****************************************************************
 // Includes
 //****************************************************************
@@ -23,7 +23,7 @@
 #include "FeederWebSocket.h"
 #include "FeedTimes.h"
 #include "FeederTimeSync.h"
-#include "Libs/Common/EspUpdate/EspIndexHtmlCheck.h"
+#include "Common/EspUpdate/EspIndexHtmlCheck.h"
 #include <MyFtpServer.h>
 
 //****************************************************************
@@ -200,6 +200,7 @@ void setup(void)
          TGnUdpTemperature Temperature;
          Temperature.Available = FeederTemperature.Enabled();
          Temperature.Valid = FeederTemperature.Valid();
+         Temperature.SampleRevision = FeederTemperature.SampleRevision();
          if( Temperature.Valid )
            Temperature.Celsius = FeederTemperature.TemperatureCelsius();
          return Temperature;

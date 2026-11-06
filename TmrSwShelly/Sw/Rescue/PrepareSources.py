@@ -1,4 +1,4 @@
-# PrepareSources.py, Version: 1.08
+# PrepareSources.py, Version: 1.09
 """Generate target-only wrappers; do not modify common rescue sources."""
 import pathlib
 import sys
@@ -10,12 +10,12 @@ from SyncGeneratedFiles import write_text_if_changed, write_bytes_if_changed
 Root=pathlib.Path(__file__).resolve().parent
 Prjs=Root.parent.parent.parent
 Out=pathlib.Path(sys.argv[1]);Out.mkdir(parents=True,exist_ok=True)
-Sketch=(Prjs/'Libs/Common/EspRescue/EspRescueUpdate.ino').read_text()
+Sketch=(Prjs/'Common/EspRescue/EspRescueUpdate.ino').read_text()
 for Before, After in [('if( EspRescueHardware::StatusLedPin >= 0 )', 'if( EspRescueHardware::StatusLedPin >= 0 && ShellyRollbackGeometryValid() )'), ('if( EspRescueHardware::StatusLedPin < 0 )', 'if( EspRescueHardware::StatusLedPin < 0 || !ShellyRollbackGeometryValid() )')]:
     assert Sketch.count(Before) == 1, Before
     Sketch = Sketch.replace(Before, After)
 write_text_if_changed(Out/'EspRescueUpdate.cpp', '#include "RollbackService.h"\n' + Sketch)
-Source=(Prjs/'Libs/Common/EspRescue/EspRescueUpdater.cpp').read_text()
+Source=(Prjs/'Common/EspRescue/EspRescueUpdater.cpp').read_text()
 Needle='void TEspRescueUpdater::HandleMain( int ClientSocket )\n {'
 assert Source.count(Needle)==1
 Source=Source.replace(Needle,Needle+'''

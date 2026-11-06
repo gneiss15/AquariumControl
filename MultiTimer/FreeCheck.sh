@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# FreeCheck.sh, Version: 1.01
+# FreeCheck.sh, Version: 1.02
+
+# Optional maintenance diagnostic; disabled by default.
+[[ "${GN_DEBUG_FREE_CHECK:-0}" == 1 ]] || exit 0
 
 ScriptDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 LogFile="$ScriptDir/Log/FreeCheck.log"

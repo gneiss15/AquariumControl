@@ -9,7 +9,7 @@
 
 FeederSimple shares its schedule, web, API, WebSocket, WLAN, OTA and temperature core with `Feeder`.
 
-Shared firmware and readable web sources are in `../Libs/Common/Feeder`. Motor, home input, local button, status LED and Dallas diagnostic page are project-specific.
+Shared firmware and readable web sources are in `../Common/Feeder`. Motor, home input, local button, status LED and Dallas diagnostic page are project-specific.
 
 ## Hardware
 
@@ -64,7 +64,7 @@ GPIO0 is also an ESP8266 boot-strap pin. Do not hold the button during reset or 
 - `doc/`: local hardware assignments and technical documents.
 - `generated/build/main/`, `generated/build/rescue/`: separate disposable build caches.
 - `generated/bin/<BoardId>_Arduino2/`: Main, Rescue, LittleFS and combined artifacts for this Arduino target. Main/Rescue cleanup removes only its own files.
-- `generated/Instances/<Device>/LittleFS/`: complete LittleFS upload image generated from `../Libs/Common/Feeder/WebSrc` and DevState; `LittleFS-readable/` is its readable comparison copy.
+- `generated/Instances/<Device>/LittleFS/`: complete LittleFS upload image generated from `../Common/Feeder/WebSrc` and DevState; `LittleFS-readable/` is its readable comparison copy.
 - The same instance directory contains FTP readbacks `ftp/`, `ftp-readable/` and `ftp-devstate-readable/`.
 - FeederSimple does not use `ServoSteps.json`; instances contain configuration, feeding schedules and other shared web data.
 
@@ -128,7 +128,7 @@ The normal measurement cycle records boot and only `OK`/`NOK` state transitions 
 
 ## Device identity and function swaps
 
-Each physical device is identified by its MAC address and service ID. Dashboard can swap functions between functionally compatible devices. Hardware configuration and calibration remain with the physical device. See [Dashboard – device identity and function swaps](../Dashboard/README.md#device-identity-and-function-swaps) for operation and [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md) for technical details.
+Each physical device is identified by its MAC address and service ID. Dashboard can swap functions between functionally compatible devices. Hardware configuration and calibration remain with the physical device. See [Dashboard – device identity and function swaps](../Dashboard/README.md#device-identity-and-function-swaps) for operation and [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md) for technical details.
 
 ## Device assignments and PC files
 
@@ -141,3 +141,10 @@ python3 tools/ReadDeviceStates.py --apply
 Dashboard cannot access PC files. Afterwards, rebuild affected filesystem images; images from different hardware types are not interchangeable.
 
 UDP status messages use version 2 with optional temperature in `Status.Temperature`: `null` for an invalid measurement, or no field when the sensor is disabled. Receivers must support version 2.
+
+## Status messages
+
+Regular UDP status broadcasts are sent every ten seconds. Output/input states, overrides, errors and measurement validity changes are reported immediately, as are startup and reconnection. Measurement changes alone do not trigger additional broadcasts.
+When a temperature sensor is enabled, its status is published after each completed measurement in the ten-second measurement cycle, including unchanged readings.
+
+The exact DS18B20 power-on value of +85 °C is rejected as an invalid aquarium reading, even when the scratchpad CRC is correct. The previous sample revision and timestamp are retained; the next regular conversion can recover normally. OneWire timing and read retries remain unchanged.

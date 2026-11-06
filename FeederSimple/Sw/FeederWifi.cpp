@@ -1,4 +1,4 @@
-// FeederWifi.cpp, Version: 1.22
+// FeederWifi.cpp, Version: 1.24
 //****************************************************************
 // Includes
 //****************************************************************
@@ -12,13 +12,12 @@
 #include "FeederConfig.h"
 #include "FeederStatusApi.h"
 #include "FeederTemperature.h"
-#include "Libs/Common/Feeder/OneWireDiagnosticPage.h"
+#include "Common/Feeder/OneWireDiagnosticPage.h"
 
 #ifdef ESP32
   #include <WiFi.h>
  #else
   #include <ESP8266WiFi.h>
-  #include <ESP8266mDNS.h>
   #include <coredecls.h>                  // settimeofday_cb()
   #include "EspUpdateSigning.h"
 #endif
@@ -435,13 +434,6 @@ TFeederWifi::TFeederWifi(void)
 /*virtual*/ void TFeederWifi::Loop(void)
  {
   FHttpServer.handleClient();
-  if( FRecoveryMode )
-    return;
-
-  #if !defined( ESP32 )
-    MDNS.update();
-  #endif
-
  }
 
 bool TFeederWifi::Setup(void) 
@@ -504,8 +496,6 @@ bool TFeederWifi::SetupRecoveryNetwork( char const * ProjectName )
     &EspUpdateSigning::Hash, &EspUpdateSigning::Verifier, ProjectName );
   FHttpServer.begin();
 
-  MDNS.begin( FeederConfig.Hostname );
-  MDNS.addService( "http", "tcp", 80 );
   return true;
  }
 
@@ -527,8 +517,6 @@ bool TFeederWifi::SetupStartupError( char const * ProjectName, String const & Er
     &EspUpdateSigning::Hash, &EspUpdateSigning::Verifier, ProjectName, Error );
   FHttpServer.begin();
 
-  MDNS.begin( FeederConfig.Hostname );
-  MDNS.addService( "http", "tcp", 80 );
   return true;
  }
 #endif
@@ -1016,8 +1004,6 @@ bool TFeederWifi::SetupHttpServer(void)
 
   FHttpServer.begin();
 
-  MDNS.begin( FeederConfig.Hostname );
-  MDNS.addService( "http", "tcp", 80 );
 
   return true;
  }

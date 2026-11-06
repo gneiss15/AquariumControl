@@ -1,3 +1,3 @@
-// TmrSwChannels.h, Version: 1.02
+// TmrSwChannels.h, Version: 1.03
 #pragma once
-#include "Libs/Common/TmrSw/TmrSwChannels.h"
+#include "Common/TmrSw/TmrSwChannels.h"

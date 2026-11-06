@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BuildRescue.sh, Version: 1.12
+# BuildRescue.sh, Version: 1.13
 set -Eeuo pipefail
 export GENERATED_TOOLS="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../tools" && pwd -P)"
 [[ $# == 0 ]] || exit 2
@@ -13,7 +13,7 @@ BuildDir="$Generated/esp32/idf"
 mkdir -p "$Generated" "$BuildDir"
 python3 "$PrjsDir/tools/DeviceTypeArtifacts.py" prepare "$RescueDir/DeviceType.txt" "$Generated/DeviceType.inc.h" "$Generated/DeviceType.txt"
 python3 "$PrjsDir/tools/DeviceTypeArtifacts.py" public-key-header "$PrivateDir/public.key" "$Generated/EspUpdatePublicKey.h"
-python3 "$PrjsDir/Libs/Common/EspRescue/EspRescueConfig.py" "$RescueDir/Config.inc.h" "${PRJS_SECRETS_FILE:-$PrivateDir/Secrets.local.json}" TmrSwShelly "$RescueVersion" "$Generated/EspRescueProject.h"
+python3 "$PrjsDir/Common/EspRescue/EspRescueConfig.py" "$RescueDir/Config.inc.h" "${PRJS_SECRETS_FILE:-$PrivateDir/Secrets.local.json}" TmrSwShelly "$RescueVersion" "$Generated/EspRescueProject.h"
 chmod 600 "$Generated/EspRescueProject.h"
 python3 "$RescueDir/PrepareSources.py" "$Generated"
 source "${ESP_IDF_ENABLE_SCRIPT:-$PrjsDir/../../Portables/EnableEspIdf.sh}"

@@ -1,4 +1,4 @@
-// FeederConfig.inc.h, Version: 1.10
+// FeederConfig.inc.h, Version: 1.11
 // CD: Config Definition
 // CD( htmlType, typ, name, defValue [, extraHtmlText] )
 // CD_Div( htmlType ) just for HTML to make an optical separation between parameters

@@ -1,8 +1,13 @@
 {
   "DashboardUrl": "http://192.168.99.51:8090",
   "DataDir": "data",
-  "PollIntervalSeconds": 10,
-  "RequestTimeoutSeconds": 3,
   "StatusMaxAgeSeconds": 15,
-  "StatusWaitSeconds": 8
+  "FloorPowerWatts": {
+    "HeatProfileAq1": 41.052,
+    "HeatProfileAq2": 21.216
+  },
+  "RoomTemperatureSource": "GN-Pi",
+  "PowerFactors": {},
+  "EnergyMaxIntervalSeconds": 15,
+  "ViewRetentionDays": 30
 }

@@ -1,4 +1,4 @@
-// ButtonController.cpp, Version: 2.43
+// ButtonController.cpp, Version: 2.44
 #include <GnBasics.h>
 #include "ButtonController.h"
 //?#include <chrono>
@@ -57,7 +57,7 @@ void TButtonController::HandlePressStartEffect(void)
 
 bool TButtonController::ExecuteShortPress( unsigned channelNr, TGNString & error )
  {
-  return Timer.ToggleChannel( static_cast<TChannelId>( channelNr ), error );
+  return Timer.ToggleChannel( static_cast<TChannelIndex>( channelNr ), error );
  }
 
 bool TButtonController::ExecuteLongPress( unsigned channelNr, TGNString & error )
@@ -74,7 +74,7 @@ bool TButtonController::ExecuteLongPress( unsigned channelNr, TGNString & error 
     return false;
    }
 
-  return Timer.ToggleChannel( static_cast<TChannelId>( channelNr ), TemporaryToggleDuration, error );
+  return Timer.ToggleChannel( static_cast<TChannelIndex>( channelNr ), TemporaryToggleDuration, error );
  }
 
 bool TButtonController::SimulatePress( unsigned channelNr, bool longPress, TGNString & error )

@@ -9,7 +9,7 @@
 
 FeederSimple verwendet denselben Zeitplan-, Web-, API-, WebSocket-, WLAN-, OTA- und Temperaturkern wie `Feeder`.
 
-Die gemeinsamen Firmwarequellen und die lesbaren Webquellen liegen unter `../Libs/Common/Feeder`. Motor, Home-Eingang, lokaler Taster, Status-LED und Dallas-Diagnoseseite bleiben projektspezifisch.
+Die gemeinsamen Firmwarequellen und die lesbaren Webquellen liegen unter `../Common/Feeder`. Motor, Home-Eingang, lokaler Taster, Status-LED und Dallas-Diagnoseseite bleiben projektspezifisch.
 
 ## Hardware
 
@@ -62,7 +62,7 @@ GPIO0 ist gleichzeitig ein ESP8266-Boot-Strap-Pin. Der Taster darf deshalb beim 
 - `doc/` enthält Hardwarebelegung und technische Unterlagen.
 - `generated/build/main/` und `generated/build/rescue/` enthalten getrennte, löschbare Build-Caches.
 - `generated/bin/<BoardId>_Arduino2/` enthält Main-, Rescue-, LittleFS- und Combined-Artefakte dieses Arduino-Ziels. Main- und Rescue-Clean löschen jeweils nur ihre eigenen Dateien.
-- `generated/Instances/<Gerätename>/LittleFS/` ist das aus `../Libs/Common/Feeder/WebSrc` und `DevState` erzeugte vollständige LittleFS-Uploadabbild; `LittleFS-readable/` ist dessen lesbare Vergleichskopie.
+- `generated/Instances/<Gerätename>/LittleFS/` ist das aus `../Common/Feeder/WebSrc` und `DevState` erzeugte vollständige LittleFS-Uploadabbild; `LittleFS-readable/` ist dessen lesbare Vergleichskopie.
 - Unter `generated/Instances/<Gerätename>/` liegen außerdem die FTP-Readbacks `ftp/`, `ftp-readable/` und `ftp-devstate-readable/`.
 - FeederSimple verwendet keine `ServoSteps.json`; seine Geräteinstanzen enthalten Konfiguration, Fütterungszeiten und die übrigen gemeinsamen Webdaten.
 
@@ -131,7 +131,7 @@ Jedes physische Gerät wird anhand seiner MAC-Adresse und Dienstkennung erkannt.
 Im Dashboard lassen sich Funktionen zwischen funktionskompatiblen Geräten tauschen.
 Hardwarekonfiguration und Kalibrierung bleiben beim physischen Gerät. Die Bedienung
 beschreibt [Dashboard – Geräteidentität und Funktionstausch](../Dashboard/README.DE.md#geräteidentität-und-funktionstausch).
-Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md).
 
 ## Gerätezuordnung und PC-Dateien
 
@@ -151,3 +151,10 @@ austauschbar.
 UDP-Statusmeldungen verwenden Version 2 mit dem optionalen Temperaturmesswert in
 `Status.Temperature`: bei ungültiger Messung `null`, bei deaktiviertem Sensor
 kein Feld. Die Empfänger müssen Version 2 unterstützen.
+
+## Statusmeldungen
+
+Regelmäßige UDP-Statusmeldungen erfolgen alle zehn Sekunden. Ein-/Ausgangszustände, Übersteuerungen, Fehler und Änderungen der Messwertgültigkeit werden sofort gemeldet, ebenso Start und Wiederverbindung. Reine Messwertänderungen lösen keine zusätzlichen Broadcasts aus.
+Bei aktiviertem Temperatursensor wird der Status nach jeder abgeschlossenen Messung im Zehn-Sekunden-Messzyklus gesendet, auch bei unveränderter Temperatur.
+
+Der exakte DS18B20-Einschaltwert +85 °C wird auch bei korrekter Scratchpad-CRC als ungültige Aquarienmessung verworfen. Die bisherige Sample-Revision und der Zeitstempel bleiben erhalten; die nächste reguläre Konversion kann wieder einen gültigen Wert liefern. OneWire-Zeiten und Leseversuche bleiben unverändert.

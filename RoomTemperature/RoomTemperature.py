@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# RoomTemperature.py, Version: 1.00
-"""Standalone DS18B20 reader and aquarium protocol v2 UDP publisher."""
+# RoomTemperature.py, Version: 1.02
+"""Standalone DS18B20 reader and aquarium protocol v3 UDP publisher."""
 import argparse
 import json
+from Messages import ReadJson, NewStatus, WriteMessage, BroadcastAddress, UdpPort, SendIntervalSeconds
 import logging
 import math
 from pathlib import Path
@@ -14,33 +15,23 @@ import time
 
 ROOT = Path(__file__).resolve().parent
 LOG = logging.getLogger('RoomTemperature')
+SYSFS_DIRECTORY = '/sys/bus/w1/devices'
+MIN_CELSIUS = -20
+MAX_CELSIUS = 60
 
 
 def load_config(path):
+    # Hardware selection is local, not a remotely exchanged message.
     config = json.loads(Path(path).read_text())
-    if not isinstance(config, dict):
-        raise ValueError('Configuration must be a JSON object')
-    if not re.fullmatch(r'(?:[0-9A-F]{2}:){5}[0-9A-F]{2}@3', config.get('DeviceId', '')):
-        raise ValueError('DeviceId must be the fixed uppercase MAC@3 identity')
-    if config['DeviceId'].startswith('00:00:00:00:00:00'):
-        raise ValueError('DeviceId cannot be a dummy identity')
+    if not isinstance(config, dict) or not re.fullmatch(r'(?:[0-9A-F]{2}:){5}[0-9A-F]{2}@3', str(config.get('DeviceId', ''))) or config['DeviceId'].startswith('00:00:00:00:00:00'):
+        raise ValueError('Invalid room service address')
     sensor = config.get('SensorId')
-    if sensor is not None and not re.fullmatch(r'28-[0-9a-fA-F]{12}', sensor):
-        raise ValueError('SensorId must be null or a DS18B20 id: 28-xxxxxxxxxxxx')
-    for key in ('IntervalSeconds', 'MinCelsius', 'MaxCelsius'):
-        value = config.get(key)
-        if type(value) not in (int, float) or not math.isfinite(value):
-            raise ValueError(f'{key} must be a finite number')
-    if not 1 <= config['IntervalSeconds'] <= 10:
-        raise ValueError('IntervalSeconds must be between 1 and 10 (receiver expiry: 20 s)')
-    if not -55 <= config['MinCelsius'] < config['MaxCelsius'] <= 125:
-        raise ValueError('Invalid sensor temperature range')
-    socket.inet_aton(config['BroadcastAddress'])
-    if type(config.get('Port')) is not int or not 1 <= config['Port'] <= 65535:
-        raise ValueError('Invalid UDP port')
-    if not isinstance(config.get('SysfsDirectory'), str):
-        raise ValueError('SysfsDirectory must be a path')
-    return config
+    if sensor is not None and (not isinstance(sensor,str) or not re.fullmatch(r'28-[0-9a-fA-F]{12}',sensor)):
+        raise ValueError('Invalid local sensor selection')
+    return dict(DeviceId=config['DeviceId'], SensorId=sensor,
+                IntervalSeconds=SendIntervalSeconds, BroadcastAddress=BroadcastAddress,
+                Port=UdpPort, SysfsDirectory=SYSFS_DIRECTORY,
+                MinCelsius=MIN_CELSIUS, MaxCelsius=MAX_CELSIUS)
 
 
 def sensor_ids(config):
@@ -83,27 +74,22 @@ def build_packet(config, version, now=None):
         value = None
         error = str(exc)
     timestamp = int(time.time() if now is None else now)
-    status = {'Kind': 'RoomTemperature', 'Temperature': value, 'SensorId': sensor,
-              'AppVersion': version, 'CurrentTime': timestamp, 'Healthy': error is None,
-              'Errors': [] if error is None else [error],
-              'Measurements': [{'Id': 'Temperature', 'Name': 'Raumtemperatur',
+    status = {'Kind': 'RoomTemperature', 'Temp': value,
+              'AppVer': version, 'CurrentTime': timestamp, 'Healthy': error is None,
+              'Errs': [] if error is None else [error],
+              'Meas': [{'Kind': 'Temperature', 'Name': 'Raumtemperatur',
                                 'Value': value, 'Unit': '°C', 'Decimals': 1,
                                 'Valid': error is None, 'UpdatedAt': timestamp,
-                                'Error': error}]}
-    return {'Version': 2, 'Type': 'Status', 'ID': config['DeviceId'], 'Status': status}
+                                'Err': error}]}
+    return NewStatus(ID=config['DeviceId'], Status=status)
 
 
 def request_matches(raw, device_id):
     try:
-        packet = json.loads(raw)
+        packet = ReadJson('TUdpRequestMessage', raw)
     except (ValueError, UnicodeError):
         return False
-    if not isinstance(packet, dict):
-        return False
-    return (type(packet.get('Version')) is int and packet['Version'] == 2
-            and packet.get('Type') == 'Request' and isinstance(packet.get('ID'), list)
-            and all(isinstance(item, str) for item in packet['ID'])
-            and (not packet['ID'] or device_id in packet['ID']))
+    return isinstance(packet['ID'],list) and (not packet['ID'] or device_id in packet['ID'])
 
 
 def run(config, version):
@@ -127,15 +113,15 @@ def run(config, version):
             now = time.monotonic()
             if now >= next_sample:
                 packet = build_packet(config, version)
-                error = tuple(packet['Status']['Errors'])
+                error = tuple(packet['Status']['Errs'])
                 if error != last_error:
                     if error:
                         LOG.error('%s', '; '.join(error))
                     else:
-                        LOG.info('Sensor %s valid', packet['Status']['SensorId'])
+                        LOG.info('Local sensor %s valid', config.get('SensorId') or '(automatic selection)')
                     last_error = error
                 try:
-                    udp.sendto(json.dumps(packet, ensure_ascii=False, allow_nan=False).encode(),
+                    udp.sendto(WriteMessage(packet).encode(),
                                (config['BroadcastAddress'], config['Port']))
                 except OSError as exc:
                     LOG.warning('UDP send failed: %s', exc)

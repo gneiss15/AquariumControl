@@ -1,4 +1,4 @@
-<!-- README.md, Version: 2.14 -->
+<!-- README.md, Version: 2.20 -->
 # Aquarium Dashboard
 
 [Deutsch](README.DE.md)
@@ -16,6 +16,8 @@ Dashboard and the MultiTimer program run on the same Raspberry Pi. MultiTimer co
 Device-specific configurations, credentials and runtime data are not included in the public repository. Supply your own configuration and signing material as described in [build and private configuration](../BUILD-SECRETS.md). **Coming soon:** complete initial-setup instructions and generic configuration examples.
 
 ## Overview and operation
+
+The top-left corner shows the local browser date and time, refreshed every second in the selected language without network requests. Measurement update times remain separate.
 
 The section selector opens the overview, schedules and device configuration pages. The last selected section is saved in the browser and reopened after reloading. If it is unavailable, the overview appears. Dashboard's language is selected independently of embedded device pages.
 
@@ -86,7 +88,7 @@ Each physical device is identified by its MAC address and service ID. Its assign
 
 When swapping whole devices, the function hostname and AP/FTP credentials follow the function. Hardware settings remain with the physical device. Both affected ESPs restart. The operation is complete when both devices have confirmed the transfer. Interrupted operations resume after a restart.
 
-Further details are in [device identity and function swaps](../Libs/GnBasicLib/DeviceIdentity.md).
+Further details are in [device identity and function swaps](../Libs/GnAqPrjsLib/DeviceIdentity.md).
 
 ### Hardware endpoints and channel swaps
 
@@ -128,11 +130,27 @@ The runtime configuration is saved in `data/DeviceAssignments.json` and preserve
 
 Additional senders without device/configuration APIs are registered under `ExternalSources` in `data/DeviceAssignments.json`. An entry maps a function name to an identity of the form `MAC@3`. Only registered senders are evaluated.
 
-Edit this table with Dashboard stopped. Changes require a new assignment revision and distribution to participating devices; the device editor does not edit this table. See [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md) for data-format details.
+Edit this table with Dashboard stopped. Changes require a new assignment revision and distribution to participating devices; the device editor does not edit this table. See [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md) for data-format details.
 
 The laptop battery sender runs on the laptop and sends its battery level as `Status.BatteryPercent`, in percent. It also reports AC power through `Status.AcOnline` and battery state through `Status.BatteryState`. A registered `LaptopBattery` sender appears under **System** as a laptop. Invalid percentages are shown as “—”. After 20 seconds without a valid status packet, the sender is Offline and stale measurements are hidden.
 
-For example, a charging profile can use source `LaptopBattery`, measurement `BatteryPercent` and thresholds 40/80. With `NoTempOn: false`, the assigned output stays OFF without a valid measurement. The associated switching output `LaptopSw` is shown as a separate function.
+For example, a charging profile can use source `LaptopBattery`, measurement `BatteryPercent` and thresholds 40/80. Without active run-on, `NoTempOn: false` keeps the assigned output OFF without a valid measurement. The associated switching output `LaptopSw` is shown as a separate function.
+
+### Charge run-on for battery profiles
+
+Enable **Charge run-on active** in the Dashboard profile and enter **Seconds per percentage point**. This requires `Measurement: "BatteryPercent"`. The editor initially suggests `15` seconds per percentage point; learning subsequently adjusts the same factor. Without active run-on, the existing missing-measurement behavior applies.
+
+When reports stop and the output was automatically ON, the switching device calculates the remaining charging time:
+
+`(cutoff percentage − last battery percentage) × seconds per percentage point`
+
+Time already charged since the last report counts towards this budget. An output that was OFF is never switched ON by missing reports. Every manual switching command immediately discards the learning cycle, including returning to automatic control. An aborted cycle never updates the factor. A schedule switching OFF or changed profile parameters also cancels the current cycle. There is no additional maximum run-on duration.
+
+The next valid battery report provides the gain used to calculate a factor from actual ON time. For a gain of at least one percentage point, the new estimate contributes 25 % and the previous factor contributes 75 %. Without a measurable gain, the factor stays unchanged. The new factor is rounded down to whole seconds. Changes below 5 % relative to the last saved factor stay in RAM and carry into the next learning cycle. Only a difference of at least 5 % saves the factor in the profile and synchronizes it with Dashboard. The active learning cycle exists only in RAM; after a restart, fresh battery reports and an automatically enabled output must arm a new cycle.
+
+The laptop grants learning permission through `Status.ChargeLearningAllowed` (boolean) and publishes `Status.ChargeBootCounter`, a wrapping `uint32` boot counter including zero. A returning learning measurement may only be evaluated when the counter difference modulo `2^32` is exactly 1. Additional boots or missing/invalid permission discard the measurement; normal run-on remains available. The learning switch does not increment the counter. See [LaptopBattery](../LaptopBattery/README.md) for installation, controls and external-charging limitations.
+
+The JSON fields are `ChargeRunOn` and `ChargeSecondsPerPercent`. Additional profile fields are allowed and preserved during editing and synchronization. `ChargeRunOn: true` requires a positive integer factor (`uint32_t`); inactive profiles need neither field.
 
 ## Feedback monitoring and warning sound
 
@@ -156,7 +174,7 @@ Rules are saved in `data/FeedbackMonitors.json`. The editor detects concurrent c
 
 ### Operate the warning sound
 
-**Enable warning sound** releases browser audio and plays a test tone. A confirmed, unacknowledged mismatch produces three short tones every 30 seconds. **Acknowledge warning sound** retains the visual fault and silences the sound until recovery or a new fault type. **Disable warning sound** turns sound off in this browser. Sound is not repeated without current Dashboard data.
+The speaker icon (**Enable warning sound**) releases browser audio and plays a test tone. A confirmed, unacknowledged mismatch produces three short tones every 30 seconds. **Acknowledge warning sound** retains the visual fault and silences the sound until recovery or a new fault type. The crossed-out speaker icon disables sound in this browser. Its tooltip and accessible label describe the current action. Sound is not repeated without current Dashboard data.
 
 The ON/OFF choice is saved in the browser for one year. With a saved ON choice, the page attempts to resume audio silently after loading. If the browser blocks this, **Allow warning sound** appears; tap it once. OFF remains off after reloading. Set volume and audio permissions on the tablet or in the browser. Clearing cookies or using private browsing may discard the saved choice.
 
@@ -168,13 +186,13 @@ Cookie lifetime is checked on loading and daily. When at most 30 days remain, th
 
 Data path: **device → UDP → DashboardServer → SSE → browser**. SSE is a persistent HTTP connection through which the server sends changes directly to the browser page.
 
-Devices publish status at least every five seconds and on relevant changes, using UDP port 44444. One shared `/api/events` connection supplies the browser page with status data from all devices and external measurement senders. The server explicitly requests missing or stale device data.
+Devices publish status every ten seconds and on relevant changes, using UDP port 44444. One shared `/api/events` connection supplies the browser page with status data from all devices and external measurement senders. The server explicitly requests missing or stale device data.
 
 When the push connection is interrupted, the browser queries DashboardServer's status cache once per second over HTTP. The push connection is restored automatically; a connection silent for 15 seconds is rebuilt. After reconnection, the browser receives the current data. Device data older than 20 seconds is treated as Offline.
 
 On a WLAN or server failure, Dashboard displays a status bar with automatic retries and a Reload button. Waking or showing the page again triggers an immediate connection check. Changed device configurations are taken into account when reloading.
 
-Device communication uses UDP version 2. Measurements are named fields in the `Status` object, such as `Temperature` or `BatteryPercent`. Technical interfaces are described in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Device communication uses UDP version 2. Measurements are named fields in the `Status` object, such as `Temperature` or `BatteryPercent`. Technical interfaces are described in [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md).
 
 ### Raspberry Pi system status
 
@@ -274,3 +292,39 @@ sudo systemctl restart DashboardServer.service
 | `DashboardServer.cpp` and other C++ files | Web server, data stores, assignments and monitoring. |
 | `CopyToRasPi.sh` | Comparison, readback and transfer to the Pi. |
 | `Install.sh`, `DashboardServer.service` | Installation and operation as a systemd service. |
+
+## Room temperature
+
+When the optional MultiTimer room-temperature sensor is enabled, its measurement appears under **System**. Aquarium relay views remain separate. Fresh readings are published after each completed ten-second measurement cycle; sensor errors are shown as invalid readings.
+
+[Compact UDP status and targeted source lookup](../Libs/GnAqPrjsLib/UdpStatus.md).
+
+Profiles with PI configuration offer **Control** choices for hysteresis (`Off`), PI observation (`Shadow`) and PI active (`Active`). Active PI shows the setpoint and expandable PI parameters instead of hysteresis thresholds. Changes take effect only after **Save / distribute**. Hidden values are preserved. Device selectors include aquarium context.
+
+**PWM period (s)** is the period of time-proportional switching. **Integral time Ti (s), Ki = Kp / Ti** defines the integral gain as `Ki = Kp / Ti`; calculation uses `I += (setpoint − measured temperature) × Ki × Δt`, with limiting against windup. Ti is not the recalculation interval.
+
+## Temporary laptop learning journal
+
+`GET /api/debug/charge-learning` returns completed steps: old/new battery percentage, counted charging time (`ChargeMilliseconds`), applied and new integer seconds-per-percent factors. `Persistence` is `RamOnly`, `Saved`, or `SaveFailed`. `Saved` confirms a switch write only; `Synchronization: NotObserved` does not claim completed central distribution. RAM-only steps need no synchronization.
+
+The Dashboard keeps at most 1000 steps in `generated/ChargeLearning/Steps.json`, deduplicated across Dashboard restarts by device ID, switch boot counter and event sequence. The switch repeats only its last event, held in RAM. Extended Dashboard absence or a switch restart can leave gaps. Duration is counted output-ON time since the last battery sample, including sender timeout; the laptop's exact physical shutdown time is unknown.
+
+Set `GN_DEBUG_CHARGE_LEARNING=0` in `Libs/GnAqPrjsLib/GnTemporaryDiagnostics.h` for switch and Dashboard to remove this temporary facility without changing learning or factor persistence. No recurring Codex monitor is required.
+
+## Narrow layouts and channel role
+
+Times and assignments adapt to labeled cards on narrow screens, with sorting controls above them. Language changes update dynamic profile labels and preserve unsaved input.
+
+`MainSw` is the general main-switch role of a measurement-dependent profile, including laptop charging. `HeaterMain` remains an equivalent accepted input. Device/function IDs such as `HeaterMainAq1` and profile IDs remain unchanged; switching and protection behavior are identical.
+
+Channel assignments use two compact rows and a trash icon on narrow screens. Device assignments remain a horizontally scrollable table. Expandable sections show a right-aligned arrow indicating their state.
+
+## Configuration events for HeatHistory
+
+`GET /api/recording-events` opens an SSE connection. A `configuration` event with
+`Snapshot: true` supplies the complete initial state. Subsequent `Profiles` and
+`Channels` objects contain only changed entries, keyed by profile ID or device;
+`null` removes an entry. A changed device registry is sent in full as `Registry`.
+Reconnection provides another snapshot. Events follow API changes, including device
+sync; direct file edits require a server restart. Keepalive comments maintain the
+connection. Existing status SSE at `/api/events` is unchanged.

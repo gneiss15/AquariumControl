@@ -1,4 +1,4 @@
-# EspRescueCompileEsp32Common.sh, Version: 1.11
+# EspRescueCompileEsp32Common.sh, Version: 1.12
 # Common ESP32 rescue build implementation sourced by project-specific scripts.
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
@@ -30,7 +30,7 @@ RescueConfigHelper="${RescueConfigHelper:-$PrjsDir/EspRescueUpdate/EspRescueConf
 RescueHardwareDefinition="${RescueHardwareDefinition:-$PrjsDir/EspRescueUpdate/Sw/EspRescueHardware.h}"
 PartitionDefinition="${PartitionDefinition:-}"
 RescuePartitionSize="${RescuePartitionSize:-}"
-UpdateCommonDir="${UpdateCommonDir:-$PrjsDir/Libs/Common/EspUpdate}"
+UpdateCommonDir="${UpdateCommonDir:-$PrjsDir/Common/EspUpdate}"
 DeviceTypeHelper="${DeviceTypeHelper:-$PrjsDir/tools/DeviceTypeArtifacts.py}"
 DeviceTypeFile="${DeviceTypeFile:-$ProjectDir/DeviceType.txt}"
 SecretsFile="${PRJS_SECRETS_FILE:-${SecretsFile:-$PrjsPrivateDir/Secrets.local.json}}"

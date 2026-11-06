@@ -1,8 +1,8 @@
-# test_json_editor_format.py, Version: 1.02
+# test_json_editor_format.py, Version: 1.03
 """Check actual JSON editor formatters preserve records and unknown data."""
 import pathlib,subprocess
 root=pathlib.Path(__file__).resolve().parents[2]
-for name in ['Libs/Common/TmrSw/WebSrc/Index.js','MultiTimer/WebSrc/Index.js']:
+for name in ['Common/TmrSw/WebSrc/Index.js','MultiTimer/WebSrc/Index.js']:
  source=(root/name).read_text();start=source.index('function FormatRecordArray(')
  end=source.find('function FormatChannelsJson(',start)
  if end<0:end=source.find('let ConfigurationRevision',start)

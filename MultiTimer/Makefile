@@ -1,4 +1,4 @@
-# Makefile, Version: 1.18
+# Makefile, Version: 1.25
 
 CXX ?= g++
 
@@ -18,11 +18,13 @@ VERSION_HEADER := Version.inc.h
 
 GnLibRoot ?= ../Libs
 GnBasicLibDir := $(GnLibRoot)/GnBasicLib
+GnAqPrjsLibDir := $(GnLibRoot)/GnAqPrjsLib
 
 INCLUDE_DIRS ?= include
-INCLUDE_DIRS += $(GnBasicLibDir)
+INCLUDE_DIRS += $(GnBasicLibDir) $(GnAqPrjsLibDir)
 
-CPPFLAGS := $(addprefix -I,$(INCLUDE_DIRS))
+GN_DEBUG_FILE_LOG ?= 0
+CPPFLAGS := $(addprefix -I,$(INCLUDE_DIRS)) -DGN_DEBUG_FILE_LOG=$(GN_DEBUG_FILE_LOG)
 
 ifeq ($(DetectedSystem),raspi)
   CPPFLAGS += -DGNTargetRasPi -Wno-psabi
@@ -33,10 +35,12 @@ LDLIBS := -ljson-c -lpthread
 GN_BASIC_SOURCES := \
   $(GnBasicLibDir)/GnBasics.cpp \
   $(GnBasicLibDir)/GnTime.cpp \
-  $(GnBasicLibDir)/GnCoopTimer.cpp \
-  $(GnBasicLibDir)/GnUdpStatus.cpp \
-  $(GnBasicLibDir)/GnHeaterControl.cpp \
-  $(GnBasicLibDir)/GnDeviceIdentity.cpp
+  $(GnBasicLibDir)/GnCoopTimer.cpp
+
+GN_AQ_SOURCES := \
+  $(GnAqPrjsLibDir)/GnUdpStatus.cpp \
+  $(GnAqPrjsLibDir)/GnHeaterControl.cpp \
+  $(GnAqPrjsLibDir)/GnDeviceIdentity.cpp
 
 COMMON_SOURCES := \
   src/Main.cpp \
@@ -48,6 +52,7 @@ COMMON_SOURCES := \
   src/ButtonController.cpp \
   src/WebApplication.cpp \
   src/StatusApi.cpp \
+  src/RoomTemperature.cpp \
   src/WebServerNative.cpp \
   src/WebSocketServerNative.cpp
 
@@ -64,7 +69,8 @@ endif
 
 SOURCES := $(COMMON_SOURCES) $(PLATFORM_SOURCE)
 GN_BASIC_OBJECTS := $(patsubst $(GnBasicLibDir)/%.cpp,$(BUILD_DIR)/GnBasicLib/%.o,$(GN_BASIC_SOURCES))
-OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES)) $(GN_BASIC_OBJECTS)
+GN_AQ_OBJECTS := $(patsubst $(GnAqPrjsLibDir)/%.cpp,$(BUILD_DIR)/GnAqPrjsLib/%.o,$(GN_AQ_SOURCES))
+OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES)) $(GN_BASIC_OBJECTS) $(GN_AQ_OBJECTS)
 DEPENDS := $(OBJECTS:.o=.d)
 
 .PHONY: all dummy raspi build clean full-clean
@@ -83,13 +89,17 @@ $(PROGRAM): $(OBJECTS) $(VERSION_HEADER)
 $(VERSION_HEADER): Versions.txt ../tools/UpdateVersionFiles.py
 	python3 ../tools/UpdateVersionFiles.py .
 
-$(OBJECTS): $(VERSION_HEADER)
+$(OBJECTS): $(VERSION_HEADER) ../Libs/GnAqPrjsLib/Messages.js
 
 $(BUILD_DIR)/%.o: src/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 $(BUILD_DIR)/GnBasicLib/%.o: $(GnBasicLibDir)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD_DIR)/GnAqPrjsLib/%.o: $(GnAqPrjsLibDir)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
@@ -104,3 +114,6 @@ full-clean: clean
 	rm -f -- "$(PROGRAM)" 
 
 -include $(DEPENDS)
+
+../Libs/GnAqPrjsLib/Messages.js: ../Libs/GnAqPrjsLib/MessageDefinition.inc.h ../Libs/GnAqPrjsLib/tools/GenerateUdp.py ../Libs/GnAqPrjsLib/MessageTypes.h ../Libs/GnAqPrjsLib/tools/GenerateJsonBrowser.py $(wildcard ../Libs/GnAqPrjsLib/Definitions/Contract/*.inc.h) $(wildcard ../Libs/GnAqPrjsLib/tools/*.py) $(wildcard ../Libs/GnAqPrjsLib/tools/Templates/*) ../Libs/GnAqPrjsLib/GnJsonMacroDefaults.inc.h
+	python3 ../Libs/GnAqPrjsLib/tools/GenerateUdp.py
