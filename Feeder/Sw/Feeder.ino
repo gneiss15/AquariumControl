@@ -1,4 +1,4 @@
-// Feeder.ino, Version: 1.19
+// Feeder.ino, Version: 1.20
 //****************************************************************
 // Includes
 //****************************************************************
@@ -200,6 +200,7 @@ void setup(void)
          TGnUdpTemperature Temperature;
          Temperature.Available = FeederTemperature.Enabled();
          Temperature.Valid = FeederTemperature.Valid();
+         Temperature.SampleRevision = FeederTemperature.SampleRevision();
          if( Temperature.Valid )
            Temperature.Celsius = FeederTemperature.TemperatureCelsius();
          return Temperature;

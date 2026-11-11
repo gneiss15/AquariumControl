@@ -1,4 +1,4 @@
-// FeederTemperature.cpp, Version: 2.51
+// FeederTemperature.cpp, Version: 2.54
 #include <GnBasics.h>
 #include "FeederTemperature.h"
 
@@ -473,6 +473,7 @@ void TFeederTemperature::PauseForDiagnostic( TGnCoopTimer_t Milliseconds )
     return;
 
   FDiagnosticPaused = true;
+  FPendingTemperature = false;
   FLoopTimer.Stop();
   FDelayTimer.Stop();
   FOneWire->depower();
@@ -509,6 +510,7 @@ void TFeederTemperature::StartConversion( TGnCoopTimerBase *, uint16_t )
   if( FOneWire->reset() == 0 )
    {
     FDelayTimer.Stop();
+    FPendingTemperature = false;
     FValid = false;
     FError = TTemperatureError::ConversionStartFailed;
     RecordDiagnosticPoll( false, TDiagnosticReason::ConversionResetFailed );
@@ -561,6 +563,7 @@ void TFeederTemperature::ReadTemp( TGnCoopTimerBase * Tmr, uint16_t )
   ++FDiagnosticReadStatus[ ReadAttempt ];
   if( ReadAttempt == 0 )
    {
+    FPendingTemperature = false;
     FValid = false;
     FError = TTemperatureError::ReadFailed;
     RecordDiagnosticPoll( false, LastReason );
@@ -570,15 +573,39 @@ void TFeederTemperature::ReadTemp( TGnCoopTimerBase * Tmr, uint16_t )
   const int16_t Raw = static_cast<int16_t>( static_cast<uint16_t>( Scratchpad[0] )
                     | ( static_cast<uint16_t>( Scratchpad[1] ) << 8 ) );
   const float Temperature = static_cast<float>( Raw ) / 16.0F;
-  if( Temperature < -55.0F || Temperature > 125.0F )
+  // 0x0550 is the DS18B20 power-on register value, including a valid CRC.
+  // It is not a usable aquarium reading; keep the last sample/timestamp unchanged.
+  if( Raw == 0x0550 || Temperature < -55.0F || Temperature > 125.0F )
    {
+    FPendingTemperature = false;
     FValid = false;
     FError = TTemperatureError::ReadFailed;
     RecordDiagnosticPoll( false, TDiagnosticReason::TemperatureInvalid );
     return;
    }
 
+  // A jump needs two consecutive consistent reads before adopting the new level.
+  // Rejected reads have the same validity semantics as a missing measurement.
+  const bool Jump = FHasTemperature
+                 && ( Temperature - FTemperatureCelsius > 2.0F
+                   || FTemperatureCelsius - Temperature > 2.0F );
+  const bool Confirmed = FPendingTemperature
+                      && Temperature - FPendingTemperatureCelsius <= 2.0F
+                      && FPendingTemperatureCelsius - Temperature <= 2.0F;
+  if( Jump && !Confirmed )
+   {
+    FPendingTemperature = true;
+    FPendingTemperatureCelsius = Temperature;
+    FValid = false;
+    FError = TTemperatureError::ReadFailed;
+    RecordDiagnosticPoll( false, TDiagnosticReason::TemperatureInvalid );
+    return;
+   }
+
+  FPendingTemperature = false;
+  FHasTemperature = true;
   FTemperatureCelsius = Temperature;
+  ++FSampleRevision;
   FValid = true;
   FError = TTemperatureError::None;
   RecordDiagnosticPoll( true, TDiagnosticReason::None );

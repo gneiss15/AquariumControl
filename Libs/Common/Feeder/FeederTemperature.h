@@ -1,4 +1,4 @@
-// FeederTemperature.h, Version: 2.49
+// FeederTemperature.h, Version: 2.51
 #pragma once
 
 #include <GnBasics.h>
@@ -79,6 +79,7 @@ class TFeederTemperature : public TSingleton<TFeederTemperature>, TLoopInstance
   float                     TemperatureCelsius(void) const { return FTemperatureCelsius; }
   char const *              Unit(void) const;
   time_t                    UpdatedAt(void) const { return FUpdatedAt; }
+  uint32_t                  SampleRevision(void) const { return FSampleRevision; }
   char const *              Error(void) const;
   TGNString                 DiagnosticStatsJson(void) const;
   bool                      ClearDiagnostics(void);
@@ -103,7 +104,11 @@ class TFeederTemperature : public TSingleton<TFeederTemperature>, TLoopInstance
   TGnCoopTimer_t            FDiagnosticPauseMilliseconds;
   bool                      FDiagnosticPaused;
   float                     FTemperatureCelsius;
+  bool                      FHasTemperature = false;
+  bool                      FPendingTemperature = false;
+  float                     FPendingTemperatureCelsius = 0;
   time_t                    FUpdatedAt;
+  uint32_t                  FSampleRevision = 0;
   TTemperatureError         FError;
   TDiagnosticState          FDiagnosticState;
   TGnElapsedTimerMs64       FUptimeTimer;

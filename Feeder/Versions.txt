@@ -1,2 +1,2 @@
-Firmware=3.03
+Firmware=3.09
 LittleFS=2.69

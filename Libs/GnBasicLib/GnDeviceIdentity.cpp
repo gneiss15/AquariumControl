@@ -1,4 +1,4 @@
-// GnDeviceIdentity.cpp, Version: 1.02
+// GnDeviceIdentity.cpp, Version: 1.03
 #include <GnBasics.h>
 #include <GnDeviceIdentity.h>
 #include <cctype>
@@ -293,7 +293,8 @@ TGNString TGnDeviceIdentity::ReportJson(void) const
 TGNString TGnDeviceIdentity::ResolveTemperatureSource( TGNString const & Function ) const
  {
   auto Source = FSources.find( Function );
-  return Source == FSources.end() ? TGNString{} : Source->second;
+  const TGNString Preferred=Source==FSources.end()?TGNString{}:Source->second;
+  return FSourceResolver && !FLocalSources ? FSourceResolver(Function,Preferred,FRevision) : Preferred;
  }
 
 bool TGnDeviceIdentity::SetSources( TGNString const & Json, bool DashboardAvailable )

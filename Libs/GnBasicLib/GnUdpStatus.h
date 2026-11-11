@@ -1,4 +1,4 @@
-// GnUdpStatus.h, Version: 1.06
+// GnUdpStatus.h, Version: 1.12
 #pragma once
 
 #include <GnBasics.h>
@@ -19,16 +19,23 @@ inline bool GnUdpMeasurementFieldValid( TGNString const & Field )
            ( C >= '0' && C <= '9' ) || C == '_' ) ) return false;
   return Field != "Kind";
  }
-constexpr TGnCoopTimer_t GnUdpStatusPublishIntervalMs = 5000;
+constexpr TGnCoopTimer_t GnUdpStatusPublishIntervalMs = 10000;
 constexpr TGnCoopTimer_t GnUdpStatusCheckIntervalMs = 250;
 constexpr TGnCoopTimer_t GnUdpTemperatureMaxAgeMs = 20000;
-constexpr float GnUdpTemperatureChangeThresholdC = 0.2F;
+
+struct TGnChargeLearningPolicy
+ {
+  bool Allowed = false;
+  bool Available = false;
+  uint32_t BootCounter = 0;
+ };
 
 struct TGnUdpTemperature
  {
   bool  Available = false;
   bool  Valid = false;
   float Celsius = 0.0F;
+  uint32_t SampleRevision = 0;
  };
 
 class TGnUdpStatus : public TSingleton<TGnUdpStatus>, public TLoopInstance
@@ -51,9 +58,15 @@ class TGnUdpStatus : public TSingleton<TGnUdpStatus>, public TLoopInstance
   void                                RequestAll(void);
   void                                Request( TGNString const & Id );
   void                                Request( std::vector<TGNString> const & Ids );
+  void                                WatchStatus( TGNString const & Id );
+  bool                                GetWatchedStatus( TGNString const & Id, TGNString & Status,
+                                                        uint64_t & Revision ) const;
+  bool                                GetHeatPiPeer( TGNString const & Id, TGNString & Status );
   bool                                GetTemperature( TGNString const & Id, float & Celsius ) const;
   bool                                GetMeasurement( TGNString const & Id, TGNString const & Field, float & Value ) const;
+  TGnChargeLearningPolicy              ChargeLearningPolicy( TGNString const & Id ) const;
   TGnCoopTimer_t                      TemperatureAgeMs( TGNString const & Id ) const;
+  TGnCoopTimer_t                      MeasurementAgeMs( TGNString const & Id, TGNString const & Field ) const;
 
  private:
   class TImplementation;

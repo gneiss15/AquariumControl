@@ -1,7 +1,8 @@
-// GnDeviceIdentity.h, Version: 1.02
+// GnDeviceIdentity.h, Version: 1.03
 #pragma once
 #include <GnBasics.h>
 #include <map>
+#include <functional>
 
 // MAC/service identity is fixed; functions and source mappings are persisted separately.
 class TGnDeviceIdentity
@@ -17,6 +18,10 @@ class TGnDeviceIdentity
   TGNString ReportJson(void) const;
   TGNString const & DeviceId(void) const { return FDeviceId; }
   TGNString ResolveTemperatureSource( TGNString const & Function ) const;
+  TGNString ConfirmedSourceRevision(void) const { return FPrepared && !FLocalSources && FRevision==FAppliedRevision ? FRevision : TGNString{}; }
+  std::map<TGNString,TGNString> const & ConfirmedSources(void) const { return FSources; }
+  using TSourceResolver = std::function<TGNString(TGNString const &,TGNString const &,TGNString const &)>;
+  void SourceResolver(TSourceResolver Resolver) { FSourceResolver=std::move(Resolver); }
   bool SetSources( TGNString const & Json, bool DashboardAvailable );
   uint64_t BootCounter(void) const { return FBootCounter; }
  private:
@@ -27,6 +32,7 @@ class TGnDeviceIdentity
   unsigned FServiceId = 0;
   bool FPrepared = false;
   std::map<TGNString,TGNString> FSources;
+  TSourceResolver FSourceResolver;
  };
 
 extern TGnDeviceIdentity GnDeviceIdentity;
