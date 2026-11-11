@@ -1,4 +1,4 @@
-// FeedbackMonitor.cpp, Version: 1.06
+// FeedbackMonitor.cpp, Version: 1.07
 #define Do_TJsonFeedbackConfiguration
 #define Do_TJsonFeedbackState
 #define Do_TJsonFeedbackStates
@@ -56,7 +56,7 @@ void TFeedbackMonitor::Bind( json_object * Registry )
   if(!GnRead(TGnWireValue(Registry),View,Error))throw std::runtime_error("Invalid feedback registry bindings");
   for(auto & Monitor:Monitors)
    {
-    Monitor.SwitchId.clear();Monitor.SourceId.clear();Monitor.ChannelIndex=-1;
+    Monitor.SwitchId.clear();Monitor.SwitchChannelId.clear();Monitor.SourceId.clear();
     Monitor.Switch={};Monitor.Feedback={};Monitor.MismatchSince.reset();Monitor.MismatchDirection.reset();
     auto Source=View.ExternalSrcs.Value.find(Monitor.Source);
     if(Source!=View.ExternalSrcs.Value.end())Monitor.SourceId=Source->second;
@@ -70,7 +70,7 @@ void TFeedbackMonitor::Bind( json_object * Registry )
         TChannelAddress Address;
         if(!TChannelAddress::Parse(Endpoint.OutAddress.Value,Address))continue;
         Monitor.SwitchId=ServiceAddress(Address);
-        if(Endpoint.Index.Present)Monitor.ChannelIndex=static_cast<int>(Endpoint.Index.Value);
+        Monitor.SwitchChannelId=Endpoint.OutAddress.Value;
        }
      }
    }
@@ -106,8 +106,8 @@ void TFeedbackMonitor::Receive( json_object * Packet, uint64_t Now )
       auto Channels = Get( Status, "Chs" );
       for( size_t I = 0; I < json_object_array_length( Channels ); ++I )
        {
-        auto Row = json_object_array_get_idx( Channels, I ); auto Index = Get( Row, "Id" ), State = Get( Row, "State" );
-        if( json_object_is_type( Index, json_type_int ) && json_object_get_int( Index ) == Monitor.ChannelIndex )
+        auto Row = json_object_array_get_idx( Channels, I ); auto State = Get( Row, "State" );
+        if( Text( Row, "Id" ) == Monitor.SwitchChannelId )
          {
           Monitor.Switch.Invalid = !json_object_is_type( State, json_type_boolean );
           if( !Monitor.Switch.Invalid ) Monitor.Switch.Value = bool( json_object_get_boolean( State ) );

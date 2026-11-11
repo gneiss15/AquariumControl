@@ -1,4 +1,4 @@
-// GnDeviceIdentity.cpp, Version: 1.09
+// GnDeviceIdentity.cpp, Version: 1.11
 #define Do_TJsonIdentity
 #define Do_TJsonIdentityEnvelope
 #define Do_TJsonSources
@@ -121,21 +121,31 @@ TGNString LocalMac(void)
 #endif
  }
 
-TGNString StateJson( TGNString const & Id, std::map<TGNString,TGNString> const & Sources,
-                      bool Report, unsigned Service, bool Prepared, TGNString const & Function,
-                      TGNString const & Revision, TGNString const & AppliedRevision, bool LocalSources, uint64_t BootCounter )
+void FillState( TJsonIdentity & State, TGNString const & Id, std::map<TGNString,TGNString> const & Sources,
+                      bool Report, bool Prepared, TGNString const & Function,
+                      TGNString const & Revision, TGNString const & AppliedRevision, bool LocalSources, uint64_t BootCounter,
+                      bool InfoOnly = false )
  {
-  TJsonIdentity State;
   State.Ver = 1;
-  State.ServiceId = Id;
   State.LocalSrcs = LocalSources;
-  State.BootCnt = BootCounter;
+  if( !InfoOnly )
+   {
+    State.ServiceId = Id;
+    State.BootCnt = BootCounter;
+    State.Srcs = Sources;
+   }
   State.Func = Function;
   State.Rev = Revision;
   State.AppliedRev = AppliedRevision;
-  State.Srcs = Sources;
   if( Report )State.Prepared = Prepared;
-  (void)Service;
+ }
+
+TGNString StateJson( TGNString const & Id, std::map<TGNString,TGNString> const & Sources,
+                     bool Prepared, TGNString const & Function, TGNString const & Revision,
+                     TGNString const & AppliedRevision, bool LocalSources, uint64_t BootCounter )
+ {
+  TJsonIdentity State;
+  FillState( State, Id, Sources, false, Prepared, Function, Revision, AppliedRevision, LocalSources, BootCounter );
   return GnWriteJson( State );
  }
  } // namespace
@@ -157,22 +167,21 @@ void TGnDeviceIdentity::Setup( TGNString const & InitialFunction, unsigned Servi
   FDeviceId = LocalMac();
   FDeviceId += Suffix;
   if( !ValidId( FDeviceId, ServiceId ) ) { FDeviceId.clear(); return; }
-  ApplyState( ReadFile( FStateFile ), false );
+  TJsonIdentity State;
+  if( GnReadJsonValue( ReadFile( FStateFile ), State ) )ApplyState( State, false );
   ++FBootCounter;
   // A persisted boot generation lets the Dashboard confirm a real restart.
-  if( !SaveFile( FStateFile, StateJson( FDeviceId, FSources, false, FServiceId, FPrepared,
+  if( !SaveFile( FStateFile, StateJson( FDeviceId, FSources, FPrepared,
        Function(), FRevision, FAppliedRevision, FLocalSources, FBootCounter ) + "\n" ) ) FPrepared = false;
  }
 
-bool TGnDeviceIdentity::ApplyState( TGNString const & Text, bool Persist )
+bool TGnDeviceIdentity::ApplyState( TJsonIdentity const & State, bool Persist )
  {
-  if( FDeviceId.empty() || Text.empty() || Text.length() > 8192 ) return false;
+  if( FDeviceId.empty() || !State.ServiceId.Known() || State.ServiceId != FDeviceId )return false;
   std::map<TGNString,TGNString> Sources;
   TGNString Function, Revision, AppliedRevision;
   bool LocalSources = false;
   uint64_t BootCounter = FBootCounter;
-  TJsonIdentity State;
-  if( !GnReadJsonValue( Text, State ) || !State.ServiceId.Known() || State.ServiceId != FDeviceId )return false;
   Sources = State.Srcs;
   Function = State.Func.Present ? State.Func.Value : FInitialFunction;
   Revision = State.Rev.Value;
@@ -189,7 +198,7 @@ bool TGnDeviceIdentity::ApplyState( TGNString const & Text, bool Persist )
     if( Source.first.empty() || Source.first.length() > 80 || !ValidId( Source.second, 3 ) ) return false;
   // Store first; a failed write never acknowledges or changes the live mapping.
   if( Persist && ( !FPrepared || Sources != FSources || FLocalSources != LocalSources || FunctionChanged || Revision != FRevision ) &&
-      !SaveFile( FStateFile, StateJson( FDeviceId, Sources, false, FServiceId, true,
+      !SaveFile( FStateFile, StateJson( FDeviceId, Sources, true,
         Function, Revision, AppliedRevision, LocalSources, BootCounter ) + "\n" ) ) return false;
   FSources = std::move( Sources );
   FLocalSources = LocalSources;
@@ -205,14 +214,33 @@ bool TGnDeviceIdentity::ApplyState( TGNString const & Text, bool Persist )
 bool TGnDeviceIdentity::ApplyEnvelope( TGNString const & Envelope )
  {
   TJsonIdentityEnvelope EnvelopeData;
-  if( !GnReadJsonValue( Envelope, EnvelopeData ) )return false;
-  return ApplyState( GnWriteJson( EnvelopeData.Identity ), true );
+  TGnWireDocument Document( Envelope );
+  const auto Identity = Document.Root().Get("Identity");
+  if( !Document.Valid() || Identity.JsonSize() > 8192 )return false;
+  TGNString Error;
+  if( !GnRead( Document.Root(), EnvelopeData, Error ) )return false;
+  return ApplyState( EnvelopeData.Identity, true );
+ }
+
+void TGnDeviceIdentity::ReportIdentity( TJsonIdentity & State ) const
+ {
+  FillState( State, FDeviceId, FSources, true, FPrepared, Function(), FRevision, FAppliedRevision,
+             FLocalSources, FBootCounter );
  }
 
 TGNString TGnDeviceIdentity::ReportJson(void) const
  {
-  return StateJson( FDeviceId, FSources, true, FServiceId, FPrepared,
-    Function(), FRevision, FAppliedRevision, FLocalSources, FBootCounter );
+  TJsonIdentity State;
+  ReportIdentity( State );
+  return GnWriteJson( State );
+ }
+
+TGNString TGnDeviceIdentity::UdpInfoJson(void) const
+ {
+  TJsonIdentity State;
+  FillState( State, FDeviceId, FSources, true, FPrepared, Function(), FRevision, FAppliedRevision,
+             FLocalSources, FBootCounter, true );
+  return GnWriteJson( State );
  }
 
 TGNString TGnDeviceIdentity::ResolveTemperatureSource( TGNString const & Function ) const
@@ -245,7 +273,7 @@ bool TGnDeviceIdentity::SetSources( TGNString const & Json, bool DashboardAvaila
   for( auto const & Source : Sources )
     if( Source.first.empty() || Source.first.size() > 80 || !ValidId( Source.second, 3 ) ) return false;
   if( Sources == FSources ) return true;
-  if( !SaveFile( FStateFile, StateJson( FDeviceId, Sources, false, FServiceId, FPrepared,
+  if( !SaveFile( FStateFile, StateJson( FDeviceId, Sources, FPrepared,
       Function(), FRevision, FAppliedRevision, true, FBootCounter ) + "\n" ) ) return false;
   FSources = std::move( Sources );
   FLocalSources = true;
@@ -273,7 +301,7 @@ bool TGnDeviceIdentity::CommitAssignment(void)
  {
   if( FAppliedRevision != FRevision )
    {
-    if( !SaveFile( FStateFile, StateJson( FDeviceId, FSources, false, FServiceId, FPrepared,
+    if( !SaveFile( FStateFile, StateJson( FDeviceId, FSources, FPrepared,
          Function(), FRevision, FRevision, FLocalSources, FBootCounter ) + "\n" ) ) return false;
     FAppliedRevision = FRevision;
    }

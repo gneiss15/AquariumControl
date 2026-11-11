@@ -1,2 +1,2 @@
-Firmware=2.77
+Firmware=2.78
 Web=2.33

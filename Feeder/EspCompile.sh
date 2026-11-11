@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EspCompile.sh, Version: 2.57
+# EspCompile.sh, Version: 2.62
 
 set -euo pipefail
 
@@ -8,6 +8,7 @@ COMPILE_VERBOSE=
 
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
+bash "$PrjsDir/Common/Feeder/GenerateJs.sh"
 BoardConfig="$ProjectDir/EspBoardConfig.sh"
 DirPushed=0
 
@@ -48,9 +49,18 @@ ArduinoLibraries=(
   "$PrjsDir/Libs/GnBasicLib"
   "$PrjsDir/Libs/GnAqPrjsLib"
   "$PrjsDir/Libs/GnFtpServer"
-  "$PrjsDir/Libs/GnWifiKit8Lib"
 )
-ExtraBuildProperties=( "compiler.cpp.extra_flags=-DGN_FEEDER_UDP=1 -I@SKETCH_DIR@ -I$PrjsDir" "build.float=" )
+OledBuildFlag=""
+if [[ "${FEEDER_NO_OLED:-false}" == true ]]; then
+  OledBuildFlag="-DFEEDER_NO_OLED"
+  BinSubDir="$BinSubDir-NoOled"
+  PRJS_BUILD_ROOT="$ProjectDir/generated/build/no-oled"
+  PRJS_INSTANCES_DIR="$ProjectDir/generated/Instances-NoOled"
+else
+  ArduinoLibraries+=( "$PrjsDir/Libs/GnWifiKit8Lib" )
+fi
+# Smaller JSON allocator blocks reduce peak RAM for concurrently used documents.
+ExtraBuildProperties=( "compiler.cpp.extra_flags=-DGN_FEEDER_UDP=1 -DGN_FTP_FIXED_BUFFER -DFTP_BUF_SIZE=512 -DARDUINOJSON_POOL_CAPACITY=32 $OledBuildFlag -I@SKETCH_DIR@ -I$PrjsDir" "build.float=" "compiler.c.elf.extra_flags=-Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=pvPortMalloc,--wrap=sdk3_pvPortMalloc,--wrap=pvPortRealloc,--wrap=pvPortCalloc,--wrap=pvPortCallocIram,--wrap=pvPortZalloc,--wrap=pvPortZallocIram" )
 CommonSourceDirs=( Common/Feeder Common/EspUpdate )
 
 # shellcheck source=../tools/EspCompileCommon.sh

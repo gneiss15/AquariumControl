@@ -1,4 +1,4 @@
-// FeederServo.cpp, Version: 2.42
+// FeederServo.cpp, Version: 2.43
 //****************************************************************
 // Includes
 //****************************************************************
@@ -7,7 +7,9 @@
 #include "FeederServo.h"
 
 #include "FeederConfig.h"
-#include <WifiKit8Oled.h>
+#if !defined( FEEDER_NO_OLED )
+  #include <WifiKit8Oled.h>
+#endif
 #include <new>
 
 //****************************************************************
@@ -319,7 +321,9 @@ bool TFeederServo::PinUsed( int Pin ) const
 
 void TFeederServo::TimeSynchronized(void)
  {
+#if !defined( FEEDER_NO_OLED )
   Oled.StartScreenSaver();
+#endif
  }
 
 IRAM_ATTR void TFeederServo::FeederServoIrq(void)

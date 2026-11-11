@@ -1,4 +1,4 @@
-# DeviceFsArtifactName.py, Version: 1.01
+# DeviceFsArtifactName.py, Version: 1.02
 """Filesystem upload names follow the verified Config hostname, not a reserve slot."""
 import json,pathlib,re,sys
 
@@ -13,7 +13,7 @@ def validate_directory(directory):
   if not names:
     raise ValueError('No active filesystem hostnames')
   for name in names:
-    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9-]{6,30}[A-Za-z0-9]', name):
+    if not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?', name):
       raise ValueError('Invalid function name for filesystem artifact: ' + name)
 
 if __name__=='__main__':

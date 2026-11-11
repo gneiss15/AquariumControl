@@ -1,8 +1,8 @@
-// CollectMacros.inc.h, Version: 1.02
+// CollectMacros.inc.h, Version: 1.03
 #define JD_BASE(Name,Presence) {"Kind":"Base","Name":#Name,"Presence":#Presence}
 #define JD_VALUE(Name,Type,Rule,Description) {"Kind":"Value","Name":#Name,"Type":#Type,"Rule":#Rule,"Description":Description}
 #define JD_TUPLE_BEGIN(Name,Description) {"Kind":"TupleBegin","Name":#Name,"Description":Description}
-#define JD_BIT(Name,Value,Description) {"Kind":"Bit","Name":#Name,"Value":Value,"Description":Description}
+#define JD_BIT(Name,Description) {"Kind":"Bit","Name":#Name,"Description":Description}
 #define JD_BEGIN(Name,Description) {"Kind":"Begin","Name":#Name,"Description":Description}
 #define JD_CONST(Type,Name,Value) {"Kind":"Const","Type":#Type,"Name":#Name,"ValueText":#Value}
 #define JD(Type,Name,Presence,Rule,Description,Part) {"Kind":"Field","Type":#Type,"Name":#Name,"Presence":#Presence,"Rule":#Rule,"Description":Description,"Part":#Part}

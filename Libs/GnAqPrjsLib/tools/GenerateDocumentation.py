@@ -1,4 +1,4 @@
-# GenerateDocumentation.py, Version: 1.01
+# GenerateDocumentation.py, Version: 1.03
 """Render the shared definition model as reference documentation."""
 import html,re
 from pathlib import Path
@@ -25,9 +25,10 @@ def GenerateMarkdown(Types,Messages,Bits,Notice):
     Lines=['<!-- '+Notice+' -->','','# Aquarium JSON contracts','',Introduction,'## UDP messages','',
            '| Message type | Schema |','| :--- | :--- |']
     for Tag,Name in Messages.items():Lines.append(f'| {Cell(Tag)} | [{Name}](#{Name.lower()}) |')
-  Lines+=['','## UDP bit flags','','| Flag | Value |','| :--- | :--- |']
-  for Name,Value in Bits.items():
-    Lines.append(f'| {Cell(Name)} | {Cell(Value)} |')
+  Lines+=['','## Compact channel bits','','Each logical bool uses two adjacent bits: `<Name>` carries the value and `<Name>Msk` marks it as supplied. A clear mask leaves the receiver’s previous value unchanged; a set mask applies the value, including `false`. Bit positions follow `SharedTypes.inc.h` definition order.','',
+          '| Name | Value bit | Mask bit | Meaning |','| :--- | ---: | ---: | :--- |']
+  for Name,Definition in Bits.items():
+    Lines.append(f"| {Cell(Name)} | {Definition['Value'].bit_length()-1} | {Definition['Mask'].bit_length()-1} | {Cell(Definition['Description'])} |")
   Scalars={Name:Type for Name,Type in Types.items() if Type.get('Alias') or 'Enum' in Type or re.fullmatch(r'uint(8|16|32|64)_t',Type.get('ValueType',''))}
   if Scalars:
     Lines+=['','## Shared scalar types']
@@ -52,7 +53,6 @@ def GenerateMarkdown(Types,Messages,Bits,Notice):
              Field.get('Value',Field.get('Rule','')),Field.get('Part',''),Field.get('Description','')]
       Cells=list(map(Cell,Cells))
       if Field['Type'] in Scalars:Cells[1]=f"[{Cells[1]}](#{Field['Type'].lower()})"
-      if Name=='TGnUdpChannel' and Field['Name']=='Bits':Cells[-1]='See [UDP bit flags](#udp-bit-flags).'
       Lines.append('| '+' | '.join(Cells)+' |')
   return '\n'.join(Lines)+'\n'
 

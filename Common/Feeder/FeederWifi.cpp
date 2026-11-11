@@ -1,4 +1,4 @@
-// FeederWifi.cpp, Version: 2.60
+// FeederWifi.cpp, Version: 2.67
 //****************************************************************
 // Includes
 //****************************************************************
@@ -12,6 +12,7 @@
 #include "FeederDrive.h"
 #include "FeederConfig.h"
 #include "FeederStatusApi.h"
+#include "FeederRestartLog.h"
 #include "FeederTemperature.h"
 #include "OneWireDiagnosticPage.h"
 
@@ -722,11 +723,11 @@ void TFeederWifi::SHandleNotFound(void)
   HttpServer.send( 404, "text/plain", msg );
  }
 
-void TFeederWifi::SSendJson( TGNString const & Json )
+void TFeederWifi::SSendJson( TGNString const & Json, int Code )
  {
   HttpServer.sendHeader( "Access-Control-Allow-Origin", "*" );
   HttpServer.sendHeader( "Cache-Control", "no-store" );
-  HttpServer.send( 200, "application/json", Json.c_str() );
+  HttpServer.send( Code, "application/json", Json.c_str() );
  }
 
 void TFeederWifi::SHandleApiOptions(void)
@@ -744,7 +745,9 @@ void TFeederWifi::SHandleDeviceApi(void)
 
 void TFeederWifi::SHandleStatusApi(void)
  {
-  SSendJson( FeederStatusApi.StatusJson() );
+  int Code;
+  const auto Json = FeederStatusApi.HttpStatusJson( HttpServer.hasArg( "memory" ), Code );
+  SSendJson( Json, Code );
  }
 
 
@@ -930,15 +933,20 @@ void TFeederWifi::SHandleIndex(void)
  
 bool TFeederWifi::SetupHttpServer(void)
  {
-  if( ReadFile( F( "/Index.html" ) ).length() == 0 )
-    return false;
-
   FHttpServer.onNotFound( SHandleNotFound );
 
   // Dashboard API
   FHttpServer.on( "/api/v1/device", HTTP_GET, SHandleDeviceApi );
   FHttpServer.on( "/api/v1/device", HTTP_OPTIONS, SHandleApiOptions );
   FHttpServer.on( "/api/v1/status", HTTP_GET, SHandleStatusApi );
+  FHttpServer.on( "/api/v1/restarts", HTTP_GET, []()
+   {
+    char const * Path = HttpServer.hasArg("previous") ? FeederRestartLogPreviousPath : FeederRestartLogPath;
+    File Journal = LittleFS.open(Path,"r");
+    HttpServer.sendHeader("Cache-Control","no-store");
+    if( Journal )HttpServer.streamFile(Journal,"text/csv");
+    else HttpServer.send(404,"text/plain","No restart journal");
+   } );
 #if GN_DEBUG_UDP_RX
   FHttpServer.on( "/api/v1/udp-rx-counters", HTTP_GET, []() { SSendJson(GnUdpRxCountersJson()); } );
 #endif

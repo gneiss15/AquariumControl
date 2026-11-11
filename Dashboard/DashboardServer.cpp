@@ -1,4 +1,4 @@
-// DashboardServer.cpp, Version: 1.41
+// DashboardServer.cpp, Version: 1.44
 #define Do_Device_RX
 #define Do_THttpDevice
 #define Do_THttpFeedbackDocument
@@ -147,6 +147,7 @@ struct TStatusStream
   bool Configuration = false;
   bool Initialized = false;
   uint64_t ConfigurationGeneration = 0;
+  uint64_t TimesGeneration = 0;
   std::chrono::steady_clock::time_point Heartbeat{};
  };
 
@@ -209,6 +210,7 @@ class TDashboardServer
   std::map<TGNString,TGNString> RecordingConfiguration;
   bool RecordingDirty = true;
   uint64_t RecordingGeneration = 0;
+  uint64_t TimesGeneration = 0;
   TGNString RecordingRegistryRevision;
   bool RecordingRegistryPending = false;
   std::chrono::steady_clock::time_point SystemStatusAt{};
@@ -750,6 +752,7 @@ void TDashboardServer::OpenStatusStream( int ClientFd, bool Configuration )
     "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\n"
     "X-Content-Type-Options: nosniff\r\nX-Accel-Buffering: no\r\nConnection: keep-alive\r\n\r\nretry: 2000\n\n", {} } );
   StatusStreams.back().Configuration = Configuration;
+  StatusStreams.back().TimesGeneration = TimesGeneration;
   UpdateStatusStreams();
  }
 
@@ -860,6 +863,11 @@ void TDashboardServer::UpdateStatusStreams(void)
      }
     else
      {
+    if( It->TimesGeneration != TimesGeneration )
+     {
+      It->Pending += TGNString("event: times\ndata: ") + std::to_string(TimesGeneration) + "\n\n";
+      It->TimesGeneration = TimesGeneration;
+     }
     TSseStatusBatch Batch;
     for(auto const & Entry:Envelopes)
      {
@@ -1091,7 +1099,11 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
     unsigned StatusCode = 500;
     TGNString Response;
     TimeStore.HandleCentralRequest( Method, Body, StatusCode, Response );
-    if( Method == "PUT" && StatusCode == 200 ) RecordingDirty = true;
+    if( Method == "PUT" && StatusCode == 200 )
+     {
+      RecordingDirty = true;
+      ++TimesGeneration;
+     }
     const char * StatusText = StatusCode == 200 ? "OK" : StatusCode == 400 ? "Bad Request" :
                               StatusCode == 405 ? "Method Not Allowed" : "Internal Server Error";
     SendHeader( ClientFd, StatusCode, StatusText, "application/json; charset=utf-8", Response.size() );
@@ -1109,7 +1121,11 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
     unsigned StatusCode = 500;
     TGNString Response;
     TimeStore.HandleSyncRequest( Body, StatusCode, Response );
-    if( StatusCode == 200 ) RecordingDirty = true;
+    if( StatusCode == 200 )
+     {
+      RecordingDirty = true;
+      ++TimesGeneration;
+     }
     const char * StatusText = StatusCode == 200 ? "OK" : StatusCode == 400 ? "Bad Request" :
                               "Internal Server Error";
     SendHeader( ClientFd, StatusCode, StatusText, "application/json; charset=utf-8", Response.size() );
@@ -1136,7 +1152,11 @@ void TDashboardServer::HandleClient( int ClientFd, sockaddr_in const & ClientAdd
         json_object_object_get_ex( Result, "Changed", &Changed ) &&
         json_object_get_boolean( Changed );
       if( Result != nullptr ) json_object_put( Result );
-      if( ProfilesChanged ) TimeStore.MarkAllPending();
+      if( ProfilesChanged )
+       {
+        TimeStore.MarkAllPending();
+        ++TimesGeneration;
+       }
      }
     const char * StatusText = StatusCode == 200 ? "OK" : StatusCode == 400 ? "Bad Request" :
                               StatusCode == 405 ? "Method Not Allowed" : "Internal Server Error";

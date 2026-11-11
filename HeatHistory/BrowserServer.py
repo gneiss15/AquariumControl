@@ -1,4 +1,4 @@
-# BrowserServer.py, Version: 1.06
+# BrowserServer.py, Version: 1.08
 """Static browser charts and bounded, passive JSON history queries. No plot generation."""
 from __future__ import annotations
 import csv,datetime as dt,gzip,math,re,threading,uuid,zlib
@@ -73,22 +73,41 @@ def target(config):
   value=config.get('Setpoint') if isinstance(config,dict) else None
   return value if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value) else None
 
-def history(root,choice='1day',now=None,since=None,retention_days=30):
+def history_bounds(root,choice,now,since,retention_days,range_from=None,range_to=None):
   if choice not in RANGES:raise ValueError('Unknown range')
+  if (range_from is None)!=(range_to is None):raise ValueError('Both range bounds are required')
+  if range_from is not None and choice!='all':raise ValueError('Custom bounds require range=all')
   now=now or dt.datetime.now(UTC)
   origin=instant(since) if since else active_since(root)
-  start=max(origin or now,now-dt.timedelta(days=retention_days))
-  if RANGES[choice] is not None:start=max(start,now-dt.timedelta(seconds=RANGES[choice]))
+  minimum=max(origin or now,now-dt.timedelta(days=retention_days))
+  if range_from is None:
+    start=minimum
+    end=now
+    if RANGES[choice] is not None:start=max(start,now-dt.timedelta(seconds=RANGES[choice]))
+  else:
+    try:
+      requested_start=instant(range_from)
+      requested_end=instant(range_to)
+    except (TypeError,ValueError) as error:
+      raise ValueError('Invalid custom history bounds') from error
+    start=max(requested_start,minimum)
+    end=min(requested_end,now)
+    if start>end:raise ValueError('History range is empty after activation/retention limits')
+  return start,end,origin
+
+def history(root,choice='1day',now=None,since=None,retention_days=30,range_from=None,range_to=None):
+  now=now or dt.datetime.now(UTC)
+  start,end,origin=history_bounds(root,choice,now,since,retention_days,range_from,range_to)
   profiles=[]
   if origin is None:
-    return {'Ver':1,'Range':choice,'From':timestamp(start),'To':timestamp(now),'AvailableFrom':None,'RetentionDays':retention_days,'Profs':[]}
+    return {'Ver':1,'Range':choice,'From':timestamp(start),'To':timestamp(end),'AvailableFrom':None,'RetentionDays':retention_days,'Profs':[]}
   for directory in sorted(root.glob('HeatProfileAq*')):
     if not directory.is_dir() or not re.fullmatch(r'HeatProfileAq[0-9]+',directory.name):continue
     record={'Id':directory.name,'Temp':[],'Energy':[],'Heat':[]}
     for path in sorted((directory/'Energy').glob('*.energy.csv')):
       info=metadata(path);setpoint=target(info.get('Assignment',{}).get('Prof',{}).get('Heat',{}))
       boundary=True
-      for row,when in rows(path,ENERGY_HEADER,start,now):
+      for row,when in rows(path,ENERGY_HEADER,start,end):
         floor=int(row['FloorState']) if row['FloorState'] in ('0','1') else None
         main=int(row['MainState']) if row['MainState'] in ('0','1') else None
         nominal=number(row,'FloorNominalW')
@@ -108,18 +127,18 @@ def history(root,choice='1day',now=None,since=None,retention_days=30):
         boundary=False
     for path in sorted((directory/'Pi').glob('*.pi.csv')):
       setpoint=target(metadata(path).get('Cfg'));boundary=True
-      for row,when in rows(path,PI_HEADER,start,now):
+      for row,when in rows(path,PI_HEADER,start,end):
         if row['Mode']!='Active':continue
         record['Heat'].append([timestamp(when)]+[number(row,key,row['Valid']=='1') for key in
           ('DemandW','ActualWatts','FloorDemandW','MainDemandW','ProportionalW','IntegralW','FeedForwardW')]+[setpoint,boundary])
         boundary=False
     if not record['Energy']:
       for path in sorted(directory.glob('*.csv')):
-        for row,when in rows(path,('Time','Temp','Floor','Main'),start,now):
+        for row,when in rows(path,('Time','Temp','Floor','Main'),start,end):
           record['Temp'].append([timestamp(when),number(row,'Temp'),int(row['Floor']),int(row['Main'])])
     for key in ('Energy','Heat','Temp'):record[key].sort(key=lambda row:row[0])
     if any(record[key] for key in ('Energy','Heat','Temp')):profiles.append(record)
-  return {'Ver':1,'Range':choice,'From':timestamp(start),'To':timestamp(now),
+  return {'Ver':1,'Range':choice,'From':timestamp(start),'To':timestamp(end),
           'AvailableFrom':timestamp(origin) if origin else None,'RetentionDays':retention_days,'Profs':profiles}
 
 
@@ -128,16 +147,14 @@ def selected_csv(path,header,start,end):
   entries=select_files([path],header,start,end)
   return b''.join(stream_file(entries[0],end)) if entries else None
 
-def csv_history_stream(root,choice='1day',now=None,since=None,retention_days=30):
-  if choice not in RANGES:raise ValueError('Unknown range')
-  now=now or dt.datetime.now(UTC);origin=instant(since) if since else active_since(root)
-  start=max(origin or now,now-dt.timedelta(days=retention_days))
-  if RANGES[choice] is not None:start=max(start,now-dt.timedelta(seconds=RANGES[choice]))
-  manifest={'Ver':2,'Range':choice,'From':timestamp(start),'To':timestamp(now),
+def csv_history_stream(root,choice='1day',now=None,since=None,retention_days=30,range_from=None,range_to=None):
+  now=now or dt.datetime.now(UTC)
+  start,end,origin=history_bounds(root,choice,now,since,retention_days,range_from,range_to)
+  manifest={'Ver':2,'Range':choice,'From':timestamp(start),'To':timestamp(end),
     'AvailableFrom':timestamp(origin) if origin else None,'RetentionDays':retention_days,'Files':[]}
   parts=[]
   if origin is not None:
-    low=start.strftime('%Y-%m-%dT%H:%M:%S.%f').encode();high=now.strftime('%Y-%m-%dT%H:%M:%S.%f').encode()
+    low=start.strftime('%Y-%m-%dT%H:%M:%S.%f').encode();high=end.strftime('%Y-%m-%dT%H:%M:%S.%f').encode()
     for directory in sorted(root.glob('HeatProfileAq*')):
       if directory.is_symlink() or not directory.is_dir() or not re.fullmatch(r'HeatProfileAq[0-9]+',directory.name):continue
       energy=False
@@ -160,8 +177,8 @@ def csv_history_stream(root,choice='1day',now=None,since=None,retention_days=30)
     yield ('\r\n--'+boundary+'--\r\n').encode()
   return chunks(payload()),'multipart/mixed; boundary='+boundary
 
-def csv_history(root,choice='1day',now=None,since=None,retention_days=30):
-  parts,kind=csv_history_stream(root,choice,now,since,retention_days)
+def csv_history(root,choice='1day',now=None,since=None,retention_days=30,range_from=None,range_to=None):
+  parts,kind=csv_history_stream(root,choice,now,since,retention_days,range_from,range_to)
   return b''.join(parts),kind
 
 def encoded_chunks(parts,compressed):
@@ -195,24 +212,29 @@ def chart_server(data_dir,host,port,since=None,retention_days=30):
     def do_HEAD(self):self.respond(True)
     def respond(self,head):
       parsed=urlsplit(self.path);status=200;compressed=False;streaming=None;locked=False
-      if parsed.path in ('/','/HeatHistoryCharts.html','/HeatHistory.js','/Messages.js'):
-        path=ASSETS/(parsed.path[1:] if parsed.path.endswith('.js') else 'Charts.html')
-        body=path.read_bytes();kind='text/javascript' if path.suffix=='.js' else 'text/html'
+      assets={'/':'Charts.html','/HeatHistoryCharts.html':'Charts.html','/HeatHistory.js':'HeatHistory.js',
+        '/Messages.js':'Messages.js','/Versions.txt':'Versions.txt'}
+      if parsed.path in assets:
+        path=ASSETS/assets[parsed.path]
+        body=path.read_bytes()
+        kind='text/javascript' if path.suffix=='.js' else 'text/plain' if path.suffix=='.txt' else 'text/html'
       elif parsed.path in ('/api/history','/api/history.csv'):
         if not gate.acquire(blocking=False):self.send_error(503,'History request already in progress');return
         locked=True
         try:
           parameters=parse_qs(parsed.query,keep_blank_values=True)
-          if set(parameters)-{'range'} or len(parameters.get('range',['1day']))!=1:raise ValueError('Invalid history query')
+          if set(parameters)-{'range','from','to'} or any(len(values)!=1 for values in parameters.values()):raise ValueError('Invalid history query')
           choice=parameters.get('range',['1day'])[0]
+          range_from=parameters.get('from',[None])[0]
+          range_to=parameters.get('to',[None])[0]
           if parsed.path.endswith('.csv'):
-            streaming,kind=csv_history_stream(Path(data_dir),choice,since=since,retention_days=retention_days)
+            streaming,kind=csv_history_stream(Path(data_dir),choice,since=since,retention_days=retention_days,range_from=range_from,range_to=range_to)
           else:
             # Compatibility for existing migration/diagnostic clients, not the browser path.
-            document=history(Path(data_dir),choice,since=since,retention_days=retention_days)
+            document=history(Path(data_dir),choice,since=since,retention_days=retention_days,range_from=range_from,range_to=range_to)
             body=WriteJson('THttpHistoryReply',document,separators=(',',':')).encode();kind='application/json'
         except (OSError,ValueError,KeyError) as error:
-          status=400 if isinstance(error,ValueError) and str(error) in ('Unknown range','Invalid history query') else 503
+          status=400 if isinstance(error,ValueError) and (str(error).startswith('Unknown range') or str(error).startswith('Invalid history query') or str(error).startswith('Invalid custom history bounds') or 'range=' in str(error) or 'range is empty' in str(error) or 'bounds' in str(error)) else 503
           body=WriteJson('TUdpLastError',{'Message':str(error)}).encode();kind='application/json'
         finally:
           if streaming is None:gate.release();locked=False

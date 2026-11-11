@@ -1,4 +1,4 @@
-/* Index.css, Version: 1.60 */
+/* Index.css, Version: 1.68 */
 
 :root {
   color-scheme: light dark;
@@ -285,6 +285,28 @@ main.ConfigMode {
   border-color: color-mix( in srgb, var( --Success ) 30%, var( --Border ) );
 }
 
+.DeviceErrorMessages {
+  margin-bottom: 0.6rem;
+  padding: 0.45rem 0.8rem;
+  color: var( --Danger );
+  background: color-mix( in srgb, var( --Danger ) 8%, var( --Surface ) );
+  border: 1px solid color-mix( in srgb, var( --Danger ) 30%, var( --Border ) );
+  border-radius: 0.6rem;
+}
+
+.DeviceErrorMessages h2 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.DeviceErrorEntry + .DeviceErrorEntry {
+  margin-top: 0.35rem;
+}
+
+.DeviceErrorSource {
+  margin-right: 0.45rem;
+}
+
 .DeviceGrid {
   display: grid;
   grid-template-columns: 1fr;
@@ -440,20 +462,6 @@ main.ConfigMode {
 .ConnectionBadge.Offline {
   color: var( --Danger );
   border-color: color-mix( in srgb, var( --Danger ) 35%, var( --Border ) );
-}
-
-.ErrorPanel {
-  margin: 0.45rem 0.55rem 0;
-  padding: 0.2rem 0.6rem;
-  color: var( --Danger );
-  background: color-mix( in srgb, var( --Danger ) 8%, var( --Surface ) );
-  border-left: 3px solid var( --Danger );
-  font-size: 0.76rem;
-}
-
-.ErrorList {
-  margin: 0.2rem 0 0;
-  padding-left: 1rem;
 }
 
 .MeasurementList {
@@ -951,6 +959,16 @@ main.ConfigMode {
   min-width: 34rem;
 }
 
+.TimeDeviceChannel {
+  display: grid;
+  grid-template-columns: minmax( 0, 1fr ) max-content;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.TimeDeviceName { min-width: 0; overflow-wrap: anywhere; }
+.TimeChannelSelect { box-sizing: border-box; width: max-content; min-width: 0; }
+
 .TimeField {
   display: inline-flex;
   align-items: center;
@@ -960,8 +978,9 @@ main.ConfigMode {
 
 .TimeField > span:first-child { font-size: 0.82rem; }
 .TimeField input[type="time"] { min-width: 6.5rem; }
+.TimeField-portion select { box-sizing: border-box; width: 2.8rem; min-width: 2.8rem; padding-inline: 0.15rem; }
 .TimeField input[type="time"], .TimeField select { min-height: 1.8rem; }
-.TimeField-portion select { width: 4rem; }
+.TimeField-portion select { width: 2.8rem; }
 
 .TimeDays { align-items: flex-start; }
 .TimeDays > span:first-child { padding-top: 0.18rem; }
@@ -1060,6 +1079,13 @@ main.ConfigMode {
   min-height: 1.9rem;
 }
 
+.HeatProfileField input[readonly] {
+  color: var( --TextMuted );
+  background: var( --SurfaceMuted );
+  border-color: var( --Border );
+  cursor: default;
+}
+
 .HeatProfileField:has(input[type="checkbox"]) {
   display: flex;
   align-items: center;
@@ -1071,9 +1097,25 @@ main.ConfigMode {
   min-height: 0;
 }
 
-.HeatProfileCard > button {
-  justify-self: start;
+.HeatProfileActions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  align-self: end;
 }
+
+.TrashButton {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: .2rem;
+}
+
+.TrashButton svg { display: block; width: 1.25rem; height: 1.25rem; }
+.ChannelProfileDelete { align-self: center; }
 
 .TimeStatusCell { width: 2.6rem; text-align: center; white-space: nowrap; }
 .TimeStatusPending { color: var( --Warning ); }
@@ -1114,6 +1156,7 @@ main.ConfigMode {
   .TimesTable:not(.AssignmentsTable) tbody td:nth-child( 4 ) { grid-column: 2; grid-row: 1; }
   .TimesTable:not(.AssignmentsTable) tbody td:nth-child( 5 ) { grid-column: 3; grid-row: 1; }
   .TimeDataEditor { width: 100%; min-width: 0; gap: 0.3rem 0.5rem; }
+  .TimeDeviceChannel { grid-template-columns: minmax( 0, 1fr ) max-content; gap: 0.3rem; }
   .TimeField input[type="time"] { width: 5rem; min-width: 0; }
   .TimeStatusCell { width: 2.2rem; }
 }
@@ -1186,6 +1229,7 @@ main.ConfigMode {
 
 .FeedbackRow { gap: .5rem; font-size: .85em; }
 .FeedbackRow > :last-child { text-align: right; }
+.GroupOutputList .FeedbackRow { width: calc(100% - 1rem); margin-left: 1rem; }
 
 .HeaderActions { flex-wrap: wrap; max-width: 75%; }
 #FeedbackEditorText { width: 100%; min-height: 16rem; box-sizing: border-box; font-family: monospace; }
@@ -1250,8 +1294,7 @@ main.ConfigMode {
 .HeaderInfo { min-height: 2rem; }
 .AppHeader .IconButton { width: 2.1rem; height: 2.1rem; min-width: 2.1rem; }
 .LanguageButton { height: 2.1rem; padding-inline: .55rem; }
-#FeedbackSoundToggle svg, .ChannelProfileDelete svg { width: 1.25rem; height: 1.25rem; display: block; }
-.ChannelProfileDelete { display: inline-grid; place-items: center; width: 2rem; min-width: 2rem; padding: .2rem; }
+#FeedbackSoundToggle svg { width: 1.25rem; height: 1.25rem; display: block; }
 #Assignments { overflow-x: visible; }
 .AssignmentsTableScroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
 .AssignmentsTable { display: table; }

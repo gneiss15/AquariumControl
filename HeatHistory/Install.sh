@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install.sh, Version: 1.11
+# Install.sh, Version: 1.12
 set -Eeuo pipefail
 NewSeries=false
 RollingRetention=false
@@ -61,11 +61,14 @@ import datetime,json,os,pathlib,pwd,sys
 root=pathlib.Path(sys.argv[1]);user=pwd.getpwnam(sys.argv[2]);config=json.loads((root/'config.json').read_text())
 data=pathlib.Path(config.get('DataDir','data'))
 if not data.is_absolute():data=root/data
-if data.resolve()!=root/'data' or data.is_symlink():raise SystemExit('New series requires the regular runtime data directory; existing data left untouched.')
+if data.parent.resolve()!=root.resolve() or data.name not in ('data','data-udp-v3') or data.is_symlink():
+    raise SystemExit('New series requires a regular HeatHistory runtime data directory; existing data left untouched.')
+if data.exists() and not data.is_dir():
+    raise SystemExit('New series requires a directory; existing data left untouched.')
 stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
 archive=root/'archive'/stamp;archive.mkdir(parents=True,mode=0o700)
 (archive/'config.before.json').write_text(json.dumps(config,indent=2)+'\n')
-if data.exists():data.rename(archive/'data')
+if data.exists():data.rename(archive/data.name)
 data.mkdir();os.chown(data,user.pw_uid,user.pw_gid)
 for key in ['FloorPowerWatts','RoomTemperatureSource','PowerFactors','EnergyMaxIntervalSeconds']:
     config.setdefault(key,json.loads(pathlib.Path(sys.argv[3]).read_text())[key])

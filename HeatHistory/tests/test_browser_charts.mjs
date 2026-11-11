@@ -1,4 +1,4 @@
-// test_browser_charts.mjs, Version: 1.03
+// test_browser_charts.mjs, Version: 1.04
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
@@ -9,7 +9,7 @@ class Element {
   replaceChildren(){this.children=[];}
   addEventListener(name,handler){this.events[name]=handler;}
 }
-for(const name of ['Range','Reload','LoadStatus','Charts','BrowserClock','chart-error'])nodes.set(name,new Element());
+for(const name of ['Range','RangeFromDate','RangeFromTime','RangeToDate','RangeToTime','ApplyRange','LoadStatus','Charts','BrowserClock','chart-error'])nodes.set(name,new Element());
 nodes.get('Range').value='1day';
 const calls=[],traces=[];
 const columns=['Time','TempC','TempValid','RoomTempC','RoomTempValid','FloorState','MainState','MainCorrectedW','MainPowerValid','FloorNominalW','MainIntervalQuality','FloorIntervalQuality','MainIntervalWh','FloorIntervalWh','MainIntervalSeconds','FloorIntervalSeconds'];
@@ -23,19 +23,23 @@ function bundle() {
  return {text:text+'\r\n--'+boundary+'--\r\n',type:'multipart/mixed; boundary='+boundary};
 }
 const Plotly={newPlot:async(node,rows,layout)=>{traces.length=0;traces.push(...rows);assert.equal(layout.yaxis4.rangemode,'tozero');},addTraces:async(node,rows)=>traces.push(...rows),purge:()=>{},relayout:()=>{}};
-const context=vm.createContext({TextEncoder,console,Date,JSON,Math,Object,Array,Plotly,setInterval:()=>{},window:{Plotly,matchMedia:()=>({matches:false,addEventListener:()=>{}})},
+const context=vm.createContext({TextEncoder,URLSearchParams,console,Date,JSON,Math,Object,Array,Plotly,setInterval:()=>{},window:{Plotly,matchMedia:()=>({matches:false,addEventListener:()=>{}})},
  document:{readyState:'complete',documentElement:{lang:'en'},getElementById:id=>nodes.get(id),querySelectorAll:()=>[],createElement:tag=>new Element(tag)},
  fetch:async url=>{calls.push(url);const data=bundle();return {ok:true,text:async()=>data.text,headers:{get:()=>data.type}};}});
 vm.runInContext(fs.readFileSync(new URL('../Messages.js',import.meta.url),'utf8'),context);
 vm.runInContext(fs.readFileSync(new URL('../HeatHistory.js',import.meta.url),'utf8'),context);
-for(let i=0;i<20&&nodes.get('Reload').disabled;i++)await new Promise(resolve=>setImmediate(resolve));
-assert.equal(calls[0],'/api/history.csv?range=1day');assert.equal(nodes.get('Reload').disabled,false);
+for(let i=0;i<20&&nodes.get('ApplyRange').disabled;i++)await new Promise(resolve=>setImmediate(resolve));
+assert.equal(nodes.get('ApplyRange').disabled,false);
+let query=new URLSearchParams(calls[0].split('?')[1]);assert.equal(query.get('range'),'all');assert(query.get('from'));assert(query.get('to'));
 assert(traces.some(trace=>trace.name==='Setpoint')); // Available with PI diagnostics disabled.
 const setpoint=traces.find(trace=>trace.name==='Setpoint');assert.deepEqual(Array.from(setpoint.y),[28,28,null,29]);
 const energy=traces.find(trace=>trace.name==='Main'&&trace.legendgroup==='Energy');assert.deepEqual(Array.from(energy.y),[0,1,null,2]);
-nodes.get('Range').value='all';await nodes.get('Range').events.change();
-assert.equal(calls.at(-1),'/api/history.csv?range=all');
-console.log('Browser charts: 1day default, All request, stored targets without PI debug, measured energy intervals and explicit gaps passed');
+nodes.get('Range').value='all';nodes.get('Range').events.change({target:nodes.get('Range')});
+assert.equal(calls.length,1); // Choosing a range fills the fields; Show range performs the request.
+nodes.get('ApplyRange').events.click();
+for(let i=0;i<20&&nodes.get('ApplyRange').disabled;i++)await new Promise(resolve=>setImmediate(resolve));
+query=new URLSearchParams(calls.at(-1).split('?')[1]);assert.equal(query.get('range'),'all');assert(query.get('from'));assert(query.get('to'));
+console.log('Browser charts: default range, custom bounds, preset selection, stored targets without PI debug, measured energy intervals and explicit gaps passed');
 
 const parsed=vm.runInContext(`parseCsvRows('Time;Reason\\r\\n"t";"quoted; value with ""quotes"" and\\nnewline"\\r\\n')`,context);
 assert.equal(parsed[1][1],'quoted; value with "quotes" and\nnewline');

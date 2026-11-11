@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# PreBuild.sh, Version: 1.10
+# PreBuild.sh, Version: 1.12
 set -Eeuo pipefail
 
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
-python3 "$PrjsDir/Libs/GnAqPrjsLib/tools/GenerateUdp.py"
 # shellcheck source=../tools/_TrashPaths.sh
 source "$PrjsDir/tools/_TrashPaths.sh"
 DeviceName="${PRJS_DEVICE_NAME:?PRJS_DEVICE_NAME not set}"
@@ -43,7 +42,14 @@ for SourceFile in "$DeviceStateDir"/*.json; do
   [ "$(basename -- "$SourceFile")" = "Config.json" ] && continue
   install -m 0644 "$SourceFile" "$DataDir/$(basename -- "$SourceFile")"
 done
-PRJS_INITIAL_FUNCTION="$DeviceName" PRJS_DATA_DIR="$DataDir" PRJS_DEVICE_CONFIG_FILE="$DeviceStateDir/Config.json" \
+# Initial provisioning derives credentials from the function; readback builds preserve them.
+ConfigEnvironment=()
+case "${PRJS_PRESERVE_FUNCTION_CONFIG:-false}" in
+  true) ConfigEnvironment+=( -u PRJS_INITIAL_FUNCTION ) ;;
+  false) ConfigEnvironment+=( "PRJS_INITIAL_FUNCTION=$DeviceName" ) ;;
+  *) echo "PRJS_PRESERVE_FUNCTION_CONFIG must be true or false" >&2; exit 2 ;;
+esac
+env "${ConfigEnvironment[@]}" PRJS_DATA_DIR="$DataDir" PRJS_DEVICE_CONFIG_FILE="$DeviceStateDir/Config.json" \
   bash "$PrjsDir/tools/UpdateJsonFiles.sh" "$ProjectDir/Sw/TmrSwConfig.inc.h" Config.json ConfigEntries.json "$DataDir" aligned
 # Keep centrally synchronized data empty in the build image; retain channel assignments.
 if [[ "${PRJS_INITIAL_RUNTIME_SEED:-false}" != true ]]; then

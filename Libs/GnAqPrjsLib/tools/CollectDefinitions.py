@@ -1,4 +1,4 @@
-# CollectDefinitions.py, Version: 1.01
+# CollectDefinitions.py, Version: 1.02
 """Run the C preprocessor and collect its macro records; no target code generation."""
 import json
 import os
@@ -53,7 +53,12 @@ def Collect(Select, Definition='MessageDefinition.inc.h'):
         if Row['Kind'] == 'Bit':
             if Row['Name'] in Bits:
                 raise ValueError('Duplicate bit')
-            Bits[Row['Name']] = Row['Value']
+            Position = len(Bits) * 2
+            Bits[Row['Name']] = {
+                'Value': 1 << Position,
+                'Mask': 1 << (Position + 1),
+                'Description': Row['Description'],
+            }
         elif Row['Kind'] == 'Value':
             if Current is not None or Row['Name'] in Types:
                 raise ValueError('Duplicate value contract')

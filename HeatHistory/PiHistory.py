@@ -1,4 +1,4 @@
-# PiHistory.py, Version: 1.06
+# PiHistory.py, Version: 1.08
 """Record controller telemetry separately from unchanged energy CSVs."""
 from CsvFiles import CsvFiles
 from BootSession import BOOT_ID, latest_segment, last_row
@@ -40,7 +40,7 @@ class PiHistory:
     profile=pi.get('Prof');assignment=self.assignments.get(profile)
     if assignment is None or assignment[0]!=packet.get('ID'):return
     if not isinstance(pi.get('Samples'),int) or isinstance(pi.get('Samples'),bool):return
-    boot=status.get('Identity',{}).get('BootCnt') if isinstance(status.get('Identity'),dict) else None
+    boot=status.get('BootCnt')
     now=dt.datetime.now(dt.timezone.utc)
     key=(profile,packet['ID'],boot,'Active',json.dumps(pi.get('Cfg'),sort_keys=True),BOOT_ID);entry=self.files.get(key)
     if entry and entry[1]==pi['Samples']:return
@@ -57,8 +57,9 @@ class PiHistory:
     if not entry:
       path=self.root/profile/'Pi'/ (now.strftime('%Y%m%dT%H%M%S%fZ')+'.pi.csv')
       path.parent.mkdir(parents=True,exist_ok=True)
+      metadata=WriteJson('TJsonHistoryMetadata',dict(expected,Ver=1,StartedAt=now.isoformat()),indent=2)
+      path.with_suffix('.json').write_text(metadata+'\n',encoding='utf-8')
       with path.open('x',newline='') as f:csv.writer(f,delimiter=';').writerow(HEADER)
-      path.with_suffix('.json').write_text(WriteJson('TJsonHistoryMetadata',dict(expected,StartedAt=now.isoformat()),indent=2)+'\n')
     else:path=entry[0]
     channels=status.get('Chs',[])
     if not isinstance(channels,list):channels=[]

@@ -1,4 +1,4 @@
-// TUdpHeatDiagnostics.inc.h, Version: 1.01
+// TUdpHeatDiagnostics.inc.h, Version: 1.02
 // Repeated definition expansion.
 #include "../../GnJsonMacroDefaults.inc.h"
 
@@ -13,7 +13,7 @@ JD_BEGIN( TUdpHeatDiagnostics, "PI controller diagnostics including demand, cont
   JD( bool, FloorRequest, Optional, Any, "", Live )
   JD( bool, MainRequest, Optional, Any, "", Live )
   JD( bool, FloorAvailable, Optional, Any, "", Live )
-  JD( bool, ActualMainOn, Optional, Any, "", Live )
+  JD( bool, ActualMainOn, Optional, Any, "", Omit )
   JD( bool, ActualFloorOn, Optional, Any, "", Live )
   JD( TGNString, Reason, Optional, Any, "Current controller state or reason for degraded operation, for example floor-offline", Live )
   JD( TGNString, LearnReason, Optional, Any, "", Live )

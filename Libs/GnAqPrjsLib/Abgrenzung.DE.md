@@ -19,10 +19,15 @@ ihre Tests sind lokal nach GnAqPrjsLib verschoben. Keine Geräteinstallation.
 | GnUdpControl.h | Socket-Helfer enthält Aquarium-Serviceports 44501–44504 und 900-Byte-Grenze; in aktueller Form hierher, ein später rein allgemeiner Socket-Baustein wäre abtrennbar |
 | UdpStatus.md, UdpStatus.DE.md | Dokumentation genau dieses Protokolls |
 
-Die zugehörigen vorhandenen Tests sind mit ihren Quellen umgezogen:
-`test_heat_pi*.py`, `test_charge_run_on.py`, `test_manual_charge_cancel.py`,
-`test_udp_*.py`, `test_identity_sources.py`. Ihre Include-/Quellpfade sind
-entsprechend angepasst.
+Die nativen Tests `test_heat_pi*.py`, `test_charge_run_on.py`,
+`test_manual_charge_cancel.py` und `test_udp_*.py` decken Regelung,
+Ladeverhalten und UDP ab.
+
+`tests/test_identity_sources.py` prüft mit fester Test-MAC und temporären
+Dateien die Gerätezuordnung, Quellenvalidierung, Persistenz und den Bootzähler.
+Der Test prüft außerdem Messwerte und Akku-Lernfreigabe über den aktuellen
+UDP-Vertrag sowie die Übernahme und Bestätigung einer Zuordnung beim Zeitabgleich.
+Er öffnet keine Netzwerk-Sockets.
 
 ## Grenzfall
 

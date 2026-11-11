@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 2.22 -->
+<!-- README.DE.md, Version: 2.24 -->
 # Aquarium Dashboard
 
 [English](README.md)
@@ -46,17 +46,28 @@ Auf der Seite **Zeiten** werden Schaltzeiten, Wochentage, Kanäle, Zustände und
 
 Die Seite **Heizprofile** verwaltet die zentralen Profile und deren Zuordnung zu Gerätekanälen. Ein Profil kann erst gelöscht werden, wenn kein Kanal darauf verweist. Rollen und Profile lassen sich ändern, ohne die Hardwarebelegung des Geräts zu verändern.
 
-Ein Profil enthält unter anderem:
+Im Profileditor steht zuerst der **Profiltyp** `Temperature` oder
+`BatteryPercent`. Danach enthält die Quellenliste nur passende Messquellen und
+zeigt Funktionsname, Messwertart und genaue Geräte-ID, zum Beispiel
+`FeederAq1 · Temperatur (02:11:22:33:44:55@3)`. Als gespeicherter Wert bleibt
+die ausgewählte ID erhalten. **Ein ohne Ist-Wert** legt den Rückfallzustand
+fest, wenn das Profil keinen verwendbaren aktuellen Messwert hat.
 
-- **Quelle:** der Geber des Messwerts, beispielsweise ein Temperaturgeber oder `LaptopBattery`.
-- **Messwertfeld:** das auszuwertende Feld, beispielsweise `Temperature` oder `BatteryPercent`. Ein leeres Feld bedeutet `Temperature`.
-- Die zum Profil gehörenden Schaltgrenzen und Einstellungen für fehlende Messwerte.
-
-Quelle und Messwertfeld sind unterschiedliche Angaben: `LaptopBattery` benennt den Sender, `BatteryPercent` dessen Akkustand. Das Messwertfeld gehört zum Profil, nicht zur Kanalzuordnung. Nach dem Bearbeiten **Speichern / verteilen** betätigen.
+Die PI-Haupt- und Bodenendpunkte werden als nicht editierbare IDs angezeigt.
+Sie werden aus den Rollen und Profilzuordnungen unter **Kanalzuordnungen**
+abgeleitet. Beim Speichern dieser Zuordnungen werden die Profilendpunkte
+aktualisiert und die zusammengeführte Konfiguration an die Schaltgeräte
+verteilt. Die PI-Parameter bleiben im Profileditor änderbar.
 
 Der Revisionszeitstempel bezeichnet die letzte Profiländerung. Er ist keine laufende Uhr und wird neutral dargestellt. Synchronisierte Teilnehmer sind grün; ausstehende Synchronisierungen und Fehler werden rot angezeigt. Hinweise zum Speichern und Verteilen verschwinden nach erfolgreichem Abschluss.
 
-Die zentrale Datenhaltung liegt auf dem Raspberry Pi. Jedes Gerät erhält seine eigenen Zeitpläne und Kanalzuordnungen zusammen mit den zentralen Profilen. Änderungen an einer Kanalzuordnung betreffen nur das zugehörige Gerät. Änderungen an zentralen Profilen werden an alle beteiligten Schaltgeräte verteilt. Unverändertes Speichern löst keine erneute Verteilung aus.
+Die zentrale Datenhaltung liegt auf dem Raspberry Pi. Jedes Gerät erhält seine eigenen Zeitpläne und Kanalzuordnungen zusammen mit den zentralen Profilen. Eine reine Kanaländerung betrifft nur das zugehörige Gerät. Ändert sie PI-Endpunkte, werden die dadurch geänderten zentralen Profile an alle beteiligten Schaltgeräte verteilt. Unverändertes Speichern löst keine erneute Verteilung aus.
+
+Wenn eine Kanalzuordnung die PI-Haupt- oder Bodenendpunkte ändert, aktualisiert
+das Dashboard diese Profilwerte bereits im Entwurf. Beim Speichern werden die
+Kanalzuordnungen und die daraus geänderten zentralen Profile gemeinsam
+übermittelt. Der Server vergleicht beides mit dem gespeicherten Stand und startet
+nur für tatsächliche Änderungen die betroffene Verteilung.
 
 ## Geräte konfigurieren
 
@@ -134,11 +145,11 @@ Zusätzliche Sender ohne Geräte-/Konfigurations-API werden unter `ExternalSourc
 
 Der Laptop-Akku-Sender läuft auf dem Laptop und sendet den Akkustand als `Status.BatteryPercent` in Prozent. Zusätzlich meldet er mit `Status.AcOnline` die Netzversorgung und mit `Status.BatteryState` den Akkuzustand. Ein registrierter Sender `LaptopBattery` erscheint unter **System** als Laptop. Ungültige Prozentwerte werden als „—“ dargestellt. Nach 20 Sekunden ohne gültiges Statuspaket gilt der Sender als Offline; veraltete Messwerte werden ausgeblendet.
 
-Ein Ladeprofil kann beispielsweise die Quelle `LaptopBattery`, das Messwertfeld `BatteryPercent` und die Grenzen 40/80 verwenden. Ohne aktivierten Ladenachlauf bleibt der zugeordnete Ausgang bei `NoTempOn: false` ohne gültigen Messwert AUS. Der zugehörige Schaltausgang `LaptopSw` wird als eigene Funktion angezeigt.
+Ein Ladeprofil kann beispielsweise die Quelle `LaptopBattery`, den Profiltyp `BatteryPercent` und die Grenzen 40/80 verwenden. **Ein ohne Ist-Wert** legt den Ausgangszustand fest, wenn kein gültiger Akkustand vorliegt. Der zugehörige Schaltausgang `LaptopSw` wird als eigene Funktion angezeigt.
 
 ### Ladenachlauf für Akku-Profile
 
-Im Dashboard-Profil **Ladenachlauf aktiv** einschalten und **Sekunden je Prozentpunkt** angeben. Das setzt `Measurement: "BatteryPercent"` voraus. Der Editor schlägt zunächst `15` Sekunden je Prozentpunkt vor; derselbe Faktor wird anschließend durch Lernen angepasst. Ohne aktivierten Ladenachlauf bleibt das bisherige Verhalten bei fehlenden Messwerten erhalten.
+Im Dashboard-Profil **Ladenachlauf aktiv** einschalten und **Sekunden je Prozentpunkt** angeben. Dafür muss der Profiltyp `BatteryPercent` sein (`Meas` im gespeicherten JSON). Der Editor schlägt zunächst `15` Sekunden je Prozentpunkt vor; derselbe Faktor wird anschließend durch Lernen angepasst. Ohne aktivierten Ladenachlauf bleibt das bisherige Verhalten bei fehlenden Messwerten erhalten.
 
 Wenn der Sender ausbleibt und der Ausgang zuvor automatisch EIN war, berechnet das Schaltgerät die Restladezeit:
 
@@ -328,3 +339,6 @@ vollständig mitgesendet. Nach Wiederverbindung kommt erneut ein Snapshot.
 Die Meldungen entstehen bei Änderungen über die APIs einschließlich Geräte-Sync;
 für direkte Dateiedits ist ein Serverneustart erforderlich. Keepalive-Kommentare
 halten die Verbindung offen. Die bestehende Status-SSE `/api/events` bleibt erhalten.
+Sie sendet außerdem nach erfolgreichem Speichern oder Gerätesync eines Zeitplans
+ein benanntes `times`-Ereignis. Der Browser lädt damit die offene Zeitansicht neu;
+ungespeicherte Änderungen im Zeit-Editor werden dabei nicht überschrieben.

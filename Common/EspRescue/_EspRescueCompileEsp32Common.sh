@@ -1,4 +1,4 @@
-# _EspRescueCompileEsp32Common.sh, Version: 2.13
+# _EspRescueCompileEsp32Common.sh, Version: 2.14
 # Common ESP32 rescue V2 build implementation sourced by project-specific scripts.
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
@@ -19,11 +19,9 @@ declare -p ArduinoLibraries >/dev/null 2>&1 || ArduinoLibraries=()
 declare -p ExtraBuildProperties >/dev/null 2>&1 || ExtraBuildProperties=()
 
 CommonDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-MountDir="$(dirname -- "$(dirname -- "$PrjsDir")")"
-CLI="${ARDUINO_CLI_WRAPPER:-${ARDUINO2CLI_START:-$MountDir/Start_Arduino2cli.sh}}"
 RescueDir="$ProjectDir/rescue"
 BuildDir="${PRJS_RESCUE_BUILD_DIR:-$RescueDir/build}"
-CompileDir="$BuildDir/esp32"
+CompileDir="$BuildDir/idf"
 SketchDir="$BuildDir/sketch/EspRescueUpdate"
 BinDir="${PRJS_RESCUE_BIN_DIR:-$RescueDir/bin}"
 PreserveSharedBinArtifacts="${PRJS_PRESERVE_SHARED_BIN_ARTIFACTS:-false}"
@@ -89,7 +87,6 @@ Fail()
   exit 1
 }
 
-[ -x "$CLI" ] || Fail "Arduino CLI wrapper not executable: $CLI"
 [ -f "$RescueSource" ] || Fail "Rescue source not found: $RescueSource"
 [ -f "$RescueUpdaterHeader" ] || Fail "Rescue updater header not found: $RescueUpdaterHeader"
 [ -f "$RescueUpdaterSource" ] || Fail "Rescue updater source not found: $RescueUpdaterSource"
@@ -109,15 +106,12 @@ fi
 RescueVersion="$(sed -n 's/^Rescue=//p' "$VersionsFile" | head -n1)"
 [ -n "$RescueVersion" ] || Fail "Rescue version missing in $VersionsFile"
 
-python3 "$PrjsDir/tools/SyncGeneratedFiles.py" file "$RescueSource" "$SketchDir/EspRescueUpdate.ino"
+python3 "$PrjsDir/tools/SyncGeneratedFiles.py" file "$RescueSource" "$SketchDir/EspRescueUpdate.cpp"
 python3 "$PrjsDir/tools/SyncGeneratedFiles.py" file "$RescueUpdaterHeader" "$SketchDir/EspRescueUpdater.h"
 python3 "$PrjsDir/tools/SyncGeneratedFiles.py" file "$RescueUpdaterSource" "$SketchDir/EspRescueUpdater.cpp"
 python3 "$PrjsDir/tools/SyncGeneratedFiles.py" file "$RescueHardwareDefinition" "$SketchDir/EspRescueHardware.h"
 python3 "$PrjsDir/tools/SyncGeneratedFiles.py" file "$UpdateCommonDir/EspSignedArtifact.h" "$SketchDir/EspSignedArtifact.h"
 python3 "$PrjsDir/tools/SyncGeneratedFiles.py" file "$UpdateCommonDir/EspSignedArtifact.cpp" "$SketchDir/EspSignedArtifact.cpp"
-if [ -n "$PartitionDefinition" ]; then
-  python3 "$PrjsDir/tools/SyncGeneratedFiles.py" file "$PartitionDefinition" "$SketchDir/partitions.csv"
-fi
 python3 "$DeviceTypeHelper" prepare \
   "$DeviceTypeFile" \
   "$SketchDir/DeviceType.inc.h" \
@@ -127,29 +121,18 @@ python3 "$DeviceTypeHelper" public-key-header \
 python3 "$RescueConfigHelper" "$ConfigDefinition" "$SecretsFile" "$ProjectName" \
   "$RescueVersion" "$SketchDir/EspRescueProject.h"
 
-CompileArgs=( compile --no-color --fqbn "$FQBN" --build-path "$CompileDir" )
-[ -z "$COMPILE_VERBOSE" ] || CompileArgs+=( "$COMPILE_VERBOSE" )
-CppFlagsDefined=false
-for Property in "${ExtraBuildProperties[@]}"; do
-  if [[ "$Property" == compiler.cpp.extra_flags=* ]]; then
-    Property="$Property -DNO_GLOBAL_SERIAL"
-    CppFlagsDefined=true
-  fi
-  CompileArgs+=( --build-property "$Property" )
-done
-if ! "$CppFlagsDefined"; then
-  CompileArgs+=( --build-property "compiler.cpp.extra_flags=-DNO_GLOBAL_SERIAL" )
-fi
-for Library in "${ArduinoLibraries[@]}"; do
-  [ -d "$Library" ] || Fail "Arduino library not found: $Library"
-  CompileArgs+=( --library "$Library" )
-done
-
-if ! "$CLI" "${CompileArgs[@]}" "$SketchDir" >>"$LogFile" 2>&1; then
-  Fail "ESP32 rescue V2 build failed"
+# Keep the generated network configuration private.
+chmod 600 "$SketchDir/EspRescueProject.h"
+source "${ESP_IDF_ENABLE_SCRIPT:-$PrjsDir/../../Portables/EnableEspIdf.sh}" >>"$LogFile" 2>&1
+export PATH="${ESP_IDF_COMPILER_BIN:-$IDF_TOOLS_PATH/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin}:$PATH"
+if ! idf.py -C "$ProjectDir/Sw/Rescue" -B "$CompileDir" \
+  -D "SDKCONFIG=$CompileDir/sdkconfig" -D IDF_TARGET=esp32 -D "PROJECT_VER=$RescueVersion" \
+  -D "RESCUE_SOURCES=$SketchDir" -D "RESCUE_HARDWARE=$RescueHardware" \
+  build >>"$LogFile" 2>&1; then
+  Fail "ESP-IDF rescue build failed"
 fi
 
-Firmware="$CompileDir/EspRescueUpdate.ino.bin"
+Firmware="$CompileDir/EspRescueUpdate.bin"
 TypedFirmware="$CompileDir/EspRescueUpdate.ino.bin.device"
 SignedFirmware="$CompileDir/EspRescueUpdate.rescue_signed"
 OutputFirmware="$BinDir/$ProjectName.Rescue.rescue_signed"

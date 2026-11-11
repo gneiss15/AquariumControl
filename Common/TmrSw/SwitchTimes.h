@@ -1,4 +1,4 @@
-// SwitchTimes.h, Version: 1.17
+// SwitchTimes.h, Version: 1.19
 //****************************************************************
 
 #ifndef SwitchTimesH  // sentry
@@ -15,6 +15,13 @@
 #include <chrono>
 #include <ctime>
 #include <vector>
+
+template<bool> struct GnImpl_TUdpHeatDiagnostics;
+using TUdpHeatDiagnostics = GnImpl_TUdpHeatDiagnostics<false>;
+template<bool> struct GnImpl_TUdpHeatControl;
+using TUdpHeatControl = GnImpl_TUdpHeatControl<false>;
+template<bool> struct GnImpl_TUdpChargeLearning;
+using TUdpChargeLearning = GnImpl_TUdpChargeLearning<false>;
 
 using namespace std;
 using namespace chrono;
@@ -124,12 +131,19 @@ class TSwitchTimes : public TSingleton<TSwitchTimes>
   TGnHeaterControl     FHeaterControl;
   TGnChargeRunOn       FChargeRunOn;
 #if GN_DEBUG_CHARGE_LEARNING
-  TGNString FChargeLearningJson = "null";
+  TGnChargeRunOn::TLearningStep FChargeLearningStep;
+  TGNString FChargeLearningProfile;
+  uint64_t FChargeLearningCompletedAt = 0;
+  bool FChargeLearningReady = false;
+  bool FChargeLearningSaved = false;
   uint32_t FChargeLearningSequence = 0;
 #endif
   TGnHeatPi            FHeatPi;
   TGNString            FHeatPiKey;
   uint64_t             FHeatPiDue = 0;
+  TGNString            FMissingTemperatureSource;
+  uint64_t             FMissingTemperatureSince = 0;
+  bool                 FMissingTemperatureActive = false;
   uint16_t             FNextMow = 0;
   bool                 FSchedulePresent = false;
   bool                 FScheduleState = false;
@@ -182,10 +196,10 @@ class TSwitchTimes : public TSingleton<TSwitchTimes>
   String              LoadBundle( String const & Schedule, String const & Intervals );
   String              Set( String const & jsonStr );
   String              SetIntervals( String const & jsonStr );
-  TGNString           HeatPiJson(void) const;
-  TGNString           HeatControlJson(void) const;
+  bool                HeatDiagnostics( TUdpHeatDiagnostics & Data ) const;
+  bool                HeatControl( TUdpHeatControl & Data ) const;
 #if GN_DEBUG_CHARGE_LEARNING
-  TGNString ChargeLearningJson(void) const { return FChargeLearningJson; }
+  bool                ChargeLearning( TUdpChargeLearning & Data ) const;
 #endif
   bool                Setup(void);
   void                RefreshProfiles(void);

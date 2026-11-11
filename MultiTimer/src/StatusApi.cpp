@@ -1,4 +1,4 @@
-// StatusApi.cpp, Version: 2.53
+// StatusApi.cpp, Version: 2.57
 #define Do_THttpButtonAction
 #define Do_THttpDevice
 #define Do_TUdpChannel
@@ -7,6 +7,7 @@
 #define Do_TUdpNextChange
 #define Do_TUdpStatusData
 #define Do_TWsEventEndpoint
+#define Do_TWsStatusEvent
 #include <GnBasics.h>
 #include <GnJsonSchema.h>
 #include <DeviceUrl.h>
@@ -14,6 +15,8 @@
 #include "Logger.h"
 #include "StatusApi.h"
 #include <GnDeviceIdentity.h>
+#include <GnUdpStatusWriter.h>
+#include <GnUdpStatus.h>
 #include "TimeSync.h"
 #include <cstdio>
 #include <utility>
@@ -76,7 +79,8 @@ TGNString TStatusApi::DeviceJson(void) const
  {
   THttpDevice Device;
   Device.DevId = GnDeviceIdentity.WireId();
-  if( !GnReadJsonValue( GnDeviceIdentity.ReportJson(), Device.Identity ) )return {};
+  Device.Identity.Present = true;
+  GnDeviceIdentity.ReportIdentity( Device.Identity.Value );
   Device.ApiVer = FApiVersion;
   Device.DevType = FDeviceType;
   Device.Platform = Platform();
@@ -109,7 +113,10 @@ void TStatusApi::UpdateTimeSyncStatus(void)
 
 TGNString TStatusApi::StatusJson(void)
  {
-  return BuildStatusJson( nullptr );
+  std::unique_ptr<TUdpStatusData> Status( new(std::nothrow) TUdpStatusData{} );
+  if( !Status )return {};
+  FillStatus( *Status );
+  return GnWriteJson( *Status );
  }
 
 uint64_t TStatusApi::StatusSignature( TGNString const & json )
@@ -128,12 +135,42 @@ uint64_t TStatusApi::StatusSignature( TGNString const & json )
   return GnHash64( json.data() + numberEnd, json.length() - numberEnd, signature );
  }
 
-TGNString TStatusApi::StatusJson( uint64_t & signature )
+TGNString TStatusApi::StatusJson( uint64_t & Signature )
  {
-  return BuildStatusJson( &signature );
+  auto Json = StatusJson();
+  if( !Json.empty() )Signature = StatusSignature( Json );
+  return Json;
  }
 
-TGNString TStatusApi::BuildStatusJson( uint64_t * signature )
+bool TStatusApi::CompactStatus( uint64_t & Signature, TGnUdpInfoParts * Parts,
+                                TGNString & Packet )
+ {
+  TUdpStatusData Status{};
+  FillStatus( Status );
+  if( FRoomTemperature )
+   {
+    const auto Temperature = FRoomTemperature->UdpTemperature();
+    if( Temperature.Available )
+     {
+      if( Temperature.Valid )Status.Temp = double( Temperature.Celsius );
+      else Status.Temp = nullptr;
+     }
+   }
+  return GnBuildCompactStatus( Status, GnDeviceIdentity.WireId(), Signature, Parts, Packet );
+ }
+
+TGNString TStatusApi::StatusEventJson( uint64_t Sequence )
+ {
+  std::unique_ptr<TWsStatusEvent> Event( new(std::nothrow) TWsStatusEvent{} );
+  if( !Event )return {};
+  Event->Seq = Sequence;
+  Event->Status.Present = true;
+  FillStatus( Event->Status.Value );
+  Event->Timestamp = Event->Status.Value.CurrentTime.Value;
+  return GnWriteJson( *Event );
+ }
+
+void TStatusApi::FillStatus( TUdpStatusData & Status )
  {
   std::lock_guard<std::mutex> lock( FStatusMutex );
   UpdateTimeSyncStatus();
@@ -170,11 +207,11 @@ TGNString TStatusApi::BuildStatusJson( uint64_t * signature )
   std::time_t lastErrorTime = 0;
   const bool hasLastError = Logger.GetLastError( lastErrorMessage, lastErrorTime );
 
-  std::unique_ptr<TUdpStatusData> Storage( new(std::nothrow) TUdpStatusData{} );
-  if( !Storage )return {};
-  auto & Status = *Storage;
   Status.DevId = GnDeviceIdentity.WireId();
-  if( !GnReadJsonValue( GnDeviceIdentity.ReportJson(), Status.Identity ) )return {};
+  Status.Identity.Present = true;
+  GnDeviceIdentity.ReportIdentity( Status.Identity.Value );
+  Status.Identity.Value.BootCnt = nullptr;
+  Status.BootCnt = GnDeviceIdentity.BootCounter();
   Status.OnlineSince = static_cast<uint64_t>( FOnlineSince );
   Status.CurrentTime = static_cast<uint64_t>( std::time( nullptr ) );
   Status.TimeSynchronized = timeSynchronized;
@@ -248,7 +285,4 @@ TGNString TStatusApi::BuildStatusJson( uint64_t * signature )
     else Channel.Err = ApiStatus.Error();
     Status.Chs.Value.push_back( Channel );
    }
-  const TGNString Json = GnWriteJson( Status );
-  if( signature != nullptr )*signature = StatusSignature( Json );
-  return Json;
  }

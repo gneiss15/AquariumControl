@@ -1,3 +1,3 @@
-Firmware=1.37
-LittleFS=1.15
-Rescue=1.02
+Firmware=1.42
+LittleFS=1.17
+Rescue=1.07

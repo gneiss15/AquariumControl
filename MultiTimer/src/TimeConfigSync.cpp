@@ -1,4 +1,4 @@
-// TimeConfigSync.cpp, Version: 1.20
+// TimeConfigSync.cpp, Version: 1.21
 #define Do_THttpResult
 #define Do_THttpTimePayload
 #define Do_THttpTimeReply
@@ -177,7 +177,8 @@ TGNString TTimeConfigSync::BuildPayload(void) const
   Payload.Dev=GnDeviceIdentity.DeviceId();
   Payload.Type="SwitchTimes";Payload.Format="MyTimer";
   Payload.TimeStamp=FTimeStamp;Payload.Content=std::move(Content);
-  if(!GnReadJsonValue(GnDeviceIdentity.ReportJson(),Payload.Identity))return {};
+  Payload.Identity.Present = true;
+  GnDeviceIdentity.ReportIdentity( Payload.Identity.Value );
   return GnWriteJson(Payload);
  }
 

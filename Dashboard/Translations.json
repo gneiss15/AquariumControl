@@ -19,6 +19,14 @@
     "Overview",
     "Übersicht"
   ],
+  "DeviceMessages": [
+    "Device messages",
+    "Gerätemeldungen"
+  ],
+  "LastLogError": [
+    "Last logged error",
+    "Letzter Logfehler"
+  ],
   "Group.Aq1": [
     "Aquarium 1",
     "Aquarium 1"
@@ -90,6 +98,10 @@
   "Device": [
     "Device",
     "Gerät"
+  ],
+  "DeviceChannel": [
+    "Device / channel",
+    "Gerät / Kanal"
   ],
   "Type": [
     "Type",
@@ -439,13 +451,49 @@
     "Delete",
     "Löschen"
   ],
+  "ProfName": [
+    "Profile name",
+    "Profilname"
+  ],
+  "ProfileType": [
+    "Profile type",
+    "Profiltyp"
+  ],
+  "Temperature": [
+    "Temperature",
+    "Temperatur"
+  ],
+  "BatteryPercent": [
+    "Battery percentage",
+    "Akku-Prozent"
+  ],
+  "SelectSource": [
+    "Select source",
+    "Quelle auswählen"
+  ],
+  "UnavailableSource": [
+    "Source unavailable",
+    "Quelle nicht verfügbar"
+  ],
+  "OnWithoutValue": [
+    "On without current value",
+    "Ein ohne Ist-Wert"
+  ],
+  "ChargeStartPct": [
+    "Charge start at (%)",
+    "Laden einschalten bei (%)"
+  ],
+  "ChargeStopPct": [
+    "Charge stop at (%)",
+    "Laden ausschalten bei (%)"
+  ],
   "Measurement": [
-    "Measurement field",
-    "Messwertfeld"
+    "Profile type",
+    "Profiltyp"
   ],
   "Meas": [
-    "Measurement field",
-    "Messwertfeld"
+    "Profile type",
+    "Profiltyp"
   ],
   "TempId": [
     "Source",
@@ -472,12 +520,12 @@
     "Haupt Aus"
   ],
   "NoTempOn": [
-    "On without temperature",
-    "Ein ohne Temperatur"
+    "On without current value",
+    "Ein ohne Ist-Wert"
   ],
   "OnIfNoMeas": [
-    "On without temperature",
-    "Ein ohne Temperatur"
+    "On without current value",
+    "Ein ohne Ist-Wert"
   ],
   "Duplicate": [
     "duplicate",
@@ -594,6 +642,10 @@
   "ChannelsUnchanged": [
     "No channel assignment changes detected; nothing was distributed.",
     "Keine Kanaländerung erkannt; es wurde nichts verteilt."
+  ],
+  "SaveChannelsFirst": [
+    "Save the channel assignments before saving heat profiles.",
+    "Bitte zuerst die Kanalzuordnungen speichern."
   ],
   "DeviceAssignments": [
     "Device assignments",
@@ -739,6 +791,10 @@
     "State confirmed",
     "Zustand bestätigt"
   ],
+  "FeedbackLabel": [
+    "Feedback",
+    "Rückmeldung"
+  ],
   "FeedbackUnknown": [
     "Feedback missing",
     "Rückmeldung fehlt"
@@ -779,6 +835,10 @@
     "Laptop",
     "Laptop"
   ],
+  "LaptopBatteryLabel": [
+    "Laptop battery",
+    "Laptop Akku"
+  ],
   "BatteryLevel": [
     "Battery level",
     "Akkustand"
@@ -816,8 +876,12 @@
     "PI-Beobachtung"
   ],
   "PiParameters": [
-    "PI parameters and device assignment",
-    "PI-Parameter und Gerätezuordnung"
+    "PI parameters and assigned outputs",
+    "PI-Parameter und zugeordnete Ausgänge"
+  ],
+  "Pi.Active": [
+    "PI control active",
+    "PI-Regelung aktiv"
   ],
   "Pi.Setpoint": [
     "Setpoint (°C)",

@@ -1,4 +1,4 @@
-// GnJsonCompile.inc.h, Version: 1.02
+// GnJsonCompile.inc.h, Version: 1.03
 // Repeated compiler expansion of the selected message definitions.
 #define ArrayOf(Type) std::vector<Type>
 #define MapOf(Type) std::map<TGNString,Type>
@@ -38,7 +38,7 @@
 #define JD_VALUE(Name, Type, Rule, Description)   template<bool AllOptional> struct GnImpl_##Name : TGnJsonExtra {     static constexpr TGnJsonShape JsonShape=TGnJsonShape::Value;     static constexpr TGnJsonRuleText JsonRule{#Rule};     Type Value{};     GnImpl_##Name(void) = default;     GnImpl_##Name(Type Input) : Value(std::move(Input)) {}     operator Type() const requires std::is_arithmetic_v<Type> { return Value; }   };
 #ifndef GN_UDP_BIT_CONSTANTS_DEFINED
   #define GN_UDP_BIT_CONSTANTS_DEFINED
-  #define JD_BIT(Name, Value, Description) constexpr uint8_t GnUdp##Name=Value;
+  #define JD_BIT(Name, Description)
 #endif
 #include "GnJsonCatalog.inc.h"
 

@@ -1,4 +1,4 @@
-# BootSession.py, Version: 1.02
+# BootSession.py, Version: 1.03
 """Identify a system boot and recover only the latest compatible recording segment."""
 import csv
 import json
@@ -34,7 +34,12 @@ def latest_segment(directory, suffix, expected):
     if stream.read(1) != b'\n':
       return None
   # Never reopen an older matching segment across an intervening configuration.
-  metadata = json.loads(path.with_suffix('.json').read_text())
+  try:
+    metadata = json.loads(path.with_suffix('.json').read_text())
+  except (FileNotFoundError, json.JSONDecodeError, UnicodeError):
+    return None
+  if not isinstance(metadata, dict):
+    return None
   if any(json.dumps(metadata.get(key),sort_keys=True) != json.dumps(value,sort_keys=True) for key, value in expected.items()):
     return None
   return path

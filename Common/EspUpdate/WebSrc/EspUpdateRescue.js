@@ -1,4 +1,4 @@
-// EspUpdateRescue.js, Version: 1.07
+// EspUpdateRescue.js, Version: 1.08
 let EspUpdateDeviceType=null;
 let EspUpdateDeviceInfo=null;
 
@@ -33,7 +33,7 @@ function EspMagic(Data,Offset,Text){
 async function EspGetDeviceType(){
  if(EspUpdateDeviceType)return EspUpdateDeviceType;
  const Data=await EspGetDeviceInfo();
- EspUpdateDeviceType=Data.DeviceType;
+ EspUpdateDeviceType=Data.DevType||Data.DeviceType;
  return EspUpdateDeviceType;}
 
 async function EspGetDeviceInfo(){
@@ -41,7 +41,7 @@ async function EspGetDeviceInfo(){
  const Response=await fetch(`/api/v1/device?ArtifactCheck=${Date.now()}`,{cache:"no-store"});
  if(!Response.ok)throw Error("Could not read device type from Main.");
  const Data=await Response.json();
- if(!Data.DeviceType)throw Error("Main did not report a DeviceType.");
+ if(!Data.DevType&&!Data.DeviceType)throw Error("Main did not report a DeviceType.");
  EspUpdateDeviceInfo=Data;
  return EspUpdateDeviceInfo;}
 
@@ -49,9 +49,9 @@ async function EspLoadRescueTargetVersion(){
  const Display=document.getElementById("EspRescueTargetVersion");
  if(!Display)return;
  try{
-  const Data=await EspGetDeviceInfo();
-  Display.textContent=Data.RescueTargetVersion||"unknown";}
- catch(Error){Display.textContent="unavailable";}}
+  const Response=await fetch("/api/v1/rescue-version",{cache:"no-store"});
+  if(Response.ok)Display.textContent=(await Response.text()).trim()||"N/A";}
+ catch(Error){Display.textContent="N/A";}}
 
 document.addEventListener("DOMContentLoaded",EspLoadRescueTargetVersion);
 

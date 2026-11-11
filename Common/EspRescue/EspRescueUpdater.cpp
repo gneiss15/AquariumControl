@@ -1,9 +1,11 @@
-// EspRescueUpdater.cpp, Version: 2.12
+// EspRescueUpdater.cpp, Version: 2.15
 #include "EspRescueUpdater.h"
 #include "DeviceType.inc.h"
 #include "EspSignedArtifact.h"
 
 #include <cerrno>
+#include <cstdio>
+#include <esp_err.h>
 #include <cstring>
 #include <fcntl.h>
 #include <sys/time.h>
@@ -18,6 +20,24 @@
 namespace
  {
   constexpr int HttpTimeoutSeconds = 10;
+
+  bool VerifyWrittenPayload( const esp_partition_t * Partition,
+    uint32_t PayloadSize, const uint8_t ExpectedHash[32] )
+   {
+    TEspSignedArtifactHash Hash;
+    Hash.Begin();
+    uint8_t Buffer[1024];
+    for( uint32_t Offset = 0; Offset < PayloadSize; )
+     {
+      const size_t Count = PayloadSize - Offset < sizeof( Buffer ) ?
+        PayloadSize - Offset : sizeof( Buffer );
+      if( esp_partition_read( Partition, Offset, Buffer, Count ) != ESP_OK )
+        return false;
+      Hash.Add( Buffer, Count );
+      Offset += Count;
+     }
+    return Hash.EndAndCompare( ExpectedHash );
+   }
 
   bool IsContentLengthHeader( char const * Line )
    {
@@ -59,6 +79,7 @@ namespace
      {
       case 200: return "HTTP/1.1 200 OK\r\n";
       case 400: return "HTTP/1.1 400 Bad Request\r\n";
+      case 409: return "HTTP/1.1 409 Conflict\r\n";
       case 404: return "HTTP/1.1 404 Not Found\r\n";
       case 411: return "HTTP/1.1 411 Length Required\r\n";
       default:  return "HTTP/1.1 500 Internal Server Error\r\n";
@@ -157,6 +178,19 @@ bool TEspRescueUpdater::HandleClient( int ClientSocket )
     return false;
    }
 
+  if( !IsPost && strcmp( Path, "/Progress" ) == 0 )
+   {
+    SendProgress( ClientSocket );
+    return true;
+   }
+
+  if( FUploadSocket.load() >= 0 &&
+      (IsPost || (strcmp( Path, "/" ) != 0 && strcmp( Path, "/Index.html" ) != 0)) )
+   {
+    SendText( ClientSocket, 409, "An upload is in progress" );
+    return false;
+   }
+
   if( !IsPost && (strcmp( Path, "/" ) == 0 ||
                    strcmp( Path, "/Index.html" ) == 0) )
    {
@@ -165,16 +199,18 @@ bool TEspRescueUpdater::HandleClient( int ClientSocket )
    }
 
   if( IsPost && strcmp( Path, "/Firmware" ) == 0 )
-    return HandleUpdate( ClientSocket, TPart::Firmware, ContentLength );
+    return StartUpload( ClientSocket, TPart::Firmware, ContentLength );
   if( IsPost && strcmp( Path, "/Filesystem" ) == 0 )
-    return HandleUpdate( ClientSocket, TPart::FileSystem, ContentLength );
+    return StartUpload( ClientSocket, TPart::FileSystem, ContentLength );
   if( IsPost && strcmp( Path, "/Commit" ) == 0 )
    {
+    FUpdateRequest = true;
     HandleCommit( ClientSocket );
     return true;
    }
   if( IsPost && strcmp( Path, "/Main" ) == 0 )
    {
+    FUpdateRequest = true;
     HandleMain( ClientSocket );
     return true;
    }
@@ -183,10 +219,43 @@ bool TEspRescueUpdater::HandleClient( int ClientSocket )
   return false;
  }
 
+bool TEspRescueUpdater::StartUpload( int ClientSocket, TPart Part, uint32_t ContentLength )
+ {
+  FUploadPart = Part;
+  FUploadLength = ContentLength;
+  FUploadSocket.store( ClientSocket );
+  if( xTaskCreate( UploadTask, "RescueUpload", 8192, this, tskIDLE_PRIORITY + 1, nullptr ) != pdPASS )
+   {
+    FUploadSocket.store( -1 );
+    FUpdateRequest = true;
+    SendText( ClientSocket, 500, "Could not start upload task" );
+    return false;
+   }
+  FClientTransferred = true;
+  return true;
+ }
+
+void TEspRescueUpdater::UploadTask( void * Context )
+ {
+  auto & Updater = *static_cast<TEspRescueUpdater *>( Context );
+  const int Socket = Updater.FUploadSocket.load();
+  Updater.HandleUpdate( Socket, Updater.FUploadPart, Updater.FUploadLength );
+  Updater.FUploadSocket.store( -1 );
+  shutdown( Socket, SHUT_RDWR );
+  close( Socket );
+  vTaskDelete( nullptr );
+ }
+
 bool TEspRescueUpdater::HandleUpdate( int ClientSocket,
   TPart Part, uint32_t ContentLength )
  {
   FUpdateCompleted = false;
+  portENTER_CRITICAL( &FProgressLock );
+  FLastError[0] = 0;
+  FWritten = 0;
+  FTotal = 0;
+  FPhase = Part == TPart::Firmware ? "Main: signed header" : "LittleFS: signed header";
+  portEXIT_CRITICAL( &FProgressLock );
   constexpr size_t FixedPrefixSize = 64 + 48;
   constexpr size_t MaximumSignatureSize = 512;
   uint8_t Prefix[FixedPrefixSize + MaximumSignatureSize];
@@ -216,6 +285,7 @@ bool TEspRescueUpdater::HandleUpdate( int ClientSocket,
   const uint32_t MaximumPayloadSize = Part == TPart::Firmware ?
     (FMainPartition ? FMainPartition->size : 0) :
     (FFileSystemPartition ? FFileSystemPartition->size : 0);
+  SetPhase( "Checking signature and target" );
   TEspSignedArtifactInfo Info = {};
   if( !EspSignedArtifactVerifyPrefix( Prefix, FixedPrefixSize + SignatureSize,
        Part == TPart::Firmware ? TEspSignedArtifactType::Firmware :
@@ -226,15 +296,31 @@ bool TEspRescueUpdater::HandleUpdate( int ClientSocket,
     return false;
    }
 
-  const bool Result = Part == TPart::Firmware ?
+  const bool Firmware = Part == TPart::Firmware;
+  bool & WriteUnverified = Firmware ? FMainWriteUnverified : FFileSystemWriteUnverified;
+  portENTER_CRITICAL( &FProgressLock );
+  FTotal = Info.PayloadSize;
+  portEXIT_CRITICAL( &FProgressLock );
+  WriteUnverified = true;
+  const bool Written = Firmware ?
     HandleFirmware( ClientSocket, Info.PayloadSize, Info.PayloadHash ) :
     HandleFileSystem( ClientSocket, Info.PayloadSize, Info.PayloadHash );
-  if( Result )
+  if( !Written )
+    return false;
+  SetPhase( "Verifying flash readback" );
+  if( !VerifyWrittenPayload( Firmware ? FMainPartition : FFileSystemPartition,
+        Info.PayloadSize, Info.PayloadHash ) )
    {
-    FUpdateCompleted = true;
-    SendText( ClientSocket, 200, "OK" );
+    SendText( ClientSocket, 500, Firmware ?
+      "Firmware flash readback mismatch" : "Filesystem flash readback mismatch" );
+    return false;
    }
-  return Result;
+
+  WriteUnverified = false;
+  FUpdateCompleted = true;
+  SetPhase( "Upload verified" );
+  SendText( ClientSocket, 200, "OK" );
+  return true;
  }
 
 bool TEspRescueUpdater::HandleFirmware( int ClientSocket,
@@ -247,15 +333,17 @@ bool TEspRescueUpdater::HandleFirmware( int ClientSocket,
    }
 
   esp_ota_handle_t OtaHandle = 0;
-  if( esp_ota_begin( FMainPartition, PayloadSize, &OtaHandle ) != ESP_OK )
+  SetPhase( "Preparing Main flash" );
+  if( const auto Error = esp_ota_begin( FMainPartition, PayloadSize, &OtaHandle ); Error != ESP_OK )
    {
-    SendText( ClientSocket, 500, "Could not start firmware update" );
+    SendEspError( ClientSocket, "Could not start firmware update", Error );
     return false;
    }
 
   TEspSignedArtifactHash Hash;
   Hash.Begin();
   uint8_t Buffer[1024];
+  SetPhase( "Receiving and writing Main" );
   uint32_t Remaining = PayloadSize;
   while( Remaining )
    {
@@ -267,13 +355,14 @@ bool TEspRescueUpdater::HandleFirmware( int ClientSocket,
       return false;
      }
     Hash.Add( Buffer, Wanted );
-    if( esp_ota_write( OtaHandle, Buffer, Wanted ) != ESP_OK )
+    if( const auto Error = esp_ota_write( OtaHandle, Buffer, Wanted ); Error != ESP_OK )
      {
       esp_ota_abort( OtaHandle );
-      SendText( ClientSocket, 500, "Could not write firmware" );
+      SendEspError( ClientSocket, "Could not write firmware", Error );
       return false;
      }
     Remaining -= Wanted;
+    SetWritten( PayloadSize - Remaining );
    }
 
   if( !Hash.EndAndCompare( ExpectedHash ) )
@@ -282,9 +371,10 @@ bool TEspRescueUpdater::HandleFirmware( int ClientSocket,
     SendText( ClientSocket, 400, "Firmware payload hash mismatch" );
     return false;
    }
-  if( esp_ota_end( OtaHandle ) != ESP_OK )
+  SetPhase( "Validating Main image" );
+  if( const auto Error = esp_ota_end( OtaHandle ); Error != ESP_OK )
    {
-    SendText( ClientSocket, 500, "Firmware image is invalid" );
+    SendEspError( ClientSocket, "Firmware image is invalid", Error );
     return false;
    }
   RestoreRescueBoot();
@@ -300,16 +390,18 @@ bool TEspRescueUpdater::HandleFileSystem( int ClientSocket,
     return false;
    }
 
-  if( esp_partition_erase_range( FFileSystemPartition, 0,
-        FFileSystemPartition->size ) != ESP_OK )
+  SetPhase( "Erasing LittleFS" );
+  if( const auto Error = esp_partition_erase_range( FFileSystemPartition, 0,
+        FFileSystemPartition->size ); Error != ESP_OK )
    {
-    SendText( ClientSocket, 500, "Could not erase filesystem partition" );
+    SendEspError( ClientSocket, "Could not erase filesystem partition", Error );
     return false;
    }
 
   TEspSignedArtifactHash Hash;
   Hash.Begin();
   uint8_t Buffer[1024];
+  SetPhase( "Receiving and writing LittleFS" );
   uint32_t Remaining = PayloadSize;
   size_t Offset = 0;
   while( Remaining )
@@ -321,14 +413,15 @@ bool TEspRescueUpdater::HandleFileSystem( int ClientSocket,
       return false;
      }
     Hash.Add( Buffer, Wanted );
-    if( esp_partition_write( FFileSystemPartition, Offset,
-                             Buffer, Wanted ) != ESP_OK )
+    if( const auto Error = esp_partition_write( FFileSystemPartition, Offset,
+                             Buffer, Wanted ); Error != ESP_OK )
      {
-      SendText( ClientSocket, 500, "Could not write filesystem" );
+      SendEspError( ClientSocket, "Could not write filesystem", Error );
       return false;
      }
     Offset += Wanted;
     Remaining -= Wanted;
+    SetWritten( PayloadSize - Remaining );
    }
   if( !Hash.EndAndCompare( ExpectedHash ) )
    {
@@ -350,18 +443,25 @@ void TEspRescueUpdater::HandleCommit( int ClientSocket )
 
 void TEspRescueUpdater::HandleMain( int ClientSocket )
  {
+  if( FMainWriteUnverified || FFileSystemWriteUnverified )
+   {
+    SendText( ClientSocket, 409, "Retry and verify the failed upload before starting Main" );
+    return;
+   }
   if( !FMainPartition )
    {
     SendText( ClientSocket, 500, "Main application partition app0 was not found" );
     return;
    }
-  if( esp_ota_set_boot_partition( FMainPartition ) != ESP_OK )
+  SetPhase( "Selecting Main boot partition" );
+  if( const auto Error = esp_ota_set_boot_partition( FMainPartition ); Error != ESP_OK )
    {
     RestoreRescueBoot();
-    SendText( ClientSocket, 500, "Could not select main application for next boot" );
+    SendEspError( ClientSocket, "Could not select main application for next boot", Error );
     return;
    }
 
+  SetPhase( "Starting Main" );
   SendText( ClientSocket, 200, "Starting main application..." );
   vTaskDelay( pdMS_TO_TICKS( 100 ) );
   shutdown( ClientSocket, SHUT_RDWR );
@@ -387,7 +487,11 @@ void TEspRescueUpdater::Loop(void)
   setsockopt( ClientSocket, SOL_SOCKET, SO_RCVTIMEO, &Timeout, sizeof( Timeout ) );
   setsockopt( ClientSocket, SOL_SOCKET, SO_SNDTIMEO, &Timeout, sizeof( Timeout ) );
 
+  FUpdateRequest = false;
+  FClientTransferred = false;
   HandleClient( ClientSocket );
+  if( FClientTransferred )
+    return;
   shutdown( ClientSocket, SHUT_RDWR );
   close( ClientSocket );
  }
@@ -516,19 +620,27 @@ void TEspRescueUpdater::SendRecoveryPage( int ClientSocket )
     "<div class='f'><label for='fw'>Firmware:</label><input id='fw' type='file' accept='.bin_signed'></div>"
     "<div class='f'><label for='fs'>Filesystem:</label><input id='fs' type='file' accept='.littlefs_signed'></div>"
     "<button onclick='go()'>Update</button> "
-    "<button onclick='mainApp()'>Start Main</button><p id='s'></p>"
+    "<button onclick='mainApp()'>Start Main</button><p id='s'></p><p id='p' role='status'></p><p><a href=/Progress>Rescue progress</a></p>"
     "<script>"
-    "async function up(p,f){let r=await fetch(p,{method:'POST',body:f});"
-    "let t=await r.text();if(!r.ok)throw Error(t);}"
+    "function up(p,f,s){return new Promise((ok,fail)=>{"
+    "let x=new XMLHttpRequest();x.open('POST',p);"
+    "x.upload.onprogress=e=>s.textContent=p+' · '+e.loaded+' / '+f.size+' bytes sent';"
+    "x.upload.onload=()=>s.textContent=p+' · waiting for flash verification';"
+    "x.onload=()=>x.status===200?ok():fail(Error(x.responseText));"
+    "x.onerror=()=>fail(Error('Connection lost'));x.send(f);});}"
+    "async function progress(){let p=document.getElementById('p');"
+    "try{let r=await probe('/Progress');if(r.ok)p.textContent=await r.text();}catch(_){}"
+    "finally{setTimeout(progress,500);}}setTimeout(progress,0);"
+    "async function report(s,e){s.textContent=e.message;}"
     "async function go(){let s=document.getElementById('s'),"
     "f=document.getElementById('fw').files[0],"
     "x=document.getElementById('fs').files[0];"
     "if(!f&&!x){s.textContent='Select firmware and/or filesystem';return;}"
-    "try{s.textContent='Updating...';if(f)await up('/Firmware',f);"
-    "if(x)await up('/Filesystem',x);"
+    "try{s.textContent='Updating...';if(f)await up('/Firmware',f,s);"
+    "if(x)await up('/Filesystem',x,s);"
     "let r=await fetch('/Commit',{method:'POST'}),t=await r.text();"
     "if(!r.ok)throw Error(t);await waitMain(s,Date.now());}"
-    "catch(e){s.textContent='Update failed: '+e.message;}}"
+    "catch(e){await report(s,e);}}"
     "async function probe(u){let c=new AbortController(),x=setTimeout(()=>c.abort(),1500);"
     "try{return await fetch(u,{cache:'no-store',signal:c.signal});}finally{clearTimeout(x);}}"
     "async function waitMain(s,b){let n=0,r;"
@@ -540,7 +652,7 @@ void TEspRescueUpdater::SendRecoveryPage( int ClientSocket )
     "try{s.textContent='Starting main application...';"
     "let r=await fetch('/Main',{method:'POST'}),t=await r.text();if(!r.ok)throw Error(t);"
     "await waitMain(s,Date.now());}"
-    "catch(e){s.textContent='Start failed: '+e.message;}}"
+    "catch(e){await report(s,e);}}"
     "</script></body></html>";
 
   SendAll( ClientSocket, PageStart );
@@ -550,9 +662,56 @@ void TEspRescueUpdater::SendRecoveryPage( int ClientSocket )
   SendAll( ClientSocket, PageEnd );
  }
 
+void TEspRescueUpdater::SetPhase( const char * Phase )
+ {
+  portENTER_CRITICAL( &FProgressLock );
+  FPhase = Phase;
+  portEXIT_CRITICAL( &FProgressLock );
+ }
+
+void TEspRescueUpdater::SetWritten( uint32_t Written )
+ {
+  portENTER_CRITICAL( &FProgressLock );
+  FWritten = Written;
+  portEXIT_CRITICAL( &FProgressLock );
+ }
+
+void TEspRescueUpdater::SendProgress( int ClientSocket )
+ {
+  const char * Phase;
+  uint32_t Written, Total;
+  char Error[sizeof( FLastError )];
+  portENTER_CRITICAL( &FProgressLock );
+  Phase = FPhase;
+  Written = FWritten;
+  Total = FTotal;
+  memcpy( Error, FLastError, sizeof( Error ) );
+  portEXIT_CRITICAL( &FProgressLock );
+
+  char Text[256];
+  snprintf( Text, sizeof( Text ), "%s · %lu / %lu bytes written%s%s",
+    Phase, (unsigned long) Written, (unsigned long) Total, Error[0] ? " · " : "", Error );
+  SendText( ClientSocket, 200, Text );
+ }
+
+void TEspRescueUpdater::SendEspError( int ClientSocket, const char * Text, esp_err_t Error )
+ {
+  char Detail[160];
+  snprintf( Detail, sizeof( Detail ), "%s: %s (0x%X)", Text, esp_err_to_name( Error ), unsigned( Error ) );
+  SendText( ClientSocket, 500, Detail );
+ }
+
 void TEspRescueUpdater::SendText( int ClientSocket, int Status,
   char const * Text )
  {
+  if( Status >= 400 && (ClientSocket == FUploadSocket.load() || FUpdateRequest) )
+   {
+    const size_t Length = strnlen( Text, sizeof( FLastError ) - 1 );
+    portENTER_CRITICAL( &FProgressLock );
+    memcpy( FLastError, Text, Length );
+    FLastError[Length] = 0;
+    portEXIT_CRITICAL( &FProgressLock );
+   }
   SendAll( ClientSocket, StatusLine( Status ) );
   SendAll( ClientSocket,
     "Connection: close\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" );

@@ -1,5 +1,6 @@
-// GnUdpStatus.cpp, Version: 1.34
+// GnUdpStatus.cpp, Version: 1.44
 #include <GnBasics.h>
+#include <optional>
 #include <GnUdpStatus.h>
 #include <GnDeviceIdentity.h>
 #if GN_FEEDER_UDP
@@ -73,7 +74,6 @@ struct TParsedMeasurement
 
 struct TParsedPacket
  {
-  TGNString StatusText;
   unsigned Version = 0;
   std::vector<TParsedMeasurement> Measurements;
   TGnChargeLearningPolicy Learning;
@@ -81,71 +81,6 @@ struct TParsedPacket
   TGNString Id;
   std::vector<TGNString> Ids;
  };
-
-#if defined( GNPlatformESP )
-TGNString SerializeJsonDocument( JsonDocument const & Document )
- {
-  TGNString Result;
-  serializeJson( Document, Result );
-  return Result;
- }
-
-
-
-TGNString BuildStatusJson( TGNString const & Id, TGNString const & Status,
-                           TGnUdpTemperature const & Temperature, TGnUdpInfoParts * Parts = nullptr )
- {
-  JsonDocument Document;
-  if( deserializeJson( Document, Status.c_str(), Status.length() ) || !Document.is<JsonObjectConst>() )
-    return {};
-  Document["PowerMeter"].as<JsonObject>().remove( "Diagnostics" );
-  if( Temperature.Available )
-   {
-    if( Temperature.Valid && std::isfinite( Temperature.Celsius ) ) Document["Temp"] = Temperature.Celsius;
-    else Document["Temp"] = nullptr;
-   }
-  // Reuse the document after serializing Status to avoid retaining two parsed trees.
-  const TGNString StatusText = SerializeJsonDocument( Document );
-  Document.clear();
-  TGnUdpInfoParts Local;
-  return GnUdpCompactStatus(Id,StatusText,Parts?*Parts:Local);
- }
-
-
-#else
-TGNString JsonToString( json_object * Object )
- {
-  return json_object_to_json_string_ext( Object, JSON_C_TO_STRING_PLAIN );
- }
-
-
-
-TGNString BuildStatusJson( TGNString const & Id, TGNString const & Status,
-                           TGnUdpTemperature const & Temperature, TGnUdpInfoParts * Parts = nullptr )
- {
-  json_object * StatusObject = json_tokener_parse( Status.c_str() );
-  if( !json_object_is_type( StatusObject, json_type_object ) )
-   {
-    if( StatusObject ) json_object_put( StatusObject );
-    return {};
-   }
-  json_object * Meter = nullptr;
-  if( json_object_object_get_ex( StatusObject, "PowerMeter", &Meter ) )
-    json_object_object_del( Meter, "Diag" );
-  if( Temperature.Available )
-   {
-    json_object_object_add( StatusObject, "Temp",
-      Temperature.Valid && std::isfinite( Temperature.Celsius )
-        ? json_object_new_double( Temperature.Celsius ) : nullptr );
-   }
-  TGnUdpInfoParts Local;
-  const TGNString Result=GnUdpCompactStatus(Id,JsonToString(StatusObject),Parts?*Parts:Local);
-  json_object_put(StatusObject);
-  return Result;
- }
-
-
-#endif
 
 TGNString BuildRequestJson( std::vector<TGNString> const & Ids )
  {
@@ -165,7 +100,7 @@ bool ParsePacket( TGnWireValue Root, TParsedPacket & Packet )
    }
   if(MessageType(Root)!=TMsgType::Status)return false;
   Packet.Type=TPacketType::Status;Packet.Id=Root.Get("ID").Text();
-  auto Status=Root.Get("Status");Packet.StatusText=Status.Json();
+  auto Status=Root.Get("Status");
   auto Allowed=Status.Get("ChargeLearnAllowed"),Counter=Status.Get("BootCnt");
   if(Status.Has("ChargeLearnAllowed") && Status.Has("BootCnt") && Allowed.IsBool() && GnTypeValid(Counter,TGnJsonType<uint32_t>{}))
    { Packet.Learning.Available=true;Packet.Learning.Allowed=Allowed.Bool();Packet.Learning.BootCounter=Counter.UInt(); }
@@ -200,49 +135,6 @@ bool ValidTemperatureId( TGNString const & Id )
   return Nonzero;
  }
 
-// Only operational changes trigger an early broadcast. Measurements are periodic;
-// completed temperature samples have their own monotonic revision.
-uint64_t StatusEventSignature( TGNString const & Status )
- {
-  TGNString Events;
-#if defined( GNPlatformESP )
-  JsonDocument Document;
-  if( deserializeJson( Document, Status.c_str(), Status.length() ) ) return 0;
-  Document.remove( "CurrentTime" );
-  Document.remove( "Temperature" );
-  Document.remove( "HeatPi" );
-  Document.remove( "ChargeLearning" );
-  JsonObject Meter = Document["PowerMeter"].as<JsonObject>();
-  for( char const * Key : { "Voltage", "Current", "ActivePower", "Diagnostics" } ) Meter.remove( Key );
-  for( JsonObject Measurement : Document["Meas"].as<JsonArray>() )
-   {
-    Measurement.remove( "Value" );
-    Measurement.remove( "UpdatedAt" );
-   }
-  Events = SerializeJsonDocument( Document );
-#else
-  json_object * Document = json_tokener_parse( Status.c_str() );
-  if( !Document ) return 0;
-  json_object_object_del( Document, "CurrentTime" );
-  json_object_object_del( Document, "Temp" );
-  json_object_object_del( Document, "HeatDiag" );
-  json_object_object_del( Document, "ChargeLearn" );
-  json_object * Meter = nullptr, * Measurements = nullptr;
-  if( json_object_object_get_ex( Document, "PowerMeter", &Meter ) )
-    for( char const * Key : { "Voltage", "Current", "ActivePower", "Diagnostics" } ) json_object_object_del( Meter, Key );
-  if( json_object_object_get_ex( Document, "Meas", &Measurements ) && json_object_is_type( Measurements, json_type_array ) )
-    for( size_t Index = 0; Index < json_object_array_length( Measurements ); ++Index )
-     {
-      json_object * Measurement = json_object_array_get_idx( Measurements, Index );
-      json_object_object_del( Measurement, "Value" );
-      json_object_object_del( Measurement, "UpdatedAt" );
-     }
-  Events = JsonToString( Document );
-  json_object_put( Document );
-#endif
-  return GnHash64( Events.data(), Events.length() );
- }
-
 bool RequestMatches( TParsedPacket const & Packet, TGNString const & LocalId )
  {
   if( Packet.Type != TPacketType::Request )
@@ -275,22 +167,26 @@ class TGnUdpStatus::TImplementation
     TGnChargeLearningPolicy Learning;
    };
 
-  bool Setup( TGNString Id, TStatusProvider StatusProvider,
-              TTemperatureProvider TemperatureProvider );
+  bool SetupCompact( TGNString Id, TCompactStatusProvider StatusProvider,
+                     TTemperatureProvider TemperatureProvider );
   TGNString const & Error(void) const                         { return FError; }
   void Loop(void);
   void RequestAll(void)                                      { SendRaw( BuildRequestJson( {} ) ); }
   void Request( TGNString const & Id )                       { SendRaw( BuildRequestJson( { Id } ) ); }
   void Request( std::vector<TGNString> const & Ids )         { SendRaw( BuildRequestJson( Ids ) ); }
-  void WatchStatus( TGNString const & Id )
+  void WatchFloorStatus( TGNString const & Device, TGNString const & Channel )
    {
-    if( Id == FWatchedId ) return;
-    FWatchedId = Id; FWatchedStatus.clear(); FWatchedRevision = 0; FWatchedCompact.clear(); FDescriptions = TGnUdpDescriptions{};
+    const TGNString Endpoint = Device.empty() ? TGNString{} : Device + "/" + Channel;
+    if( Device == FWatchedDevice && Endpoint == FWatchedEndpoint )return;
+    FWatchedDevice = Device;
+    FWatchedEndpoint = Endpoint;
+    FWatchedStatus.reset();
    }
-  bool GetWatchedStatus( TGNString const & Id, TGNString & Status, uint64_t & Revision ) const
+  bool GetWatchedFloorStatus( TGnUdpFloorStatus & Status ) const
    {
-    if( Id != FWatchedId || FWatchedStatus.empty() || GnMillis64()-FWatchedReceivedAt > 60000 ) return false;
-    Status = FWatchedStatus; Revision = FWatchedRevision; return true;
+    if( !FWatchedStatus || GnMillis64() - FWatchedReceivedAt > 60000 )return false;
+    Status = *FWatchedStatus;
+    return true;
    }
   TGNString ResolveSource(TGNString const & Function,TGNString const & Preferred,TGNString const & Revision)
    {
@@ -308,21 +204,23 @@ class TGnUdpStatus::TImplementation
   void RxMsg_Request( TGnWireValue Root, TGNString const & Payload, TGNString const & Address, uint16_t Port );
   void RxMsg_Status( TGnWireValue Root, TGNString const & Payload, TGNString const & Address, uint16_t Port );
   void RxMsg_InfoRequest( TGnWireValue Root, TGNString const & Payload, TGNString const & Address, uint16_t Port );
-  void RxMsg_Info( TGnWireValue Root, TGNString const & Payload, TGNString const & Address, uint16_t Port );
   void RxMsg_SourceRequest( TGnWireValue Root, TGNString const & Payload, TGNString const & Address, uint16_t Port );
   void RxMsg_SourceInfo( TGnWireValue Root, TGNString const & Payload, TGNString const & Address, uint16_t Port );
 
  private:
+  bool SetupProviders( TGNString Id, TTemperatureProvider TemperatureProvider );
   bool NetworkConnected(void) const;
   bool OpenSocket(void);
   void ReceivePackets(void);
   bool SendStatus(void);
-  bool SendStatus( TGNString const & Status, uint64_t Signature,
-                   TGnUdpTemperature const & Temperature );
+  bool SendCompactStatus( uint64_t Signature, TGnUdpTemperature const & Temperature );
+  bool SendStatusPacket( TGNString const & Packet, uint64_t Signature,
+                         TGnUdpTemperature const & Temperature );
   bool SendRaw( TGNString const & Payload );
   void HandlePacket( TGNString const & Payload, TGNString const & Address = {}, uint16_t Port = GnUdpStatusPort );
   void ReceiveControl(void);
   void AnnounceSources(void);
+  void CacheFloorStatus( TGnWireValue Root );
   void CacheTemperature( TGNString const & Id, bool Valid, float Celsius, TGNString const & Field );
   bool TemperatureChanged( TGnUdpTemperature const & Current ) const;
   void RememberTemperature( TGnUdpTemperature const & Current );
@@ -332,17 +230,15 @@ class TGnUdpStatus::TImplementation
 
  private:
   TGnUdpControl FControl;
-  TGnUdpDescriptions FDescriptions;
   TGnUdpSources FSourceClaims;
   TGnUdpInfoParts FInfoParts;
   TGNString FSourceSignature;
   std::map<TGNString,uint64_t> FInfoReplyTimes;
-  TGNString FWatchedId, FWatchedStatus;
-  uint64_t FWatchedRevision = 0;
-  uint64_t FWatchedReceivedAt=0;
-  TGNString FWatchedCompact;
+  TGNString FWatchedDevice, FWatchedEndpoint;
+  std::optional<TGnUdpFloorStatus> FWatchedStatus;
+  uint64_t FWatchedReceivedAt = 0;
   TGNString FId;
-  TStatusProvider FStatusProvider;
+  TCompactStatusProvider FCompactStatusProvider;
   TTemperatureProvider FTemperatureProvider;
   std::vector<TTemperatureCache> FTemperatures;
   TGNString FError;
@@ -419,15 +315,28 @@ bool TGnUdpStatus::TImplementation::OpenSocket(void)
   return true;
  }
 
-bool TGnUdpStatus::TImplementation::Setup( TGNString Id, TStatusProvider StatusProvider,
-                                            TTemperatureProvider TemperatureProvider )
+bool TGnUdpStatus::TImplementation::SetupCompact( TGNString Id, TCompactStatusProvider StatusProvider,
+                                                   TTemperatureProvider TemperatureProvider )
+ {
+  if( !StatusProvider )
+   {
+    FError = "Invalid UDP status configuration";
+    return false;
+   }
+  if( !SetupProviders( std::move(Id), std::move(TemperatureProvider) ) )
+    return false;
+  FCompactStatusProvider = std::move(StatusProvider);
+  return true;
+ }
+
+bool TGnUdpStatus::TImplementation::SetupProviders( TGNString Id, TTemperatureProvider TemperatureProvider )
  {
   if( FReady )
    {
     FError = "UDP status already configured";
     return false;
    }
-  if( Id.empty() || !StatusProvider )
+  if( Id.empty() )
    {
     FError = "Invalid UDP status configuration";
     return false;
@@ -437,7 +346,6 @@ bool TGnUdpStatus::TImplementation::Setup( TGNString Id, TStatusProvider StatusP
   GnDeviceIdentity.SourceResolver([this](TGNString const & Function,TGNString const & Preferred,TGNString const & Revision)
    {return ResolveSource(Function,Preferred,Revision);});
   FId = std::move(Id);
-  FStatusProvider = std::move( StatusProvider );
   FTemperatureProvider = std::move( TemperatureProvider );
   FNetworkCheckDue = true;
   FStatusCheckDue = false;
@@ -531,11 +439,16 @@ bool TGnUdpStatus::TImplementation::TemperatureChanged( TGnUdpTemperature const 
   return Current.Valid && Current.SampleRevision != FLastTemperature.SampleRevision;
  }
 
-bool TGnUdpStatus::TImplementation::SendStatus( TGNString const & Status, uint64_t Signature,
-                                                 TGnUdpTemperature const & Temperature )
+bool TGnUdpStatus::TImplementation::SendCompactStatus( uint64_t Signature, TGnUdpTemperature const & Temperature )
  {
-  Signature = StatusEventSignature( Status );
-  const TGNString Packet = BuildStatusJson( GnDeviceIdentity.WireId(), Status, Temperature, &FInfoParts );
+  TGNString Packet;
+  if( !FCompactStatusProvider( Signature, &FInfoParts, Packet ) )Packet.clear();
+  return SendStatusPacket( Packet, Signature, Temperature );
+ }
+
+bool TGnUdpStatus::TImplementation::SendStatusPacket( TGNString const & Packet, uint64_t Signature,
+                                                      TGnUdpTemperature const & Temperature )
+ {
   if( Packet.empty() ) { FError = "Cannot encode UDP status"; return false; }
   if( !SendRaw( Packet ) )
     return false;
@@ -552,12 +465,11 @@ bool TGnUdpStatus::TImplementation::SendStatus(void)
  {
   if( !FReady )
     return false;
-  uint64_t Signature = 0;
-  const TGNString Status = FStatusProvider( Signature );
-  if( Status.empty() )
-    return false;
   const TGnUdpTemperature Temperature = FTemperatureProvider ? FTemperatureProvider() : TGnUdpTemperature{};
-  return SendStatus( Status, Signature, Temperature );
+  uint64_t Signature = 0;
+  TGNString Unused;
+  if( !FCompactStatusProvider( Signature, nullptr, Unused ) )return false;
+  return SendCompactStatus( Signature, Temperature );
  }
 
 void TGnUdpStatus::TImplementation::CacheTemperature( TGNString const & Id, bool Valid, float Celsius, TGNString const & Field )
@@ -594,17 +506,6 @@ void TGnUdpStatus::TImplementation::RxMsg_InfoRequest( TGnWireValue Root, TGNStr
   for(auto const & Reply:GnUdpInfoReplies(FId,GnUdpInfoHash(FInfoParts),FInfoParts,Fields))FControl.Send(Reply,Address,Port);
  }
 
-void TGnUdpStatus::TImplementation::RxMsg_Info( TGnWireValue Root, TGNString const & Payload, TGNString const & Address, uint16_t Port )
- {
-  (void)Root;(void)Payload;(void)Address;(void)Port;
-  if(FDescriptions.AcceptInfo(Root)&&!FWatchedCompact.empty())
-   {
-    TGNString Request;auto Expanded=FDescriptions.Expand(FWatchedCompact,GnMillis64(),Request,true);
-    TGnWireDocument Frame(Expanded);auto Status=Frame.Root().Get("Status").Json();
-    if(!Expanded.empty()&&Status!=FWatchedStatus){FWatchedStatus=Status;++FWatchedRevision;}
-   }
- }
-
 void TGnUdpStatus::TImplementation::RxMsg_SourceInfo( TGnWireValue Root, TGNString const & Payload, TGNString const & Address, uint16_t Port )
  {
   (void)Root;(void)Payload;(void)Address;(void)Port;
@@ -627,24 +528,55 @@ void TGnUdpStatus::TImplementation::RxMsg_Request( TGnWireValue Root, TGNString 
   if(RequestMatches(Packet,GnDeviceIdentity.WireId()))SendStatus();
  }
 
-void TGnUdpStatus::TImplementation::RxMsg_Status( TGnWireValue Root, TGNString const & Payload, TGNString const & Address, uint16_t Port )
+void TGnUdpStatus::TImplementation::CacheFloorStatus( TGnWireValue Root )
  {
-  (void)Root;(void)Payload;(void)Address;(void)Port;
-  HeatPiPeers.AcceptStatus(Root,GnMillis64(),time(nullptr));
-  TGNString Expanded;
-  if(Root.Get("ID").Text()==FWatchedId && !Root.Get("Compact").Bool())FWatchedCompact.clear();
-  TParsedPacket Packet;
-  if(Root.Get("ID").Text()==FWatchedId && Root.Get("Compact").Bool())
+  FWatchedStatus.reset();
+  const auto Status = Root.Get("Status");
+  const bool Compact = Root.Get("Compact").Bool();
+  const auto BootCounter = Status.Get("BootCnt");
+  const auto CurrentTime = Status.Get("CurrentTime");
+  if( !BootCounter.IsUnsigned() || !CurrentTime.IsUnsigned() || !Status.Get("TimeSynchronized").Bool() )return;
+
+  TGnUdpFloorStatus Next;
+  Next.BootCounter = BootCounter.UInt();
+  Next.CurrentTime = CurrentTime.UInt();
+  unsigned Matches = 0;
+  for( auto Channel : Status.Get("Chs").Items() )
    {
-    FWatchedCompact=Payload;
-    TGNString Request;Expanded=FDescriptions.Expand(Root,GnMillis64(),Request,true);
-    if(!Request.empty())FControl.Send(Request,Address,GnUdpDescriptionPort(FWatchedId));
-    if(Expanded.empty())return;
-    TGnWireDocument Frame(Expanded);if(!ParsePacket(Frame.Root(),Packet))return;
+    if( Channel.Get("Id").Text() != FWatchedEndpoint )continue;
+    ++Matches;
+    const auto State = Channel.Get("State");
+    TGnUdpChannelBits ChannelBits{};
+    ChannelBits.All = static_cast<uint16_t>(Channel.Get("Bits").UInt());
+    Next.FloorOverride = Compact ? bool((ChannelBits.Bit.OvrActiveMsk && ChannelBits.Bit.OvrActive) ||
+                                         (ChannelBits.Bit.CalOvrActiveMsk && ChannelBits.Bit.CalOvrActive))
+      : Channel.Get("OvrActive").Bool() || Channel.Get("CalOvrActive").Bool();
+    Next.FloorValid = State.IsBool() && !Next.FloorOverride;
+    Next.FloorOn = State.Bool();
    }
-  else if(!ParsePacket(Root,Packet))return;
-  if( Packet.Type == TPacketType::Status && !FWatchedId.empty() && Packet.Id == FWatchedId && !Packet.StatusText.empty() )
-   { FWatchedStatus = Packet.StatusText; ++FWatchedRevision; FWatchedReceivedAt=GnMillis64(); }
+  Next.FloorValid = Next.FloorValid && Matches == 1;
+  for( auto Measurement : Status.Get("Meas").Items() )
+   {
+    const auto Value = Measurement.Get("Value");
+    const auto UpdatedAt = Measurement.Get("UpdatedAt");
+    if( Measurement.Get("Kind").Text() != "RoomTemperature" || !Measurement.Get("Valid").Bool() ||
+        !Value.IsNumber() || !std::isfinite(Value.Number()) || !UpdatedAt.IsUnsigned() )continue;
+    if( Next.RoomValid && UpdatedAt.UInt() < Next.RoomUpdatedAt )continue;
+    Next.RoomValid = true;
+    Next.RoomTemperature = Value.Number();
+    Next.RoomUpdatedAt = UpdatedAt.UInt();
+   }
+  FWatchedStatus = Next;
+  FWatchedReceivedAt = GnMillis64();
+ }
+
+void TGnUdpStatus::TImplementation::RxMsg_Status( TGnWireValue Root, TGNString const &, TGNString const &, uint16_t )
+ {
+  HeatPiPeers.AcceptStatus(Root,GnMillis64(),time(nullptr));
+  if( !FWatchedDevice.empty() && Root.Get("ID").Text() == FWatchedDevice )
+    CacheFloorStatus( Root );
+  TParsedPacket Packet;
+  if( !ParsePacket(Root,Packet) )return;
   if( Packet.Type != TPacketType::Status || Packet.Id.empty() || Packet.Id == GnDeviceIdentity.WireId() ||
       !ValidTemperatureId( Packet.Id ) )
     return;
@@ -788,14 +720,13 @@ void TGnUdpStatus::TImplementation::Loop(void)
   if( FStatusCheckDue )
    {
     FStatusCheckDue = false;
+    TGNString Status;
     uint64_t Signature = 0;
-    const TGNString Status = FStatusProvider( Signature );
-    if( Status.empty() ) return;
-    Signature = StatusEventSignature( Status );
+    if( !FCompactStatusProvider( Signature, nullptr, Status ) )return;
     const TGnUdpTemperature Temperature = FTemperatureProvider ? FTemperatureProvider() : TGnUdpTemperature{};
     if( !FLastStatusSignatureKnown || Signature != FLastStatusSignature || TemperatureChanged( Temperature ) )
      {
-      SendStatus( Status, Signature, Temperature );
+      SendCompactStatus( Signature, Temperature );
       return;
      }
    }
@@ -816,11 +747,11 @@ TGnUdpStatus::TGnUdpStatus(void)
 
 TGnUdpStatus::~TGnUdpStatus(void) = default;
 
-bool TGnUdpStatus::Setup( TGNString Id, TStatusProvider StatusProvider,
-                          TTemperatureProvider TemperatureProvider )
+bool TGnUdpStatus::SetupCompact( TGNString Id, TCompactStatusProvider StatusProvider,
+                                 TTemperatureProvider TemperatureProvider )
  {
-  return FImplementation->Setup( std::move( Id ), std::move( StatusProvider ),
-                                 std::move( TemperatureProvider ) );
+  return FImplementation->SetupCompact( std::move(Id), std::move(StatusProvider),
+                                        std::move(TemperatureProvider) );
  }
 
 TGNString const & TGnUdpStatus::Error(void) const
@@ -873,12 +804,13 @@ TGnChargeLearningPolicy TGnUdpStatus::ChargeLearningPolicy( TGNString const & Id
   return FImplementation->ChargeLearningPolicy( Id );
  }
 
-bool TGnUdpStatus::GetHeatPiPeer( TGNString const & Id, TGNString & Status )
- { return FImplementation->HeatPiPeers.Get(Id,GnMillis64(),Status); }
-void TGnUdpStatus::WatchStatus( TGNString const & Id )
- { FImplementation->WatchStatus( Id ); }
-bool TGnUdpStatus::GetWatchedStatus( TGNString const & Id, TGNString & Status, uint64_t & Revision ) const
- { return FImplementation->GetWatchedStatus( Id, Status, Revision ); }
+bool TGnUdpStatus::GetHeatPiPeer( TGNString const & Id, TGNString & Status,
+                                  bool & AwaitingInitialStatus )
+ { return FImplementation->HeatPiPeers.Get(Id,GnMillis64(),Status,AwaitingInitialStatus); }
+void TGnUdpStatus::WatchFloorStatus( TGNString const & Device, TGNString const & Channel )
+ { FImplementation->WatchFloorStatus( Device, Channel ); }
+bool TGnUdpStatus::GetWatchedFloorStatus( TGnUdpFloorStatus & Status ) const
+ { return FImplementation->GetWatchedFloorStatus( Status ); }
 
 void TGnUdpStatus::TImplementation::ReceiveControl(void)
  {

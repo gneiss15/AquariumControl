@@ -44,19 +44,6 @@ Abbreviations also apply to word components inside field names. Descriptions use
 | Info | Descriptive data sent separately on request for the matching InfoRev. |
 | Omit | Absent from both the regular compact Status and its Info replies. Access depends on the field: power meter diagnostics via HTTP, source mappings via SourceInfo. |
 
-## UDP bit flags
-
-| Flag | Value |
-| :--- | :--- |
-| InputState | 1 |
-| OverrideActive | 2 |
-| OverrideOn | 4 |
-| CalibrationOverride | 8 |
-| HasAutomatic | 16 |
-| AutomaticOn | 32 |
-| UnknownInput | 64 |
-| UnknownAutomatic | 128 |
-
 ## Protocol versions
 
 Ver identifies the version of the corresponding message format. It allows receivers and senders to be updated in stages:

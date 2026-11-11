@@ -1,9 +1,10 @@
-# UpdateJsonFiles.py, Version: 1.07
+# UpdateJsonFiles.py, Version: 1.08
 from __future__ import annotations
 
 import json
 import os
 import pathlib
+import re
 import sys
 
 import sys as _generated_sys
@@ -40,6 +41,19 @@ def collect_overrides(secrets: object, project_name: str) -> dict[str, object]:
       overrides.update(project_values)
 
   return overrides
+
+
+def resolve_initial_function(function: str, project_name: str) -> str:
+  """Keep real function names; expand only hardware placeholder names."""
+  if project_name == "TmrSwA8T":
+    match = re.fullmatch(r"Nous([0-9]+)", function)
+    if match:
+      return f"NousA8TSw{match.group(1)}"
+  elif project_name == "TmrSwShelly":
+    match = re.fullmatch(r"Shelly([0-9]+)", function)
+    if match:
+      return f"ShellySw{match.group(1)}"
+  return function
 
 
 def dumps_aligned_object(value: dict[str, object]) -> str:
@@ -103,8 +117,13 @@ def main() -> int:
 
   initial_function = os.environ.get("PRJS_INITIAL_FUNCTION")
   if initial_function is not None:
+    initial_function = resolve_initial_function(initial_function, project_name)
     if not 8 <= len(initial_function.encode("utf-8")) <= 32:
-      raise ValueError("Initial function must contain 8–32 bytes for the AP name and password")
+      raise ValueError(
+        "Initial function/AP credentials must contain 8–32 UTF-8 bytes; "
+        "real function names are used unchanged and only NousX/ShellyX "
+        "placeholders are expanded"
+      )
     config["Hostname"] = initial_function
     config["ApSsid"] = initial_function
     config["ApPw"] = initial_function

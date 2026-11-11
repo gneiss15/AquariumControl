@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CopyToRasPi.sh, Version: 1.18
+# CopyToRasPi.sh, Version: 1.19
 
 set -euo pipefail
 
@@ -90,7 +90,6 @@ CopyToRasPi()
     --include='*/' \
     --include='*.h' \
     --include='*.cpp' \
-    --include='*.py' \
     --exclude='*' \
     "$AqLibDir/" "$RemoteHost:$RemoteAqLibDir/" || return $?
 

@@ -1,4 +1,4 @@
-// ChargeLearningDebug.h, Version: 1.01
+// ChargeLearningDebug.h, Version: 1.02
 #pragma once
 #include <GnTemporaryDiagnostics.h>
 #include <GnWireJson.h>
@@ -31,7 +31,7 @@ inline void Receive(std::filesystem::path const & Root,json_object * Packet)
 #if GN_DEBUG_CHARGE_LEARNING
   TGnWireValue P(Packet);auto S=P.Get("Status"),Step=S.Get("ChargeLearn");
   if(!Step.Object() || Step.Get("Ver").UInt()!=1)return;
-  auto Boot=S.Get("Identity").Get("BootCnt");
+  auto Boot=S.Get("BootCnt");
   const auto Persistence=Step.Get("Persistence").Text();
   if(!Number(Boot,0,UINT32_MAX) || !Number(Step.Get("Seq"),1,UINT32_MAX) ||
      !Number(Step.Get("BeforePct"),0,100) || !Number(Step.Get("AfterPct"),0,100) ||

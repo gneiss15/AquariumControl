@@ -1,4 +1,4 @@
-# UdpDescriptions.py, Version: 1.07
+# UdpDescriptions.py, Version: 1.15
 """Decode compact status; descriptor traffic never counts as a fresh sample."""
 import copy
 import json
@@ -44,7 +44,10 @@ class UdpDescriptions:
       if not isinstance(status,dict):
         return None, None
       for key,field in (('Chs','Id'),('Meas','Kind')):
-        rows=status.get(key,[])
+        rows=status.get(key)
+        if rows is None:
+          rows=[]
+          status[key]=rows
         if not isinstance(rows,list) or any(not isinstance(row,dict) or not isinstance(row.get(field),str) for row in rows):
           return None, None
       expanded, request = self.OnStatusPacket(packet, now, wall_time)
@@ -62,7 +65,12 @@ class UdpDescriptions:
     try:
       value = json.loads(data)
     except (ValueError, TypeError):
-      return False
+      if not data.startswith('{{') or not data.endswith('}}'):
+        return False
+      try:
+        value = json.loads(data[1:-1])
+      except (ValueError, TypeError):
+        return False
     if not isinstance(value, dict):
       return False
     schema = 'TUdpStatusData' if field == 'Root' else 'TJsonIdentity' if field == 'Identity' else 'TUdpChannel' if field.startswith('Channel:') else 'TUdpMeasurement'
@@ -82,9 +90,10 @@ class UdpDescriptions:
     entry = self.entries.get(identity)
     if not entry or entry['revision'] != revision:
       self.pending.pop(identity, None)
-      entry = self.entries[identity] = dict(revision=revision, parts={}, required=set(), last=0, attempts=0)
+      entry = self.entries[identity] = dict(revision=revision, parts={}, required=set(), last=0, attempts=0, channel_bits={})
     status = packet['Status']
-    channels, measurements = status.get('Chs', []), status.get('Meas', [])
+    channels, measurements = status.get('Chs') or [], status.get('Meas') or []
+    status['Chs'], status['Meas'] = channels, measurements
     channel_key = lambda row: 'Channel:' + row['Id']
     required = {'Root', 'Identity'}
     required.update(channel_key(row) for row in channels)
@@ -111,19 +120,20 @@ class UdpDescriptions:
     result = copy.deepcopy(packet)
     status = result['Status']
     status.update(entry['parts']['Root'])
-    status['DevId'] = identity
-    status['Identity'] = dict(entry['parts']['Identity'], ServiceId=identity)
-    if 'BootCnt' in status:
-      status['Identity']['BootCnt'] = status.pop('BootCnt')
-    for row in status.get('Chs', []):
-      bits = row.pop('Bits', 0)
+    status['Identity'] = dict(entry['parts']['Identity'])
+    for row in status.get('Chs') or []:
+      channel_id = row.get('Id')
+      incoming = row.pop('Bits', 0)
+      previous = entry['channel_bits'].get(channel_id, 0)
+      replace = 0
+      for definition in BITS.values():
+        if incoming & definition['Mask']:
+          replace |= definition['Mask'] | definition['Value']
+      bits = entry['channel_bits'][channel_id] = (previous & ~replace) | (incoming & replace)
       row.update(entry['parts'][channel_key(row)])
-      row.update(InState=bool(bits & BITS['InputState']), OvrActive=bool(bits & BITS['OverrideActive']),
-                 OvrState=bool(bits & BITS['OverrideOn']) if bits & BITS['OverrideActive'] else None, CalOvrActive=bool(bits & BITS['CalibrationOverride']),
-                 AutomaticState=bool(bits & BITS['AutomaticOn']) if bits & BITS['HasAutomatic'] else row.get('State'), OvrUntil=row.pop('Until', None))
-      if bits & BITS['UnknownInput']: row['InState'] = None
-      if bits & BITS['UnknownAutomatic']: row['AutomaticState'] = None
-    for row in status.get('Meas', []):
+      for name, definition in BITS.items():
+        row[name] = bool(bits & definition['Value']) if bits & definition['Mask'] else None
+    for row in status.get('Meas') or []:
       row.update(entry['parts']['Measurement:' + str(row.get('Kind', ''))])
     result.pop('Compact', None)
     result.pop('InfoRev', None)

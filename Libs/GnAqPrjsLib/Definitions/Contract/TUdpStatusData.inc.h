@@ -1,11 +1,11 @@
-// TUdpStatusData.inc.h, Version: 1.02
+// TUdpStatusData.inc.h, Version: 1.03
 // Repeated definition expansion.
 #include "../../GnJsonMacroDefaults.inc.h"
 
 #if defined(Do_ContractAll) || defined(Do_TUdpStatusData) || defined(Do_TUdpStatusMessage) || defined(Do_TWsStatusEvent) || defined(Do_TJsonCachedStatus) || defined(Do_TSseStatusBatch)
 JD_BEGIN( TUdpStatusData, "Periodic snapshot used by other services to track device availability, current outputs and measurements. Devices also send it when relevant states change." )
   JD( TChannelId, DevId, Optional, ChannelAddress, "", Omit )
-  JD( TJsonIdentity, Identity, Optional, Any, "Service identity, logical assignment and restart information", Live )
+  JD( TJsonIdentity, Identity, Optional, Any, "Service identity, logical assignment and restart information", Omit )
   JD( uint64_t, BootCnt, Optional, Any, "Boot generation of the reporting service. LaptopBattery counts operating system boots, independently of sender restarts.", Live )
   JD( TGNString, Kind, Optional, Any, "Application-specific status category, for example LaptopPower", Info )
   JD( uint64_t, OnlineSince, Optional, Any, "", Info )

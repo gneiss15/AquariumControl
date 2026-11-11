@@ -1,4 +1,4 @@
-<!-- README.md, Version: 2.20 -->
+<!-- README.md, Version: 2.22 -->
 # Aquarium Dashboard
 
 [Deutsch](README.DE.md)
@@ -46,17 +46,27 @@ The **Times** page edits switching times, weekdays, channels, states and interva
 
 The **Heat profiles** page manages central profiles and their assignment to device channels. A profile can only be deleted when no channel refers to it. Roles and profiles can be changed without changing the device's hardware assignments.
 
-A profile includes:
+The profile editor starts with the **Profile type**, either `Temperature` or
+`BatteryPercent`. The source list then contains only compatible sources and
+shows the function name, measurement kind and exact device ID, for example
+`FeederAq1 · Temperature (02:11:22:33:44:55@3)`. The selected ID remains the
+stored source value. **On without current value** sets the fallback state when
+the profile has no usable current measurement.
 
-- **Source:** the measurement sender, such as a temperature source or `LaptopBattery`.
-- **Measurement:** the field to evaluate, such as `Temperature` or `BatteryPercent`. An empty field means `Temperature`.
-- The profile's switching thresholds and settings for missing measurements.
-
-Source and measurement are separate settings: `LaptopBattery` names the sender, while `BatteryPercent` identifies its battery level. The measurement field belongs to the profile, not the channel assignment. After editing, select **Save / distribute**.
+PI main and floor endpoints are displayed as read-only IDs. They are derived
+from the channel roles and profile assignments in **Channel assignments**.
+Saving those assignments updates the profile endpoints and distributes the
+combined configuration to the switch devices. PI parameters remain editable
+in the profile editor.
 
 The revision timestamp identifies the last profile change. It is not a running clock and uses a neutral color. Synchronized participants are green; pending synchronization and errors are red. Save/distribution notices disappear after successful completion.
 
-Central data is held on the Raspberry Pi. Each device receives its own schedules and channel assignments together with the central profiles. A channel-assignment change affects only the corresponding device. Central profile changes are distributed to all participating switching devices. Saving unchanged content does not trigger another distribution.
+Central data is held on the Raspberry Pi. Each device receives its own schedules and channel assignments together with the central profiles. A channel-only change affects the corresponding device. When it changes PI endpoints, the resulting central profile changes are distributed to all participating switching devices. Saving unchanged content does not trigger another distribution.
+
+When a channel assignment changes a PI main or floor endpoint, Dashboard updates
+the profile values in the browser draft. Saving sends the channel assignments
+and the resulting changed central profiles together. The server compares both
+with the stored state and starts distribution only when it detects a change.
 
 ## Configure devices
 
@@ -134,11 +144,11 @@ Edit this table with Dashboard stopped. Changes require a new assignment revisio
 
 The laptop battery sender runs on the laptop and sends its battery level as `Status.BatteryPercent`, in percent. It also reports AC power through `Status.AcOnline` and battery state through `Status.BatteryState`. A registered `LaptopBattery` sender appears under **System** as a laptop. Invalid percentages are shown as “—”. After 20 seconds without a valid status packet, the sender is Offline and stale measurements are hidden.
 
-For example, a charging profile can use source `LaptopBattery`, measurement `BatteryPercent` and thresholds 40/80. Without active run-on, `NoTempOn: false` keeps the assigned output OFF without a valid measurement. The associated switching output `LaptopSw` is shown as a separate function.
+For example, a charging profile can use source `LaptopBattery`, profile type `BatteryPercent` and thresholds 40/80. **On without current value** controls the output when no valid battery reading is available. The associated switching output `LaptopSw` is shown as a separate function.
 
 ### Charge run-on for battery profiles
 
-Enable **Charge run-on active** in the Dashboard profile and enter **Seconds per percentage point**. This requires `Measurement: "BatteryPercent"`. The editor initially suggests `15` seconds per percentage point; learning subsequently adjusts the same factor. Without active run-on, the existing missing-measurement behavior applies.
+Enable **Charge run-on active** in the Dashboard profile and enter **Seconds per percentage point**. This requires profile type `BatteryPercent` (`Meas` in the stored JSON). The editor initially suggests `15` seconds per percentage point; learning subsequently adjusts the same factor. Without active run-on, the existing missing-measurement behavior applies.
 
 When reports stop and the output was automatically ON, the switching device calculates the remaining charging time:
 
@@ -327,4 +337,7 @@ Channel assignments use two compact rows and a trash icon on narrow screens. Dev
 `null` removes an entry. A changed device registry is sent in full as `Registry`.
 Reconnection provides another snapshot. Events follow API changes, including device
 sync; direct file edits require a server restart. Keepalive comments maintain the
-connection. Existing status SSE at `/api/events` is unchanged.
+connection. The status SSE at `/api/events` remains available.
+It also sends a named `times` event after a successful central schedule save or
+device schedule sync. The browser then reloads the open Times view without
+overwriting unsaved edits in that editor.

@@ -1,4 +1,4 @@
-// GnUdpSchemaSupport.h, Version: 1.06
+// GnUdpSchemaSupport.h, Version: 1.07
 #pragma once
 #include <GnBasics.h>
 #include <GnWireJson.h>
@@ -101,10 +101,12 @@ inline void GnStore(TGnWireValue O,TGNString const & K,double X) { O.Number(K,X)
 template<class T> requires std::is_unsigned_v<T>
 void GnStore(TGnWireValue O,TGNString const & K,T X) { O.UInt(K,X); }
 inline void GnStore(TGnWireValue O,TGNString const & K,TGnChannelId const & X) { TGnWireDocument D(X.Json);O.Set(K,D.Root()); }
+template<class T> void GnAppendJson(TGnWireValue Output,T const & Value);
+
 template<class T> void GnStore(TGnWireValue O,TGNString const & K,std::vector<T> const & X)
  {
-  auto A=O.NewArray(K);
-  for(auto const & Item:X) { TGnWireDocument D;GnStore(D.Root(),"V",Item);A.AddValue(D.Root().Get("V")); }
+  auto Array=O.NewArray(K);
+  for(auto const & Item:X) GnAppendJson(Array,Item);
  }
 template<class T> void GnStore(TGnWireValue O,TGNString const & K,std::map<TGNString,T> const & X)
  { auto M=O.NewObject(K);for(auto const & Item:X)GnStore(M,Item.first,Item.second); }

@@ -103,7 +103,7 @@ LittleFS-Abbilder unverändert. `--full-clean` entfernt sie ausdrücklich.
 
 Main verwendet ESP-IDF 5.5.1 und Arduino-ESP32 3.3.11 als aus Quellen gebaute
 Komponente. Die setup/loop-Aufgabe läuft auf Core 1 mit 8192 Byte Stack.
-Rescue verwendet einen Arduino-CLI-Build.
+Rescue wird direkt mit ESP-IDF 5.5.1 gebaut. Die Partitionstabelle liegt bei `0x8000`.
 Die Binärdateien liegen unter `generated/bin/esp32_Arduino2/`.
 
 Die lokale IDF-Umgebung wird über `ESP_IDF_ENABLE_SCRIPT` geladen;

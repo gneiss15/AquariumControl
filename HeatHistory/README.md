@@ -87,6 +87,10 @@ retained history, starting with active PI operation and limited to the configure
 view span (30 days by default). Optional `ViewFromUTC` sets an explicit start;
 otherwise the first active PI record or active energy-profile snapshot is used.
 Older PC data remains unchanged and is excluded from the web view.
+**Custom…** accepts local start and end times, for example 9 Nov 2026 11:00 to
+10 Nov 2026 11:00. The browser converts them to UTC; the request remains bounded
+by PI activation, the retention limit, and the current time. The effective UTC
+range is shown after loading.
 
 Water, Room, and historical Setpoint share the temperature axis. Floor, Main,
 Power, Energy, and optional PI demand/PI components appear in aligned rows.
@@ -97,7 +101,8 @@ Setpoint remains available from energy-profile snapshots without PI debug.
 
 Recording and measurement transport remain CSV; only the small manifest is JSON. Plotly.js still
 loads from its CDN. The legend moves below the chart on narrow screens. The API
-accepts known ranges only and never serves configuration or arbitrary files.
+accepts known ranges or a bounded custom interval and never serves configuration
+or arbitrary files.
 
 CSV files are sorted by their UTC filename prefix within each profile and recording
 type. The next filename bounds the preceding segment; non-overlapping files are
@@ -135,8 +140,10 @@ kept under `generated/PiMigration-<UTC>/`.
 
 Pi runtime, configuration and data: `/home/pi/.local/share/HeatHistory/`.
 Service: `HeatHistory.service`. Browser: <http://192.168.99.51:8091/>.
-Charts are still calculated by the browser. Install later software updates with
-`./Install.sh` in the Pi source directory; configuration and data are preserved.
+Charts are still calculated by the browser. For later updates, run
+`./CopyToRasPi.sh` on the PC to transfer the project sources, then run
+`./Install.sh` in the Pi source directory. Configuration and recording data are
+preserved.
 
 **`--allow-log-expiry` explicitly permits permanent removal of this application's
 closed Pi log files** after 30 days or to stay within 512 MiB of managed history.
@@ -199,6 +206,10 @@ Logs and profile snapshots default to `data/<Profile-ID>/`. This PC runtime data
 - Per-profile error handling and automatic recovery.
 - Semantic profile revisions and an initial row in every new log.
 - No profile synchronization.
+
+`Versions.txt` separates the HeatHistory application version (`App`) from the
+recording format version (`Data`). `Data` identifies the CSV and JSON metadata
+layout; it changes only when that stored format changes, not as records are added.
 
 ## MAC assignments
 

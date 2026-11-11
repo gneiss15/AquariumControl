@@ -1,4 +1,4 @@
-// GnTimeSync.cpp, Version: 1.17
+// GnTimeSync.cpp, Version: 1.18
 #define Do_THttpResult
 #define Do_THttpTimePayload
 #define Do_THttpTimeReply
@@ -135,7 +135,8 @@ TGNString TGnTimeSync::BuildPayload(void) const
   Payload.Type=FConfig.Type;
   Payload.Format=FConfig.Format;
   Payload.TimeStamp=FTimeStamp;
-  if(!GnReadJsonValue(GnDeviceIdentity.ReportJson(),Payload.Identity))return {};
+  Payload.Identity.Present = true;
+  GnDeviceIdentity.ReportIdentity( Payload.Identity.Value );
   const TGNString Text=ReadTextFile(FConfig.DataFile);
   if(FConfig.ChannelFile)
    {

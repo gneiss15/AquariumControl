@@ -1,4 +1,4 @@
-// GnHeatPiPeer.h, Version: 1.04
+// GnHeatPiPeer.h, Version: 1.05
 #pragma once
 #include <GnBasics.h>
 #include <AddressResolver.h>
@@ -10,15 +10,25 @@
 // Only explicitly requested main identities are cached; descriptions never refresh leases.
 class TGnHeatPiPeers
  {
-  struct TEntry { TGNString Status; uint64_t Deadline = 0, LastTime = 0; };
+  static constexpr uint64_t InitialStatusGraceMs = 60000;
+  struct TEntry { TGNString Status; uint64_t Deadline = 0, LastTime = 0, FirstRequestAt = 0; };
   std::map<TGNString,TEntry> Entries;
  public:
-  bool Get(TGNString const & Id,uint64_t Now,TGNString & Status)
+  bool Get(TGNString const & Id,uint64_t Now,TGNString & Status,bool & AwaitingInitialStatus)
    {
+    AwaitingInitialStatus=false;
     auto P=Entries.find(Id);
     if(P==Entries.end())
-     { if(Entries.size()<8)Entries.emplace(Id,TEntry{});return false; }
-    if(P->second.Status.empty() || Now>P->second.Deadline)return false;
+     {
+      if(Entries.size()<8)
+       { auto Added=Entries.emplace(Id,TEntry{}).first;Added->second.FirstRequestAt=Now;AwaitingInitialStatus=true; }
+      return false;
+     }
+    // The startup grace ends after the first usable snapshot; lease expiry later
+    // keeps the existing immediate fallback behavior.
+    if(P->second.Status.empty())
+     { AwaitingInitialStatus=Now-P->second.FirstRequestAt<InitialStatusGraceMs;return false; }
+    if(Now>P->second.Deadline)return false;
     Status=P->second.Status;return true;
    }
   // Called by the dispatcher after validating a status packet.

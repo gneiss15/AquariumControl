@@ -1,7 +1,8 @@
-// Main.cpp, Version: 2.56
+// Main.cpp, Version: 2.58
 #define Do_TJsonConfigurationFiles
 #include <GnBasics.h>
 #include <GnUdpStatus.h>
+#include <GnWireJson.h>
 #include <GnDeviceIdentity.h>
 #include "BuildConfig.h"
 #include "ButtonController.h"
@@ -316,8 +317,9 @@ bool TMultiTimerApplication::Setup( int argc, char ** argv, TGNString & error )
     return false;
    }
 
-  if( !GnUdpStatus.Setup( deviceId,
-       [this]( uint64_t & Signature ) { return FStatusApi->StatusJson( Signature ); },
+  if( !GnUdpStatus.SetupCompact( deviceId,
+       [this]( uint64_t & Signature, TGnUdpInfoParts * Parts, TGNString & Packet )
+        { return FStatusApi->CompactStatus( Signature, Parts, Packet ); },
        [this]() { return FRoomTemperature->UdpTemperature(); } ) )
     Logger.Write( TLogLevel::Error, GnUdpStatus.Error() );
 

@@ -1,4 +1,4 @@
-<!-- index.html, Version: 1.34 -->
+<!-- index.html, Version: 1.35 -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -51,6 +51,10 @@
   <main id="MainContent">
     <section id="Overview" class="TabPage Active" aria-labelledby="DashboardTitle">
       <div id="DashboardMessage" class="DashboardMessage" hidden></div>
+      <section id="DeviceErrorMessages" class="DeviceErrorMessages" role="status" aria-live="polite" hidden>
+        <h2 data-tr="DeviceMessages">Gerätemeldungen</h2>
+        <div id="DeviceErrorList"></div>
+      </section>
       <div id="DeviceGrid" class="DeviceGrid" aria-live="polite"></div>
     </section>
     <section id="Assignments" class="TabPage">
@@ -111,7 +115,7 @@
       <div id="TimeMessage" class="DashboardMessage" hidden></div>
       <div class="TimesTableWrap">
         <table class="TimesTable">
-          <thead><tr><th><button class="TableSortButton" type="button" data-sort="position">#</button></th><th><button class="TableSortButton" type="button" data-sort="device" data-tr="Device">Gerät</button></th><th><button class="TableSortButton" type="button" data-sort="data" data-tr="Data">Daten</button></th><th><button class="TableSortButton" type="button" data-sort="status" data-tr="Status">Status</button></th><th></th></tr></thead>
+          <thead><tr><th><button class="TableSortButton" type="button" data-sort="position">#</button></th><th><button class="TableSortButton" type="button" data-sort="device-channel" data-tr="DeviceChannel">Gerät / Kanal</button></th><th><button class="TableSortButton" type="button" data-sort="time" data-tr="Time">Zeit</button></th><th data-tr="Status">Status</th><th></th></tr></thead>
           <tbody id="TimesData"></tbody>
         </table>
       </div>
@@ -145,11 +149,6 @@
         <h2 class="DeviceName" data-tr="Device">Gerät</h2>
         <span class="ConnectionBadge Offline" data-tr="Offline">Offline</span>
       </header>
-
-      <div class="ErrorPanel" hidden>
-        <strong data-tr="Error">Fehler</strong>
-        <ul class="ErrorList"></ul>
-      </div>
 
       <div class="MeasurementList" hidden></div>
       <div class="ChannelList"></div>

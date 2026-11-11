@@ -1,4 +1,4 @@
-// GnJsonMacroDefaults.inc.h, Version: 1.03
+// GnJsonMacroDefaults.inc.h, Version: 1.04
 // Defaults for one repeated definition expansion. JD is the required field hook.
 // The definition entry point removes the hooks after its expansion.
 
@@ -19,7 +19,7 @@
 #endif
 
 #ifndef JD_BIT
-  #define JD_BIT(Name, Value, Description)
+#define JD_BIT(Name, Description)
 #endif
 
 #ifndef JD_BASE

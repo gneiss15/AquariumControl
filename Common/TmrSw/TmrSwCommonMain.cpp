@@ -1,4 +1,4 @@
-// TmrSwCommonMain.cpp, Version: 1.07
+// TmrSwCommonMain.cpp, Version: 1.11
 // Shared C++ entry implementation: include once, never compile separately.
 
 #include <GnBasics.h>
@@ -14,7 +14,7 @@
 #include "TmrSwWifi.h"
 #include "TmrSwStatusApi.h"
 #include "TmrSwWebSocket.h"
-#include "../EspUpdate/EspIndexHtmlCheck.h"
+#include "TmrSwRestartLog.h"
 #include <MyFtpServer.h>
 
 void Every500msTimerCb( TGnCoopTimerBase *, uint16_t )
@@ -42,6 +42,8 @@ void StartStartupError( uint8_t StartupLevel, char const * Error )
 void setup(void)
  {
   uint8_t StartupLevel = 0;
+  if( !TmrSwRestartLogSetup( false ) )
+    Debug( "Heap failure callback registration failed\n" );
   TmrSwHw.Setup();
 
   WiFi.persistent( false );
@@ -57,6 +59,7 @@ void setup(void)
   #error Unsupported platform
 #endif
   TmrSwStatusApi.FileSystemMounted( FileSystemMounted );
+  TmrSwRestartLogFileSystemMounted( FileSystemMounted );
   if( !FileSystemMounted )
    {
     StartStartupError( StartupLevel, "Can't mount LittleFS" );
@@ -66,13 +69,6 @@ void setup(void)
   if( !TmrSwConfigInstance.Setup() )
    {
     StartStartupError( StartupLevel, "Can't load /Config.json" );
-    return;
-   }
-  StartupLevel = 1;
-
-  if( !EspIndexHtmlValid() )
-   {
-    StartStartupError( StartupLevel, "Invalid /Index.html" );
     return;
    }
   StartupLevel = 2;
@@ -101,8 +97,9 @@ void setup(void)
     return;
    }
 
-  if( !GnUdpStatus.Setup( TmrSwConfig.Hostname.c_str(),
-       []( uint64_t & Signature ) { return TmrSwStatusApi.StatusJson( Signature ); } ) )
+  if( !GnUdpStatus.SetupCompact( TmrSwConfig.Hostname.c_str(),
+       []( uint64_t & Signature, TGnUdpInfoParts * Parts, TGNString & Packet )
+       { return TmrSwStatusApi.CompactStatus( Signature, Parts, Packet ); } ) )
    {
     Debug( "UDP status setup failed: %s\n", GnUdpStatus.Error().c_str() );
     TmrSwStatusApi.SetupError( GnUdpStatus.Error() );
@@ -129,5 +126,6 @@ void setup(void)
 void loop(void)
  {
   static TGnCoopTimerMs Every500msTimer( Every500msTimerCb, 500 );
+  if( TmrSwRestartLogLoop( TmrSwWifi.TimeIsValid() ) )return;
   LoopInstances.Loop();
  }

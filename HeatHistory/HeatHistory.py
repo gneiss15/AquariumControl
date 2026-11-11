@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# HeatHistory.py, Version: 1.30
+# HeatHistory.py, Version: 1.32
 
 from __future__ import annotations
 from StorageRetention import StorageRetention
@@ -292,13 +292,19 @@ class HeatHistoryMonitor:
     self.udp_status_cache[packet["ID"]] = (now, packet)
     try:
       self.energy.ingest(packet,now,wall_time)
-      self.pi.ingest(packet)
-      if self.configured:
-        for profile_id in self.routes.get(packet['ID'],()):
-          self.RecordProfile(profile_id,now)
+      self.report("Energy",None)
     except (OSError,ValueError) as error:
       self.energy.pause()
+      self.energy.paused = not self.configured
       self.report("Energy",str(error))
+    try:
+      self.pi.ingest(packet)
+      self.report("PI",None)
+    except (OSError,ValueError) as error:
+      self.report("PI",str(error))
+    if self.configured:
+      for profile_id in self.routes.get(packet['ID'],()):
+        self.RecordProfile(profile_id,now)
 
 
   def report(self, profile_id: str, error: str | None) -> None:
@@ -330,9 +336,6 @@ class HeatHistoryMonitor:
     prefix = unique_log_prefix(directory, timestamp_prefix())
     csv_name = f"{prefix}_{profile_id}.csv"
     profile_name = f"{prefix}_{profile_id}.json"
-    self.csv.create(directory/csv_name,CSV_HEADER)
-    self.csv.write(directory/csv_name,(sample['Time'],sample['Temp'],int(sample['Floor']),int(sample['Main'])),durable=True)
-    atomic_json_write(directory / profile_name, {"Prof": profile}, "TJsonHistoryMetadata")
     state = {
       "HostBootId": BOOT_ID,
       "ProfDigest": profile_digest(profile),
@@ -342,7 +345,15 @@ class HeatHistoryMonitor:
     }
     if profile_id in self.energy.assignments:
       state['AssignmentSignature']=self.energy.assignments[profile_id]['Signature']
-    atomic_json_write(directory / "state.json", state, "TJsonHistoryState")
+    atomic_json_write(directory / profile_name, {"Ver": 1, "Prof": profile}, "TJsonHistoryMetadata")
+    csv_path = directory / csv_name
+    try:
+      self.csv.create(csv_path, CSV_HEADER)
+      self.csv.write(csv_path, (sample['Time'], sample['Temp'], int(sample['Floor']), int(sample['Main'])), durable=True)
+      atomic_json_write(directory / "state.json", state, "TJsonHistoryState")
+    except (OSError, ValueError):
+      self.csv.close(csv_path)
+      raise
     print(f"{timestamp_text()} START {profile_id}: {csv_name}", flush=True)
     return state
 
@@ -451,7 +462,7 @@ class HeatHistoryMonitor:
       state['AssignmentSignature']=assignment['Signature']
       self.append_if_changed(profile_id,state,sample)
       self.report(profile_id,None)
-    except (HeatHistoryError,OSError) as error:
+    except (HeatHistoryError, OSError, ValueError) as error:
       self.report(profile_id,str(error))
 
   def MaintainStorage(self):

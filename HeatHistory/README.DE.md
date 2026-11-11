@@ -112,6 +112,11 @@ der eingestellten maximalen Anzeigespanne, standardmäßig 30 Tage. `ViewFromUTC
 kann den Beginn ausdrücklich festlegen; ohne diesen Wert wird die erste aktive
 PI-Aufzeichnung bzw. ein aktiver Profil-Snapshot der Energieaufzeichnung benutzt.
 Frühere PC-Daten bleiben unverändert erhalten und gehören nicht zur Webansicht.
+**Custom…** erlaubt lokale Start- und Endzeitangaben, zum Beispiel 09.11.2026
+11:00 bis 10.11.2026 11:00. Der Browser wandelt die lokale Auswahl in UTC um;
+die Abfrage bleibt auf PI-Aktivierung, Aufbewahrungsgrenze und aktuelle Zeit
+beschränkt. Der tatsächlich verwendete UTC-Zeitraum steht nach dem Laden neben
+dem Auswahlfeld.
 
 Wasser, Raum und historischer Sollwert teilen eine Temperaturachse. Darunter
 folgen Floor, Main, Power, Energy und bei vorhandener PI-Diagnose PI demand und
@@ -173,8 +178,9 @@ Der exportierte Stand und Zeitpunkte stehen zusätzlich unter
 Auf dem Pi liegen Programm, Konfiguration und Daten unter
 `/home/pi/.local/share/HeatHistory/`; der Dienst heißt `HeatHistory.service`.
 Browser: <http://192.168.99.51:8091/>. Die Diagramme berechnet weiterhin der Browser.
-Spätere Softwareupdates werden im Pi-Quellverzeichnis mit `./Install.sh`
-installiert; vorhandene Konfiguration und Daten bleiben erhalten.
+Für spätere Updates auf dem PC `./CopyToRasPi.sh` ausführen und danach im
+Quellverzeichnis des Pi `./Install.sh` starten. Konfiguration und Aufzeichnungsdaten
+bleiben erhalten.
 
 **`--allow-log-expiry` erlaubt ausdrücklich das endgültige Entfernen eigener,
 abgeschlossener Pi-Logdateien** nach 30 Tagen oder zur Einhaltung von 512 MiB
@@ -250,6 +256,11 @@ Dieser Laufzeitbestand gehört zum PC und wird nicht in Firmware oder
 Geräte-Dateisysteme geschrieben.
 
 ## Aktueller Umfang
+
+`Versions.txt` trennt die HeatHistory-Programmversion (`App`) von der Version
+des Aufzeichnungsformats (`Data`). `Data` bezeichnet den Aufbau der CSV-Dateien
+und JSON-Metadaten. Sie ändert sich nur bei einer Änderung dieses Formats, nicht
+beim Hinzufügen neuer Messwerte.
 
 - Interaktiver CSV-Diagrammbericht mit synchronisiertem Zoom: `python3 CreateCharts.py`
 - Dauerbetrieb mit konfigurierbarem Pollintervall

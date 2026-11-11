@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# EspRescueCompile.sh, Version: 1.07
+# EspRescueCompile.sh, Version: 1.08
 set -euo pipefail
 
-COMPILE_VERBOSE=
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
 DirPushed=0
@@ -19,7 +18,7 @@ PRJS_RESCUE_BIN_DIR="$ProjectDir/generated/bin/$BinSubDir"
 PRJS_PRESERVE_SHARED_BIN_ARTIFACTS=true
 ConfigDefinition="$ProjectDir/Sw/TmrSwConfig.inc.h"
 RescueHardwareDefinition="$ProjectDir/Sw/TmrSwA8THardware.h"
-ExtraBuildProperties=( "compiler.cpp.extra_flags=-I$ProjectDir/Sw" )
+RescueHardware=TmrSwA8THardware_A8T
 
 RescueTestNode=false
 FilteredArgs=()
@@ -33,9 +32,7 @@ done
 set -- "${FilteredArgs[@]}"
 
 if $RescueTestNode; then
-  ExtraBuildProperties=(
-    "compiler.cpp.extra_flags=-I$ProjectDir/Sw -DTmrSwA8THardwareSelect=TmrSwA8THardware_TestNode"
-  )
+  RescueHardware=TmrSwA8THardware_TestNode
 fi
 
 # shellcheck source=../Common/EspRescue/_EspRescueCompileEsp32Common.sh

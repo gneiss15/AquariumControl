@@ -1,4 +1,4 @@
-// HeatHistory.js, Version: 1.04
+// HeatHistory.js, Version: 1.10
 // Use browser-local time; clock ticks never request device or server data.
 function UpdateBrowserClock() {
   const Clock = document.getElementById('BrowserClock');
@@ -16,9 +16,23 @@ function StartBrowserClock() {
   UpdateBrowserClock();
   setInterval(UpdateBrowserClock, 1000);
 }
+async function LoadVersions() {
+  const Version = document.getElementById('AppVersion');
+  try {
+    const Response = await fetch('/Versions.txt', {cache: 'no-store'});
+    if (!Response.ok) throw new Error(`HTTP ${Response.status}`);
+    const Text = await Response.text();
+    const App = Text.match(/^App=([^\r\n]+)$/m);
+    const Data = Text.match(/^Data=([^\r\n]+)$/m);
+    Version.textContent = `App ${App ? App[1].trim() : '?'} · Data ${Data ? Data[1].trim() : '?'}`;
+  } catch {
+    Version.textContent = 'App ? · Data ?';
+  }
+}
 if (document.readyState === 'loading')
   document.addEventListener('DOMContentLoaded', StartBrowserClock, {once: true});
 else StartBrowserClock();
+LoadVersions();
 // End browser clock.
 
 let chartSets = [];
@@ -330,17 +344,50 @@ function decodeHistoryCsv(text,contentType) {
   for(const profile of data.Profs)for(const kind of ['Energy','Heat','Temp'])profile[kind].sort((a,b)=>a[0].localeCompare(b[0]));
   return data;
 }
+function LocalDateTimeParts(value) {
+  const Local = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
+  const Text = Local.toISOString().slice(0, 16);
+  return [Text.slice(0, 10), Text.slice(11, 16)];
+}
+function SetRangeBound(prefix, value) {
+  const [DateText, TimeText] = LocalDateTimeParts(value);
+  document.getElementById(prefix + 'Date').value = DateText;
+  document.getElementById(prefix + 'Time').value = TimeText;
+}
+function ReadRangeBound(prefix) {
+  const DateText = document.getElementById(prefix + 'Date').value;
+  const TimeText = document.getElementById(prefix + 'Time').value;
+  return DateText && TimeText ? new Date(DateText + 'T' + TimeText) : new Date(NaN);
+}
+function SetRangeFields(choice) {
+  const End = new Date();
+  const Durations = {'1h':3600000,'6h':21600000,'1day':86400000,'7days':604800000,all:2592000000};
+  if (choice === 'custom') {
+    if (document.getElementById('RangeFromDate').value && document.getElementById('RangeFromTime').value &&
+        document.getElementById('RangeToDate').value && document.getElementById('RangeToTime').value) return;
+    choice = '1day';
+  }
+  SetRangeBound('RangeFrom', new Date(End.getTime() - Durations[choice]));
+  SetRangeBound('RangeTo', End);
+}
 async function loadRange() {
   const started=Date.now();
   const request=++loadSequence;
-  const button=document.getElementById('Reload');button.disabled=true;
+  const button=document.getElementById('ApplyRange');button.disabled=true;
   const range=document.getElementById('Range');range.disabled=true;
   const status=document.getElementById('LoadStatus');status.textContent='Loading…';
   try {
-    const response=await fetch('/api/history.csv?range='+encodeURIComponent(document.getElementById('Range').value),{cache:'no-store'});
+    const From=ReadRangeBound('RangeFrom');
+    const To=ReadRangeBound('RangeTo');
+    if (!Number.isFinite(From.getTime()) || !Number.isFinite(To.getTime()) || From>=To)
+      throw new Error('Choose a valid start and end time.');
+    const Parameters=new URLSearchParams({range:'all',from:From.toISOString(),to:To.toISOString()});
+    const response=await fetch('/api/history.csv?'+Parameters.toString(),{cache:'no-store'});
     if(!response.ok)throw new Error('History request failed ('+response.status+')');
     const text=await response.text(),received=Date.now();
     const data=decodeHistoryCsv(text,response.headers.get('Content-Type'));const parsed=Date.now();if(request!==loadSequence)return;
+    SetRangeBound('RangeFrom', new Date(data.From));
+    SetRangeBound('RangeTo', new Date(data.To));
     legendListeners.length=0;
     document.querySelectorAll('.chart').forEach(node=>{if(window.Plotly)Plotly.purge(node);});
     const charts=document.getElementById('Charts');charts.replaceChildren();
@@ -356,7 +403,7 @@ async function loadRange() {
     }
     await drawCharts();
     if(request!==loadSequence)return;
-    status.textContent=data.Profs.length?('UTC: '+data.From+' – '+data.To):'No recorded data in this range.';
+    status.textContent=data.Profs.length?'':'No recorded data in this range.';
     status.dataset.loadMilliseconds=String(Date.now()-started);
     status.dataset.transferMilliseconds=String(received-started);
     status.dataset.parseMilliseconds=String(parsed-received);
@@ -364,6 +411,9 @@ async function loadRange() {
   } catch(error) {if(request===loadSequence)status.textContent=error.message;}
   finally {if(request===loadSequence){button.disabled=false;range.disabled=false;}}
 }
-document.getElementById('Range').addEventListener('change',loadRange);
-document.getElementById('Reload').addEventListener('click',loadRange);
+document.getElementById('Range').addEventListener('change',event=>SetRangeFields(event.target.value));
+for (const Id of ['RangeFromDate','RangeFromTime','RangeToDate','RangeToTime'])
+  document.getElementById(Id).addEventListener('input',()=>{document.getElementById('Range').value='custom';});
+document.getElementById('ApplyRange').addEventListener('click',loadRange);
+SetRangeFields('1day');
 loadRange();

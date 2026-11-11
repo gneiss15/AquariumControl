@@ -1,4 +1,4 @@
-// FeederWifi.h, Version: 2.52
+// FeederWifi.h, Version: 2.53
 //****************************************************************
 
 #ifndef FeederWifiH  // sentry
@@ -92,7 +92,7 @@ class TFeederWifi : public TSingleton<TFeederWifi>, TLoopInstance
   static void       SHandleHomeInputTestStatus(void);
   static void       SHandleStartHomeInputTest(void);
   static void       SHandleStopHomeInputTest(void);
-  static void       SSendJson( TGNString const & Json );
+  static void       SSendJson( TGNString const & Json, int Code = 200 );
 
   static void       SSendPostResponce( String const & Response, bool Reboot );
   static void       SSendPostResponce( bool Ok, bool Reboot );

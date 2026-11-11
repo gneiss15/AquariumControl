@@ -1,7 +1,5 @@
-// TmrSwWebSocket.cpp, Version: 2.49
-#define Do_TWsStatusEvent
+// TmrSwWebSocket.cpp, Version: 2.50
 #include <GnBasics.h>
-#include <GnJsonSchema.h>
 #include <GnCoopTimer.h>
 #include "TmrSwWebSocket.h"
 
@@ -13,7 +11,6 @@
   #include <ESP8266WiFi.h>
 #endif
 #include <cstdio>
-#include <ctime>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -44,7 +41,6 @@ class TTmrSwWebSocket::TImplementation
    };
 
   static bool                             ReadHandshake( WiFiClient & Client, TGNString & Request );
-  static TGNString                        BuildEvent( unsigned long long Sequence, TGNString const & Status );
   static bool                             SendFrame( WiFiClient & Client, uint8_t OpCode, TGNString const & Payload );
   void                                    AcceptClient(void);
   bool                                    HandleClientData( TWebSocketClient & Client );
@@ -121,20 +117,6 @@ bool TTmrSwWebSocket::TImplementation::ReadHandshake( WiFiClient & Client, TGNSt
   return false;
  }
 
-TGNString TTmrSwWebSocket::TImplementation::BuildEvent( unsigned long long Sequence, TGNString const & Status )
- {
-  TGnWireDocument Document( Status );
-  std::unique_ptr<TWsStatusEvent> Storage( new(std::nothrow) TWsStatusEvent{} );
-  if( !Storage )return {};
-  auto & Event = *Storage;
-  TGNString Error;
-  if( !GnRead( Document.Root(), Event.Status, Error ) )
-    return {};
-  Event.Seq = Sequence;
-  Event.Timestamp = static_cast<uint64_t>( std::time( nullptr ) );
-  return GnWriteJson( Event );
- }
-
 bool TTmrSwWebSocket::TImplementation::SendFrame( WiFiClient & Client, uint8_t OpCode,
                                                     TGNString const & Payload )
  {
@@ -184,8 +166,8 @@ void TTmrSwWebSocket::TImplementation::AcceptClient(void)
    }
 
   FClients.push_back( { Client, {} } );
-  const TGNString Status = TmrSwStatusApi.StatusJson();
-  if ( !SendFrame( FClients.back().Client, 0x1, BuildEvent( FSequence, Status ) ) )
+  const TGNString Event = TmrSwStatusApi.StatusEventJson( FSequence );
+  if ( Event.empty() || !SendFrame( FClients.back().Client, 0x1, Event ) )
    {
     FClients.back().Client.stop();
     FClients.pop_back();
@@ -238,13 +220,14 @@ void TTmrSwWebSocket::TImplementation::Broadcast( uint8_t OpCode, TGNString cons
 void TTmrSwWebSocket::TImplementation::CheckStatus(void)
  {
   uint64_t signature = 0;
-  const TGNString status = TmrSwStatusApi.StatusJson( signature );
-  if( signature == FLastSignature )
+  if( TmrSwStatusApi.StatusJson( signature ).empty() || signature == FLastSignature )
     return;
 
+  const TGNString Event = TmrSwStatusApi.StatusEventJson( FSequence + 1 );
+  if( Event.empty() )return;
   FLastSignature = signature;
   ++FSequence;
-  Broadcast( 0x1, BuildEvent( FSequence, status ) );
+  Broadcast( 0x1, Event );
  }
 
 void TTmrSwWebSocket::TImplementation::StatusTimerCb( TGnCoopTimerBase *, uint16_t )

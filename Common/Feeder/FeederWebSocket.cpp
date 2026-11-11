@@ -1,7 +1,5 @@
-// FeederWebSocket.cpp, Version: 2.51
-#define Do_TWsStatusEvent
+// FeederWebSocket.cpp, Version: 2.52
 #include <GnBasics.h>
-#include <GnJsonSchema.h>
 #include <GnCoopTimer.h>
 #include "FeederWebSocket.h"
 
@@ -13,7 +11,6 @@
   #include <ESP8266WiFi.h>
 #endif
 #include <cstdio>
-#include <ctime>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -44,7 +41,6 @@ class TFeederWebSocket::TImplementation
    };
 
   static bool                             ReadHandshake( WiFiClient & Client, TGNString & Request );
-  static TGNString                        BuildEvent( unsigned long long Sequence, TGNString const & Status );
   static bool                             SendFrame( WiFiClient & Client, uint8_t OpCode, TGNString const & Payload );
   void                                    AcceptClient(void);
   bool                                    HandleClientData( TWebSocketClient & Client );
@@ -87,7 +83,7 @@ bool TFeederWebSocket::TImplementation::Setup( unsigned Port, TGNString & Error 
     return false;
    }
 
-  FeederStatusApi.StatusJson( FLastSignature );
+  FeederStatusApi.StatusSignature( FLastSignature );
   FServer = std::make_unique<WiFiServer>( static_cast<uint16_t>( Port ) );
   FServer->setNoDelay( true );
   FServer->begin();
@@ -119,20 +115,6 @@ bool TFeederWebSocket::TImplementation::ReadHandshake( WiFiClient & Client, TGNS
     delay( 1 );
    }
   return false;
- }
-
-TGNString TFeederWebSocket::TImplementation::BuildEvent( unsigned long long Sequence, TGNString const & Status )
- {
-  TGnWireDocument Document( Status );
-  std::unique_ptr<TWsStatusEvent> Storage( new(std::nothrow) TWsStatusEvent{} );
-  if( !Storage )return {};
-  auto & Event = *Storage;
-  TGNString Error;
-  if( !GnRead( Document.Root(), Event.Status, Error ) )
-    return {};
-  Event.Seq = Sequence;
-  Event.Timestamp = static_cast<uint64_t>( std::time( nullptr ) );
-  return GnWriteJson( Event );
  }
 
 bool TFeederWebSocket::TImplementation::SendFrame( WiFiClient & Client, uint8_t OpCode,
@@ -184,8 +166,8 @@ void TFeederWebSocket::TImplementation::AcceptClient(void)
    }
 
   FClients.push_back( { Client, {} } );
-  const TGNString Status = FeederStatusApi.StatusJson();
-  if ( !SendFrame( FClients.back().Client, 0x1, BuildEvent( FSequence, Status ) ) )
+  const TGNString Event = FeederStatusApi.StatusEventJson( FSequence );
+  if ( Event.empty() || !SendFrame( FClients.back().Client, 0x1, Event ) )
    {
     FClients.back().Client.stop();
     FClients.pop_back();
@@ -238,13 +220,14 @@ void TFeederWebSocket::TImplementation::Broadcast( uint8_t OpCode, TGNString con
 void TFeederWebSocket::TImplementation::CheckStatus(void)
  {
   uint64_t signature = 0;
-  const TGNString status = FeederStatusApi.StatusJson( signature );
-  if( signature == FLastSignature )
+  if( !FeederStatusApi.StatusSignature( signature ) || signature == FLastSignature )
     return;
 
+  const TGNString Event = FeederStatusApi.StatusEventJson( FSequence + 1 );
+  if( Event.empty() )return;
   FLastSignature = signature;
   ++FSequence;
-  Broadcast( 0x1, BuildEvent( FSequence, status ) );
+  Broadcast( 0x1, Event );
  }
 
 void TFeederWebSocket::TImplementation::StatusTimerCb( TGnCoopTimerBase *, uint16_t )

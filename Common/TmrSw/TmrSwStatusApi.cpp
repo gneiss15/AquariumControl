@@ -1,4 +1,4 @@
-// TmrSwStatusApi.cpp, Version: 3.15
+// TmrSwStatusApi.cpp, Version: 3.19
 #define Do_THttpButtonAction
 #define Do_THttpDevice
 #define Do_TJsonPowerDiagnostics
@@ -7,6 +7,7 @@
 #define Do_TUdpPowerMeter
 #define Do_TUdpStatusData
 #define Do_TWsEventEndpoint
+#define Do_TWsStatusEvent
 #include <GnBasics.h>
 #include <GnJsonSchema.h>
 #include <DeviceUrl.h>
@@ -21,6 +22,7 @@
 #include "TmrSwWifi.h"
 #include "Version.inc.h"
 #include <LittleFS.h>
+#include <esp_ota_ops.h>
 #include <cstdio>
 #include <ctime>
 
@@ -157,11 +159,22 @@ void TTmrSwStatusApi::AppendFloat( TString & Json, float Value, unsigned Digits 
   Json += Text;
  }
 
+TGNString TTmrSwStatusApi::RescueVersion(void) const
+ {
+  const auto * Rescue = esp_partition_find_first(
+    ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, "safeboot" );
+  esp_app_desc_t Description = {};
+  if( !Rescue || esp_ota_get_partition_description( Rescue, &Description ) != ESP_OK )
+    return {};
+  return TGNString( Description.version, strnlen( Description.version, sizeof( Description.version ) ) );
+ }
+
 TGNString TTmrSwStatusApi::DeviceJson(void) const
  {
   THttpDevice Device;
   Device.DevId = GnDeviceIdentity.WireId();
-  if( !GnReadJsonValue( GnDeviceIdentity.ReportJson(), Device.Identity ) )return {};
+  Device.Identity.Present = true;
+  GnDeviceIdentity.ReportIdentity( Device.Identity.Value );
   Device.ApiVer = ApiVersion;
   Device.DevType = TMR_SW_DEVICE_TYPE;
   Device.Name = GnDeviceIdentity.Function();
@@ -188,7 +201,10 @@ TGNString TTmrSwStatusApi::DeviceJson(void) const
 
 TGNString TTmrSwStatusApi::StatusJson(void) const
  {
-  return BuildStatusJson( nullptr );
+  std::unique_ptr<TUdpStatusData> Status( new(std::nothrow) TUdpStatusData{} );
+  if( !Status )return {};
+  FillStatus( *Status );
+  return GnWriteJson( *Status );
  }
 
 uint64_t TTmrSwStatusApi::StatusSignature( TGNString const & json )
@@ -207,12 +223,25 @@ uint64_t TTmrSwStatusApi::StatusSignature( TGNString const & json )
   return GnHash64( json.data() + numberEnd, json.length() - numberEnd, signature );
  }
 
-TGNString TTmrSwStatusApi::StatusJson( uint64_t & signature ) const
+TGNString TTmrSwStatusApi::StatusJson( uint64_t & Signature ) const
  {
-  return BuildStatusJson( &signature );
+  auto Json = StatusJson();
+  if( !Json.empty() )Signature = StatusSignature( Json );
+  return Json;
  }
 
-TGNString TTmrSwStatusApi::BuildStatusJson( uint64_t * signature ) const
+TGNString TTmrSwStatusApi::StatusEventJson( uint64_t Sequence ) const
+ {
+  std::unique_ptr<TWsStatusEvent> Event( new(std::nothrow) TWsStatusEvent{} );
+  if( !Event )return {};
+  Event->Seq = Sequence;
+  Event->Status.Present = true;
+  FillStatus( Event->Status.Value );
+  Event->Timestamp = Event->Status.Value.CurrentTime.Value;
+  return GnWriteJson( *Event );
+ }
+
+void TTmrSwStatusApi::FillStatus( TUdpStatusData & Status ) const
  {
   const std::time_t CurrentTime = std::time( nullptr );
   const bool TimeSynchronized = TmrSwWifi.TimeIsValid();
@@ -251,11 +280,11 @@ TGNString TTmrSwStatusApi::BuildStatusJson( uint64_t * signature ) const
   if ( TimeSynchronized && FOnlineSince == 0 )
     FOnlineSince = CurrentTime - static_cast<time_t>( FStartedTimer.Elapsed() / 1000 );
 
-  std::unique_ptr<TUdpStatusData> Storage( new(std::nothrow) TUdpStatusData{} );
-  if( !Storage )return {};
-  auto & Status = *Storage;
   Status.DevId = GnDeviceIdentity.WireId();
-  if( !GnReadJsonValue( GnDeviceIdentity.ReportJson(), Status.Identity ) )return {};
+  Status.Identity.Present = true;
+  GnDeviceIdentity.ReportIdentity( Status.Identity.Value );
+  Status.Identity.Value.BootCnt = nullptr;
+  Status.BootCnt = GnDeviceIdentity.BootCounter();
   Status.OnlineSince = static_cast<uint64_t>( FOnlineSince );
   Status.CurrentTime = static_cast<uint64_t>( CurrentTime );
   Status.TimeSynchronized = TimeSynchronized;
@@ -308,15 +337,15 @@ TGNString TTmrSwStatusApi::BuildStatusJson( uint64_t * signature ) const
   Power.Diag = Diagnostics;
   Status.PowerMeter = Power;
 #endif
-  if( !GnReadJsonValue( SwitchTimes.HeatControlJson(), Status.HeatControl ) )return {};
+  Status.HeatControl.Present = true;
+  Status.HeatControl.IsNull = !SwitchTimes.HeatControl( Status.HeatControl.Value );
 #if GN_DEBUG_HEAT_PI
-  if( !GnReadJsonValue( SwitchTimes.HeatPiJson(), Status.HeatDiag ) )return {};
+  Status.HeatDiag.Present = true;
+  Status.HeatDiag.IsNull = !SwitchTimes.HeatDiagnostics( Status.HeatDiag.Value );
 #endif
 #if GN_DEBUG_CHARGE_LEARNING
-  if( !GnReadJsonValue( SwitchTimes.ChargeLearningJson(), Status.ChargeLearn ) )return {};
+  Status.ChargeLearn.Present = true;
+  Status.ChargeLearn.IsNull = !SwitchTimes.ChargeLearning( Status.ChargeLearn.Value );
 #endif
   Status.Chs = std::vector<TUdpChannel>{ Channel };
-  const TGNString Json = GnWriteJson( Status );
-  if( signature != nullptr )*signature = StatusSignature( Json );
-  return Json;
  }

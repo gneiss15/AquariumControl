@@ -1,4 +1,4 @@
-// SwitchTimes.cpp, Version: 2.61
+// SwitchTimes.cpp, Version: 2.64
 //****************************************************************
 // Includes
 //****************************************************************
@@ -6,6 +6,7 @@
 #define Do_TJsonHeatConfig
 #define Do_TJsonInterval
 #define Do_TJsonSwitchTime
+#define Do_TUdpChargeLearning
 #define Do_TUdpHeatControl
 #define Do_TUdpHeatDiagnostics
 #include <GnBasics.h>
@@ -26,6 +27,8 @@
 
 namespace
  {
+constexpr uint64_t MissingTemperatureGraceMs = 60000;
+
 String FormatSwitchTimesJson( String const & jsonStr )
  {
   JsonDocument doc;
@@ -146,6 +149,9 @@ void TSwitchTimes::ResetFunctionState(void)
   FCalibrationOverrideActive = FCalibrationOverrideState = false;
   FScheduleState = FAutomaticState = FSchedulePresent = false;
   FHysteresisStateKnown = false;
+  FMissingTemperatureSource.clear();
+  FMissingTemperatureSince = 0;
+  FMissingTemperatureActive = false;
   ApplyOutputState( false );
   UpdateHeater();
  }
@@ -655,6 +661,30 @@ void TSwitchTimes::ApplyAutomaticState(void)
     FAutomaticState=PiProfile->Pi.MainDevice==GnDeviceIdentity.WireId() && S.Valid ? S.MainRequest : PiProfile->NoTempOn;
     if(FSchedulePresent && !FScheduleState)FAutomaticState=false;
    }
+  if( TmrSwChannels.Channel().Role != THeaterRole::Timer && PiProfile &&
+      PiProfile->Measurement == "Temperature" )
+   {
+    // Start the fallback clock from the last sample, not from the point where the cache expires.
+    const TGNString Source = GnDeviceIdentity.ResolveTemperatureSource( PiProfile->TempId );
+    float Temperature = 0;
+    if( GnUdpStatus.GetMeasurement( Source, "Temperature", Temperature ) )
+     FMissingTemperatureActive = false;
+    else
+     {
+      const uint64_t Now = GnMillis64();
+      const uint32_t Age = GnUdpStatus.MeasurementAgeMs( Source, "Temperature" );
+      if( !FMissingTemperatureActive || FMissingTemperatureSource != Source )
+       {
+        FMissingTemperatureSource = Source;
+        FMissingTemperatureSince = Age != TGnCoopTimer_MAX && Age <= Now ? Now - Age : Now;
+        FMissingTemperatureActive = true;
+       }
+      if( !( FSchedulePresent && !FScheduleState ) &&
+          Now >= FMissingTemperatureSince && Now - FMissingTemperatureSince < MissingTemperatureGraceMs )
+       FAutomaticState = TmrSwHw.RelayStatusKnown() && TmrSwHw.RelayStatus();
+     }
+   }
+  else FMissingTemperatureActive = false;
 #if GN_DEBUG_CHARGE_LEARNING
   TGnChargeRunOn::TLearningStep LearningStep;
   const bool HasLearningStep = FChargeRunOn.TakeLearningStep(LearningStep);
@@ -675,16 +705,12 @@ void TSwitchTimes::ApplyAutomaticState(void)
 #if GN_DEBUG_CHARGE_LEARNING
   if(HasLearningStep)
    {
-    JsonDocument D;
-    D["Ver"] = 1; D["Seq"] = ++FChargeLearningSequence;
-    D["CompletedAt"] = static_cast<uint64_t>(time(nullptr));
-    D["Prof"] = TmrSwChannels.Channel().Profile;
-    D["BeforePct"] = LearningStep.BeforePercent; D["AfterPct"] = LearningStep.AfterPercent;
-    D["AppliedSecPerPct"] = LearningStep.AppliedFactor;
-    D["ChargeMs"] = LearningStep.ChargeMs;
-    D["NewSecPerPct"] = LearningStep.NewFactor;
-    D["Persistence"] = !LearningStep.SaveRequired ? "RamOnly" : LearningSaved ? "Saved" : "SaveFailed";
-    FChargeLearningJson.clear(); serializeJson(D,FChargeLearningJson);
+    ++FChargeLearningSequence;
+    FChargeLearningStep = LearningStep;
+    FChargeLearningCompletedAt = static_cast<uint64_t>(time(nullptr));
+    FChargeLearningProfile = TmrSwChannels.Channel().Profile;
+    FChargeLearningSaved = LearningSaved;
+    FChargeLearningReady = true;
    }
 #endif
   ApplyOutputState( FCalibrationOverrideActive ? FCalibrationOverrideState :
@@ -790,7 +816,7 @@ void TSwitchTimes::UpdateHeatPi(void)
  {
   const auto * Profile = TGnHeaterControl::FindProfile( TmrSwChannels.Profiles(), TmrSwChannels.Channel().Profile );
   if( !Profile || !Profile->Pi.Enabled || TmrSwChannels.Channel().Role != THeaterRole::HeaterMain )
-   { FHeatPi.Configure({}); FHeatPiKey.clear(); GnUdpStatus.WatchStatus({}); return; }
+   { FHeatPi.Configure({}); FHeatPiKey.clear(); GnUdpStatus.WatchFloorStatus({}, {}); return; }
   const auto & C = Profile->Pi;
   const TGNString Source = GnDeviceIdentity.ResolveTemperatureSource(Profile->TempId);
   const TGNString Key = TmrSwChannels.Channel().Id + "\n" + Profile->Id + Source + C.FloorDevice + C.FloorChannel +
@@ -798,7 +824,7 @@ void TSwitchTimes::UpdateHeatPi(void)
     std::to_string(C.CapacityWhPerK) + ":" + std::to_string(C.LossWattsPerK) + ":" + std::to_string(C.Kp) + ":" +
     std::to_string(C.TiSeconds) + ":" + std::to_string(C.WindowSeconds) + ":" + std::to_string(C.DelaySeconds);
   if( Key != FHeatPiKey )
-   { FHeatPi.Configure(C); FHeatPiKey = Key; FHeatPiDue = 0; GnUdpStatus.WatchStatus(C.FloorDevice); }
+   { FHeatPi.Configure(C); FHeatPiKey = Key; FHeatPiDue = 0; GnUdpStatus.WatchFloorStatus(C.FloorDevice, C.FloorChannel); }
   const uint64_t Now = GnMillis64();
   if( Now < FHeatPiDue ) return;
   FHeatPiDue = Now + 10000;
@@ -813,42 +839,31 @@ void TSwitchTimes::UpdateHeatPi(void)
   X.MainOn = TmrSwHw.RelayStatusKnown() && TmrSwHw.RelayStatus();
   X.Manual = FOverrideActive || FCalibrationOverrideActive;
   X.ScheduleAllowed = !FSchedulePresent || FScheduleState;
-  TGNString Peer; uint64_t Revision = 0;
-  if( GnUdpStatus.GetWatchedStatus(C.FloorDevice,Peer,Revision) )
+  TGnUdpFloorStatus Peer;
+  const auto WallTime = static_cast<double>(time(nullptr));
+  if( GnUdpStatus.GetWatchedFloorStatus(Peer) &&
+      std::abs(WallTime - static_cast<double>(Peer.CurrentTime)) <= 60 )
    {
-    JsonDocument D;
-    if( !deserializeJson(D,Peer.c_str()) && D["Identity"]["BootCnt"].is<uint64_t>() &&
-        D["CurrentTime"].is<uint64_t>() && (D["TimeSynchronized"] | false) &&
-        std::abs(double(time(nullptr))-D["CurrentTime"].as<double>()) <= 60 )
+    X.PeerBoot = Peer.BootCounter;
+    X.FloorAgeMs = uint32_t(std::max(0.0,WallTime - static_cast<double>(Peer.CurrentTime)) * 1000);
+    X.FloorOverride = Peer.FloorOverride;
+    X.FloorValid = Peer.FloorValid;
+    X.FloorOn = Peer.FloorOn;
+    if( Peer.RoomValid && std::abs(WallTime - static_cast<double>(Peer.RoomUpdatedAt)) <= 20 )
      {
-      X.PeerBoot = D["Identity"]["BootCnt"].as<uint64_t>();
-      X.FloorAgeMs = uint32_t(std::max(0.0,double(time(nullptr))-D["CurrentTime"].as<double>())*1000);
-      unsigned Matches = 0;
-      for( JsonObjectConst Row : D["Chs"].as<JsonArrayConst>() )
-        if( C.FloorDevice+"/"+C.FloorChannel == (Row["Id"] | "") )
-         {
-          ++Matches;
-          X.FloorOverride = (Row["OvrActive"] | false) || (Row["CalOvrActive"] | false);
-          X.FloorValid = Row["State"].is<bool>() && !X.FloorOverride;
-          X.FloorOn = Row["State"] | false;
-         }
-      X.FloorValid = X.FloorValid && Matches == 1;
-      for( JsonObjectConst Row : D["Meas"].as<JsonArrayConst>() )
-        if( strcmp(Row["Kind"] | "","RoomTemperature")==0 && (Row["Valid"] | false) && !Row["Value"].is<bool>() && Row["Value"].is<double>() &&
-            Row["UpdatedAt"].is<uint64_t>() && std::abs(double(time(nullptr))-Row["UpdatedAt"].as<double>())<=20 )
-         { X.RoomValid = true; X.RoomTemperature = Row["Value"].as<double>();
-           X.RoomAgeMs = uint32_t(std::max(0.0,double(time(nullptr))-Row["UpdatedAt"].as<double>())*1000); }
+      X.RoomValid = true;
+      X.RoomTemperature = Peer.RoomTemperature;
+      X.RoomAgeMs = uint32_t(std::max(0.0,WallTime - static_cast<double>(Peer.RoomUpdatedAt)) * 1000);
      }
    }
   FHeatPi.Update(X);
  }
 
-TGNString TSwitchTimes::HeatPiJson(void) const
+bool TSwitchTimes::HeatDiagnostics( TUdpHeatDiagnostics & D ) const
  {
   auto const & S=FHeatPi.Status();
   const auto * Profile=TGnHeaterControl::FindProfile(TmrSwChannels.Profiles(),TmrSwChannels.Channel().Profile);
-  if(!S.Available || !Profile)return "null";
-  TUdpHeatDiagnostics D;
+  if(!S.Available || !Profile)return false;
   D.Active=Profile->Pi.Active;D.Prof=TmrSwChannels.Channel().Profile;
   TJsonHeatConfig C;
   C.Setpoint=Profile->Pi.Setpoint;
@@ -863,17 +878,34 @@ TGNString TSwitchTimes::HeatPiJson(void) const
   D.MainRequest=S.MainRequest;D.FloorAvailable=S.FloorAvailable;D.ActualW=S.ActualWatts;
   D.CapacityWhPerK=S.Capacity;D.LossWPerK=S.Loss;D.Kp=S.Kp;
   D.TiSec=S.TiSeconds;D.Samples=S.Samples;D.LearnedWindows=S.LearnedWindows;
-  return GnWriteJson(D);
+  return true;
  }
 
-TGNString TSwitchTimes::HeatControlJson(void) const
+bool TSwitchTimes::HeatControl( TUdpHeatControl & D ) const
  {
   const auto * P=TGnHeaterControl::FindProfile(TmrSwChannels.Profiles(),TmrSwChannels.Channel().Profile);
-  if(!P || TmrSwChannels.Channel().Role!=THeaterRole::HeaterMain || P->Pi.FloorDevice.empty())return "null";
-  TUdpHeatControl D;
+  if(!P || TmrSwChannels.Channel().Role!=THeaterRole::HeaterMain || P->Pi.FloorDevice.empty())return false;
   D.Active=P->Pi.Active;D.Prof=TmrSwChannels.Channel().Profile;
   D.FloorEndpoint=P->Pi.FloorDevice+"/"+P->Pi.FloorChannel;
   const auto & S=FHeatPi.Status();
   D.FloorRequest=P->Pi.Active && S.Valid && !FOverrideActive && !FCalibrationOverrideActive && (!FSchedulePresent || FScheduleState) && S.FloorRequest;
-  return GnWriteJson(D);
+  return true;
  }
+
+
+#if GN_DEBUG_CHARGE_LEARNING
+bool TSwitchTimes::ChargeLearning( TUdpChargeLearning & Data ) const
+ {
+  if( !FChargeLearningReady )return false;
+  Data.Seq = FChargeLearningSequence;
+  Data.CompletedAt = FChargeLearningCompletedAt;
+  Data.Prof = FChargeLearningProfile;
+  Data.BeforePct = FChargeLearningStep.BeforePercent;
+  Data.AfterPct = FChargeLearningStep.AfterPercent;
+  Data.AppliedSecPerPct = FChargeLearningStep.AppliedFactor;
+  Data.ChargeMs = FChargeLearningStep.ChargeMs;
+  Data.NewSecPerPct = FChargeLearningStep.NewFactor;
+  Data.Persistence = !FChargeLearningStep.SaveRequired ? "RamOnly" : FChargeLearningSaved ? "Saved" : "SaveFailed";
+  return true;
+ }
+#endif

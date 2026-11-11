@@ -1,4 +1,4 @@
-// StatusApi.h, Version: 2.44
+// StatusApi.h, Version: 2.47
 #pragma once
 #include <GnBasics.h>
 #include <GnCoopTimer.h>
@@ -7,9 +7,13 @@
 #include "Types.h"
 #include "TimeSync.h"
 #include "RoomTemperature.h"
+#include <GnUdpInfoParts.h>
 #include <ctime>
 #include <mutex>
 #include <vector>
+
+template<bool> struct GnImpl_TUdpStatusData;
+using TUdpStatusData = GnImpl_TUdpStatusData<false>;
 
 class TStatusApi
  {
@@ -22,6 +26,9 @@ class TStatusApi
   void                                              ClearConfigErrors(void);
   TGNString                                         StatusJson(void);
   TGNString                                         StatusJson( uint64_t & signature );
+  TGNString                                         StatusEventJson( uint64_t Sequence );
+  bool                                              CompactStatus( uint64_t & Signature, TGnUdpInfoParts * Parts,
+                                                                    TGNString & Packet );
 
  private:
   static constexpr unsigned                         FApiVersion = 1;
@@ -29,7 +36,7 @@ class TStatusApi
   static constexpr TGnCoopTimer_t                   FTimeSyncCacheMs = 5000;
   static constexpr char                             FDeviceType[] = "MultiTimer";
 
-  TGNString                                         BuildStatusJson( uint64_t * signature );
+  void                                              FillStatus( TUdpStatusData & Status );
   static uint64_t                                   StatusSignature( TGNString const & json );
   void                                              UpdateTimeSyncStatus(void);
   static const char *                               Platform(void);

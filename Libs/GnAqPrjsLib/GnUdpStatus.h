@@ -1,9 +1,10 @@
-// GnUdpStatus.h, Version: 1.15
+// GnUdpStatus.h, Version: 1.21
 #pragma once
 
 #include <GnBasics.h>
 #include <functional>
 #include <memory>
+#include <GnUdpInfoParts.h>
 #include <vector>
 #include <GnCoopTimer.h>
 
@@ -34,12 +35,27 @@ struct TGnUdpTemperature
   uint32_t SampleRevision = 0;
  };
 
+struct TGnUdpFloorStatus
+ {
+  uint64_t BootCounter = 0;
+  uint64_t CurrentTime = 0;
+  uint64_t RoomUpdatedAt = 0;
+  double   RoomTemperature = 0;
+  bool     FloorValid = false;
+  bool     FloorOn = false;
+  bool     FloorOverride = false;
+  bool     RoomValid = false;
+ };
+
+class TGnWireValue;
+
 class TGnUdpStatus : public TSingleton<TGnUdpStatus>, public TLoopInstance
  {
   friend class TSingleton<TGnUdpStatus>;
 
  public:
-  using TStatusProvider = std::function<TGNString( uint64_t & Signature )>;
+  // A null Parts argument requests a change signature only.
+  using TCompactStatusProvider = std::function<bool(uint64_t &, TGnUdpInfoParts *, TGNString &)>;
   using TTemperatureProvider = std::function<TGnUdpTemperature(void)>;
 
  private:
@@ -48,16 +64,16 @@ class TGnUdpStatus : public TSingleton<TGnUdpStatus>, public TLoopInstance
   void                                Loop(void) override;
 
  public:
-  bool                                Setup( TGNString Id, TStatusProvider StatusProvider,
-                                             TTemperatureProvider TemperatureProvider = {} );
+  bool                                SetupCompact( TGNString Id, TCompactStatusProvider StatusProvider,
+                                                    TTemperatureProvider TemperatureProvider = {} );
   TGNString const &                   Error(void) const;
   void                                RequestAll(void);
   void                                Request( TGNString const & Id );
   void                                Request( std::vector<TGNString> const & Ids );
-  void                                WatchStatus( TGNString const & Id );
-  bool                                GetWatchedStatus( TGNString const & Id, TGNString & Status,
-                                                        uint64_t & Revision ) const;
-  bool                                GetHeatPiPeer( TGNString const & Id, TGNString & Status );
+  void                                WatchFloorStatus( TGNString const & Device, TGNString const & Channel );
+  bool                                GetWatchedFloorStatus( TGnUdpFloorStatus & Status ) const;
+  bool                                GetHeatPiPeer( TGNString const & Id, TGNString & Status,
+                                                     bool & AwaitingInitialStatus );
   bool                                GetTemperature( TGNString const & Id, float & Celsius ) const;
   bool                                GetMeasurement( TGNString const & Id, TGNString const & Field, float & Value ) const;
   TGnChargeLearningPolicy              ChargeLearningPolicy( TGNString const & Id ) const;

@@ -1,4 +1,4 @@
-// Index.js, Version: 1.25
+// Index.js, Version: 1.28
 
 // Use browser-local time; clock ticks never request device or server data.
 function UpdateBrowserClock() {
@@ -98,7 +98,14 @@ function SetupDashboardIntegration(){
 //*****************************
 //Get Json Data
 function SetUpdatedTime(){
- document.getElementById("UpdatedValue").textContent=new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});}
+ const UpdatedValue=document.getElementById("UpdatedValue");
+ UpdatedValue.dataset.updatedAt=new Date().toISOString();
+ RenderUpdatedTime();}
+function RenderUpdatedTime(){
+ const UpdatedValue=document.getElementById("UpdatedValue");
+ if(!UpdatedValue.dataset.updatedAt)return;
+ const German=Translations["Lang"]?.[LangNr]==="DE";
+ UpdatedValue.textContent=new Date(UpdatedValue.dataset.updatedAt).toLocaleTimeString(German?"de-DE":"en-GB",{hour:"2-digit",minute:"2-digit"});}
 function GetJData(uri,onSuccess){
  let xhr=new XMLHttpRequest();
  xhr.onload=function(){
@@ -115,7 +122,6 @@ function GetTextData(uri,onSuccess){
  xhr.send();}
 //PostRequest PostJRequest
 function PostRequest(func,uri,data="{}"){
- console.log( "Post:", data );
  let xhr=new XMLHttpRequest();
  xhr.onload=function(){
   if(xhr.status!==200){console.error(xhr);return;}
@@ -214,7 +220,7 @@ function ElesDisNone(es){
  for(let i=0;i<es.length;++i)es[i].style.display="none";}
 //*****************************
 //Tabbed View
-function MSelect(nr){
+function MSelect(nr,refreshVersions=true){
  const nr2Name=["Feedings","Config","ServoSteps","Update","HomeInputTest"];
  if(!Number.isInteger(nr)||nr<0||nr>=nr2Name.length||(nr===2&&!ServoStepsAvailable)||(nr===4&&!HomeInputTestAvailable))nr=0;
  document.getElementById("ResDiv").style.display="none";
@@ -222,12 +228,12 @@ function MSelect(nr){
  ElesDisNone(document.getElementsByClassName("MenuSelectDiv"));
  document.getElementById("PageSelector").value=nr;
  document.getElementById(nr2Name[nr]).style.display="block";
- if(nr2Name[nr]=="Update")LoadVersions();
+ if(nr2Name[nr]=="Update"&&refreshVersions)LoadVersions();
  if(nr2Name[nr]=="HomeInputTest")LoadHomeInputTestStatus();
  SetCookie("MNr",nr);
  ScheduleViewportFit();}
 function MRestore(){
- MSelect(GetNrCookie("MNr"));}
+ MSelect(GetNrCookie("MNr"),false);}
 //*****************************
 var Translations={};
 var LangCnt=0;
@@ -272,6 +278,7 @@ function LSelect(nr,NotifyParent=true){
  document.getElementById("MLang").textContent=lang;
  LangNr=nr;
  TrAll();
+ RenderUpdatedTime();
  ScheduleViewportFit();
  if(NotifyParent)SetSetting("LNr",nr);}
 function LRestore(){
@@ -469,12 +476,12 @@ let FirmwareRevision="?";
 let LittleFsRevision="?";
 function UpdateVersionSummary(){
  document.getElementById("VersionSummary").textContent=`FW ${FirmwareRevision} · FS ${LittleFsRevision}`;}
-function SetFirmwareRevision(data){
- FirmwareRevision=data.FirmwareVer||"?";
- UpdateVersionSummary();}
 function SetDeviceInfo(data){
  document.getElementById("DeviceName").textContent=data.Name||data.DevId||"?";
- SetFirmwareRevision(data);
+ FirmwareRevision=data.FirmwareVer||"?";
+ if(data.DataVer)LittleFsRevision=data.DataVer;
+ else GetTextData(`/Versions.txt?t=${Date.now()}`,SetLittleFsRevision);
+ UpdateVersionSummary();
  const capabilities=Array.isArray(data.Caps)?data.Caps:[];
  const rotor=capabilities.includes("ExternalButton")||capabilities.includes("DirectMotor");
  ServoStepsAvailable=capabilities.includes("ServoSteps")||!rotor;
@@ -498,8 +505,7 @@ function SetLittleFsRevision(data){
  UpdateVersionSummary();}
 function LoadVersions(){
  const cacheBust=`?t=${Date.now()}`;
- GetJData(`/api/v1/device${cacheBust}`,SetDeviceInfo);
- GetTextData(`/Versions.txt${cacheBust}`,SetLittleFsRevision);}
+ GetJData(`/api/v1/device${cacheBust}`,SetDeviceInfo);}
 function ResetDevice(){
  PostRequest(6,"/ResetDevice/");}
 //*****************************
@@ -536,10 +542,10 @@ function SetStatus(func,ok){
 //*****************************
 //Setup
 function SetupOnLoaded(){
+ LoadVersions();
  LoadTranslations();
  LoadFeedings();
  LoadConfig();
- LoadVersions();
  MRestore();
  SetupDashboardIntegration();
  }

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# PreBuild.sh, Version: 1.18
+# PreBuild.sh, Version: 1.19
 
 set -Eeuo pipefail
 
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
-python3 "$PrjsDir/Libs/GnAqPrjsLib/tools/GenerateUdp.py"
 # shellcheck source=../tools/_TrashPaths.sh
 source "$PrjsDir/tools/_TrashPaths.sh"
 DeviceName="${PRJS_DEVICE_NAME:?PRJS_DEVICE_NAME not set}"

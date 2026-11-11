@@ -1,4 +1,4 @@
-# Makefile, Version: 1.25
+# Makefile, Version: 1.27
 
 CXX ?= g++
 
@@ -39,6 +39,7 @@ GN_BASIC_SOURCES := \
 
 GN_AQ_SOURCES := \
   $(GnAqPrjsLibDir)/GnUdpStatus.cpp \
+  $(GnAqPrjsLibDir)/GnUdpStatusWriter.cpp \
   $(GnAqPrjsLibDir)/GnHeaterControl.cpp \
   $(GnAqPrjsLibDir)/GnDeviceIdentity.cpp
 
@@ -89,7 +90,7 @@ $(PROGRAM): $(OBJECTS) $(VERSION_HEADER)
 $(VERSION_HEADER): Versions.txt ../tools/UpdateVersionFiles.py
 	python3 ../tools/UpdateVersionFiles.py .
 
-$(OBJECTS): $(VERSION_HEADER) ../Libs/GnAqPrjsLib/Messages.js
+$(OBJECTS): $(VERSION_HEADER)
 
 $(BUILD_DIR)/%.o: src/%.cpp
 	@mkdir -p $(dir $@)
@@ -114,6 +115,3 @@ full-clean: clean
 	rm -f -- "$(PROGRAM)" 
 
 -include $(DEPENDS)
-
-../Libs/GnAqPrjsLib/Messages.js: ../Libs/GnAqPrjsLib/MessageDefinition.inc.h ../Libs/GnAqPrjsLib/tools/GenerateUdp.py ../Libs/GnAqPrjsLib/MessageTypes.h ../Libs/GnAqPrjsLib/tools/GenerateJsonBrowser.py $(wildcard ../Libs/GnAqPrjsLib/Definitions/Contract/*.inc.h) $(wildcard ../Libs/GnAqPrjsLib/tools/*.py) $(wildcard ../Libs/GnAqPrjsLib/tools/Templates/*) ../Libs/GnAqPrjsLib/GnJsonMacroDefaults.inc.h
-	python3 ../Libs/GnAqPrjsLib/tools/GenerateUdp.py

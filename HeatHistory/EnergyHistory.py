@@ -1,4 +1,4 @@
-# EnergyHistory.py, Version: 1.06
+# EnergyHistory.py, Version: 1.09
 """Passive, timestamped power observations and explicitly bounded energy estimates."""
 from __future__ import annotations
 from CsvFiles import CsvFiles
@@ -115,7 +115,9 @@ class EnergyHistory:
     previous=self.sessions.get(profile_id)
     if previous:return previous
     directory=self.root/profile_id/'Energy'
-    path=latest_segment(directory,'.energy.csv',{'HostBootId':BOOT_ID,'Assignment':assignment})
+    # Runtime routes hold (device, endpoint); metadata stores the endpoint.
+    recorded_assignment=dict(assignment, Main=assignment['Main'][1], Floor=assignment['Floor'][1])
+    path=latest_segment(directory,'.energy.csv',{'HostBootId':BOOT_ID,'Assignment':recorded_assignment})
     if path:
       row=last_row(path,HEADER)
       session={'Path':path,'Previous':{}}
@@ -128,14 +130,14 @@ class EnergyHistory:
     directory=self.root/profile_id/'Energy';directory.mkdir(parents=True,exist_ok=True)
     prefix=dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
     path=directory/(prefix+'.energy.csv')
-    with path.open('x',encoding='utf-8',newline='') as f:
-      csv.writer(f,delimiter=';').writerow(HEADER)
-    metadata={'HostBootId':BOOT_ID,'Ver':1,'StartedAt':stamp(),'Assignment':assignment,
+    metadata={'HostBootId':BOOT_ID,'Ver':1,'StartedAt':stamp(),'Assignment':recorded_assignment,
               'Integration':'Main: trapezoidal reported watts; floor: previous reported state times measured nominal watts. Missing readings held provisionally for at most 60 s, corrected linearly on recovery within 60 s.',
               'Limitations':'Not a hardware energy counter. Switching within the sampling period and meter-window alignment are not exactly reconstructed. Held/interpolated energy is estimated, not a fresh measurement. Boot/clock discontinuities and gaps beyond 60 s remain unknown. Corrections are appended as signed interval energy; raw samples are not rewritten.',
               'PowerCalAtStart':self.config.get('PowerCalAtStart',{}),
               'PowerCal':'provisional until calibration periods/factors are confirmed'}
     path.with_suffix('.json').write_text(WriteJson('TJsonHistoryMetadata',metadata,indent=2)+'\n',encoding='utf-8')
+    with path.open('x',encoding='utf-8',newline='') as f:
+      csv.writer(f,delimiter=';').writerow(HEADER)
     session={'Path':path,'Previous':previous['Previous'] if previous else {},'MainWh':0.,'FloorWh':0.,
              'MainCovered':0.,'MainUnknown':0.,'FloorCovered':0.,'FloorUnknown':0.}
     self.sessions[profile_id]=session
@@ -179,7 +181,7 @@ class EnergyHistory:
         source=main if role=='Main' else floor
         state=main_state if role=='Main' else floor_state
         watts=corrected if role=='Main' else (a['FloorW']*int(state) if a['FloorW'] is not None and state is not None else None)
-        boot=source.get('Identity',{}).get('BootCnt') if isinstance(source.get('Identity'),dict) else None
+        boot=source.get('BootCnt')
         source_time=source.get('CurrentTime')
         valid=watts is not None and number(watts) and isinstance(boot,int) and not isinstance(boot,bool) and number(source_time) and source.get('TimeSynchronized') is True
         if valid and not -3<=wall-source_time<=self.maximum_gap:valid=False
@@ -226,8 +228,8 @@ class EnergyHistory:
       row=[stamp(),'+'.join(event),profile_id,a['Main'][0],a['Floor'][0],temp_value if temp_valid else None,temp_valid,
            room_value if room_valid else None,room_valid,room_age,main_state,reported if number(reported) else None,
            a['Factor'],corrected,main_valid,main_age,main.get('CurrentTime'),floor.get('CurrentTime'),
-           main.get('Identity',{}).get('BootCnt') if isinstance(main.get('Identity'),dict) else None,
-           floor.get('Identity',{}).get('BootCnt') if isinstance(floor.get('Identity'),dict) else None,
+           main.get('BootCnt'),
+           floor.get('BootCnt'),
            floor_state,a['FloorW'],mi[0],mi[1],fi[0],fi[1],
            s['MainWh'],s['FloorWh'],s['MainCovered'],s['MainUnknown'],s['FloorCovered'],s['FloorUnknown'],mi[2],fi[2],'provisional']
       self.csv.write(s['Path'],map(value,row))

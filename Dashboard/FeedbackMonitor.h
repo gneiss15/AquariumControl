@@ -1,4 +1,4 @@
-// FeedbackMonitor.h, Version: 1.01
+// FeedbackMonitor.h, Version: 1.02
 #pragma once
 #include <GnBasics.h>
 #include <json-c/json.h>
@@ -23,8 +23,7 @@ class TFeedbackMonitor
    };
   struct TMonitor
    {
-    TGNString Id, SwitchFunction, Source, Kind, Field, SwitchId, SourceId;
-    int ChannelIndex = -1;
+    TGNString Id, SwitchFunction, Source, Kind, Field, SwitchId, SwitchChannelId, SourceId;
     uint64_t GraceMs = 60000;
     TSignal Switch, Feedback;
     std::optional<uint64_t> MismatchSince;

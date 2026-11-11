@@ -1,4 +1,4 @@
-// EspWebUpdate.cpp, Version: 1.29
+// EspWebUpdate.cpp, Version: 1.30
 #include "EspWebUpdate.h"
 #include "DeviceType.inc.h"
 
@@ -139,7 +139,7 @@ function PrepareFirmwareUpdate(Form){
 <h1>%PROJECT% Startup error</h1>
 <p><strong>Hw-Typ:</strong> %HW_TYPE%</p>
 <div class="Warning">
-Config.json and Index.html were validated successfully, but initialization failed afterwards.<br>
+Initialization failed after the device configuration was loaded.<br>
 Only update functions are available.<br><br>
 <b>%ERROR%</b>
 </div>

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# EspCompile.sh, Version: 1.11
+# EspCompile.sh, Version: 1.12
 set -Eeuo pipefail
 
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
-python3 "$PrjsDir/Libs/GnAqPrjsLib/tools/GenerateUdp.py"
+bash "$PrjsDir/Common/TmrSw/GenerateJs.sh"
 source "$PrjsDir/tools/_PruneDeviceFsArtifacts.sh"
 source "$ProjectDir/EspBoardConfig.sh"
 BuildRoot="$ProjectDir/generated/build/main"

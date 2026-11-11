@@ -1,4 +1,4 @@
-// TJsonIdentity.inc.h, Version: 1.01
+// TJsonIdentity.inc.h, Version: 1.02
 // Repeated definition expansion.
 #include "../../GnJsonMacroDefaults.inc.h"
 
@@ -8,7 +8,7 @@ JD_BEGIN( TJsonIdentity, "Shared identity for storage, configuration exchange an
   JD( TGNString, Func, Optional, Any, "Logical function assigned to this service", Info )
   JD( TGNString, Rev, Optional, Any, "Revision of the assigned configuration", Info )
   JD( TGNString, AppliedRev, Optional, Any, "Last assignment revision applied by the service", Info )
-  JD( TChannelId, ServiceId, Optional, ServiceAddress, "", Info )
+  JD( TChannelId, ServiceId, Optional, ServiceAddress, "", Omit )
   JD( bool, Prepared, Optional, Any, "Whether a valid identity and assignment state has been loaded or applied", Info )
   JD( bool, LocalSrcs, Optional, Any, "Whether source assignments were written locally", Info )
   JD( uint64_t, BootCnt, Optional, Any, "Device boot generation used to detect restarts", Live )

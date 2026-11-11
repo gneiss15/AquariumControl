@@ -1,5 +1,10 @@
-// SharedTypes.inc.h, Version: 1.00
+// SharedTypes.inc.h, Version: 1.02
 // Repeated scalar/enum definition expansion.
+// Compact channel status: each JD_BIT Name defines adjacent Name and NameMsk
+// bits. Name carries the bool value; NameMsk says that this packet provides
+// Name. A clear NameMsk preserves the receiver's previous value. A set
+// NameMsk applies Name, including an explicitly clear value. Positions follow
+// definition order; no numeric masks are assigned here.
 #ifndef JD_ALIAS
   #define JD_ALIAS(Name, Type, Rule, Description)
 #endif
@@ -15,17 +20,14 @@
 
 #ifndef JD_BIT
   #define GN_JSON_OWN_BIT_HOOK
-  #define JD_BIT(Name, Value, Description)
+  #define JD_BIT(Name, Description)
 #endif
 
-JD_BIT( InputState, 1, "Digital input is active" )
-JD_BIT( OverrideActive, 2, "Manual override is active" )
-JD_BIT( OverrideOn, 4, "Manual override requests ON" )
-JD_BIT( CalibrationOverride, 8, "Calibration override is active" )
-JD_BIT( HasAutomatic, 16, "Automatic output state is known" )
-JD_BIT( AutomaticOn, 32, "Automatic state requests ON" )
-JD_BIT( UnknownInput, 64, "Input state is unknown" )
-JD_BIT( UnknownAutomatic, 128, "Automatic output state is unknown" )
+JD_BIT( InState, "Current physical input state" )
+JD_BIT( AutomaticState, "Automatic output request" )
+JD_BIT( OvrActive, "Whether a manual override is active" )
+JD_BIT( OvrState, "State requested by a manual override" )
+JD_BIT( CalOvrActive, "Whether a calibration override is active" )
 
 JD_ALIAS( TChannelId, TGNString, ChannelAddress, "Physical address: MAC [ @ ServiceId ] [ / ChannelNr ]" )
 JD_ALIAS( TUnixTime, uint64_t, Any, "UTC time in whole seconds since 1970-01-01 00:00:00 UTC" )

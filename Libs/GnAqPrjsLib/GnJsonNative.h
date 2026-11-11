@@ -1,4 +1,4 @@
-// GnJsonNative.h, Version: 1.00
+// GnJsonNative.h, Version: 1.01
 #pragma once
 #include <GnBasics.h>
 #include <GnJsonRules.h>
@@ -113,11 +113,18 @@ template<class T> bool GnRead(TGnWireValue Input,T & Output,TGNString & Error)
     return Valid;
    }
  }
+template<class T> void GnAppendJson(TGnWireValue Array,T const & Value)
+ requires requires { T::JsonShape; } && (T::JsonShape==TGnJsonShape::Object)
+ {
+  // Write into the destination document without allocating a second JSON tree.
+  GnJsonObjectStore(Array.AddObject(),Value);
+ }
+
 template<class T> void GnStore(TGnWireValue Parent,TGNString const & Key,T const & Value)
  requires requires { T::JsonShape; }
  {
   if constexpr(T::JsonShape==TGnJsonShape::Value)GnStore(Parent,Key,Value.Value);
-  else if constexpr(T::JsonShape==TGnJsonShape::Object)GnJsonObjectStore(Parent,Key,Value);
+  else if constexpr(T::JsonShape==TGnJsonShape::Object)GnJsonObjectStore(Parent.NewObject(Key),Value);
   else
    {
     auto Array=Parent.NewArray(Key);bool End=false;

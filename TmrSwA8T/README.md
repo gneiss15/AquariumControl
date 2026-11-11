@@ -39,7 +39,7 @@ A Nous A8T can be calibrated using a Shelly as the reference. [Instructions](../
 - `EspBoardConfig.sh`: board/FQBN, binary subdirectory and partition sizes for all builds.
 - `DevState/<Device>/`: persistent device configuration and build source.
 - `generated/build/main/`: Main cache, generated headers and prepared web sources. `esp32/idf/` holds the IDF compiler cache, `MainDependencies/` the prepared Arduino component and libraries, and `IdfProject/` the generated CMake project, SDK settings, component management and dependency lock file.
-- `generated/build/rescue/`: Rescue cache and generated Rescue sketch.
+- `generated/build/rescue/`: Rescue build inputs and ESP-IDF cache.
 - `generated/bin/esp32_Arduino2/`: shared output for Main, Rescue and LittleFS artifacts.
 - `generated/Instances/<Device>/LittleFS/`: complete device-specific LittleFS.
 - `generated/Instances/<Device>/LittleFS-readable/`: readable build comparison copy.
@@ -68,7 +68,7 @@ The partition table is a verification file at `generated/build/main/esp32/TmrSwA
 
 ## ESP-IDF Main
 
-Main uses ESP-IDF 5.5.1 and Arduino-ESP32 3.3.11 as a component built from source. The setup/loop task runs on core 1 with an 8192-byte stack. Rescue uses an Arduino CLI build. Binary files are under `generated/bin/esp32_Arduino2/`.
+Main uses ESP-IDF 5.5.1 and Arduino-ESP32 3.3.11 as a component built from source. The setup/loop task runs on core 1 with an 8192-byte stack. Rescue builds directly with ESP-IDF 5.5.1 and uses the partition table at `0x8000`. Binary files are under `generated/bin/esp32_Arduino2/`.
 
 `ESP_IDF_ENABLE_SCRIPT` loads the local IDF environment. `ESP_IDF_COMPILER_BIN`, `ARDUINO_PORTABLE_DIR` and `ARDUINO_CORE_DIR` override tool paths. The build entry point is `./EspCompile.sh`. For firmware only, without LittleFS:
 

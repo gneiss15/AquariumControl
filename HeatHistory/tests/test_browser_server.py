@@ -40,6 +40,24 @@ class BrowserServerTests(unittest.TestCase):
     result=history(self.root,'all',now=self.now)
     self.assertEqual(len(result['Profiles'][0]['Energy']),1)
     self.assertEqual(before,{p:p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
+  def test_custom_csv_range_returns_requested_window(self):
+    self.pi(self.now-dt.timedelta(days=2),'active')
+    self.energy(self.now-dt.timedelta(hours=2),'before')
+    self.energy(self.now-dt.timedelta(minutes=40),'inside')
+    self.energy(self.now-dt.timedelta(minutes=5),'after')
+    start=self.now-dt.timedelta(hours=1)
+    end=self.now-dt.timedelta(minutes=20)
+    body,kind=csv_history(self.root,'all',now=self.now,range_from=start.isoformat(),range_to=end.isoformat())
+    from email.parser import BytesParser
+    from email.policy import default
+    message=BytesParser(policy=default).parsebytes(('Content-Type: '+kind+'\r\nMIME-Version: 1.0\r\n\r\n').encode()+body)
+    parts=list(message.iter_parts());manifest=json.loads(parts[0].get_payload(decode=True))
+    self.assertEqual(manifest['From'],start.isoformat(timespec='milliseconds').replace('+00:00','Z'))
+    self.assertEqual(manifest['To'],end.isoformat(timespec='milliseconds').replace('+00:00','Z'))
+    payload=parts[1].get_payload(decode=True).decode()
+    self.assertIn((self.now-dt.timedelta(minutes=40)).isoformat(),payload)
+    self.assertNotIn((self.now-dt.timedelta(hours=2)).isoformat(),payload)
+    self.assertNotIn((self.now-dt.timedelta(minutes=5)).isoformat(),payload)
   def test_missing_activation_has_no_pre_pi_history(self):
     self.energy(self.now);self.assertEqual(history(self.root,now=self.now)['Profiles'],[])
   def test_active_energy_snapshot_works_without_pi_debug(self):
@@ -63,6 +81,9 @@ class BrowserServerTests(unittest.TestCase):
       for route,code in [('/config.json',404),('/../config.json',404),('/api/history?range=forever',400),('/api/history?file=config.json',400)]:
         with self.assertRaises(urllib.error.HTTPError) as caught:urllib.request.urlopen(base+route)
         self.assertEqual(caught.exception.code,code)
+      invalid=base+'/api/history.csv?range=all&from=bad&to=2026-11-10T11%3A00%3A00Z'
+      with self.assertRaises(urllib.error.HTTPError) as caught:urllib.request.urlopen(invalid)
+      self.assertEqual(caught.exception.code,400)
     finally:server.shutdown();server.server_close();worker.join()
 
 class CsvTransportTests(BrowserServerTests):

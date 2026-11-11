@@ -1,4 +1,4 @@
-// AssignmentControl.cpp, Version: 1.10
+// AssignmentControl.cpp, Version: 1.11
 #define Do_THttpResult
 #define Do_TUdpLastError
 #include "AssignmentControl.h"
@@ -138,7 +138,7 @@ json_object * TAssignmentControl::Inspect(void)
     json_object_object_get_ex( ExpectedIdentity, "Srcs", &ExpectedSources );
     const bool Identified = Info && json_object_object_get_ex( Info, "Identity", &Identity ) &&
       json_object_object_get_ex( Identity, "Ver", &Version ) && json_object_is_type( Version, json_type_int ) &&
-      json_object_get_int( Version ) >= 3 && Text( Identity, "ServiceId" ) == Device.Id && Flag( Identity, "Prepared" );
+      json_object_get_int( Version ) == 1 && Text( Identity, "ServiceId" ) == Device.Id && Flag( Identity, "Prepared" );
     const bool SourcesMatch = Identified && json_object_object_get_ex( Identity, "Srcs", &Sources ) &&
       json_object_equal( Sources, ExpectedSources );
     const bool Ready = SourcesMatch && Text( Identity, "Func" ) == Device.Function;
@@ -248,7 +248,8 @@ void TAssignmentControl::Handle( TGNString const & Method, TGNString const & Bod
       json_object * Info = GetDevice( Candidate, "/api/v1/device" ), * Identity = nullptr, * Version = nullptr, * Boot = nullptr;
       const bool Valid = Info && Text( Info, "DevType" ) == Candidate.DeviceType &&
         json_object_object_get_ex( Info, "Identity", &Identity ) && Text( Identity, "ServiceId" ) == Id &&
-        json_object_object_get_ex( Identity, "Ver", &Version ) && json_object_get_int( Version ) >= 3 &&
+        json_object_object_get_ex( Identity, "Ver", &Version ) && json_object_is_type( Version, json_type_int ) &&
+        json_object_get_int( Version ) == 1 &&
         json_object_object_get_ex( Identity, "BootCnt", &Boot ) && json_object_get_int64( Boot ) > 0;
       if( !Valid ) { if( Info ) json_object_put( Info ); Fail( 409, "New or changed device is offline or has wrong identity/type" ); return; }
       auto Config = GetDevice( Candidate, "/Config.json" );

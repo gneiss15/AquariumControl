@@ -1,4 +1,4 @@
-// GnHeaterControl.cpp, Version: 1.10
+// GnHeaterControl.cpp, Version: 1.11
 #define Do_Device_RX
 #include <GnBasics.h>
 #include "GnHeaterControl.h"
@@ -66,9 +66,10 @@ bool TGnHeaterControl::AutomaticState( THeaterRole Role, const TGNString & Profi
   if( Role==THeaterRole::HeaterFloor && Profile->Pi.Active )
    {
     if( GnDeviceIdentity.WireId()!=Profile->Pi.FloorDevice || Channel!=Profile->Pi.FloorChannel )return false;
-    TGNString Peer;bool On=false;
-    if( GnUdpStatus.GetHeatPiPeer(Profile->Pi.MainDevice,Peer) &&
+    TGNString Peer;bool On=false,AwaitingInitialStatus=false;
+    if( GnUdpStatus.GetHeatPiPeer(Profile->Pi.MainDevice,Peer,AwaitingInitialStatus) &&
         GnHeatPiFloorRequest(Peer,ProfileId,Profile->Pi.FloorDevice,Channel,On) )return On;
+    if(AwaitingInitialStatus)return OutputOn;
     return true; // Main unavailable: the low-power floor heater maintains minimum heat.
    }
   float Temperature = 0.0F;

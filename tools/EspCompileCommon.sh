@@ -1,4 +1,4 @@
-# EspCompileCommon.sh, Version: 1.39
+# EspCompileCommon.sh, Version: 1.40
 # Common implementation sourced by project-specific EspCompile.sh scripts.
 # Do not execute this file directly.
 
@@ -599,6 +599,10 @@ SetupEsp32Tools()
 
 RunIdfCompile()
 {
+  local -a IdfActions=(build)
+  if declare -p IdfBuildActions >/dev/null 2>&1; then
+    IdfActions=( "${IdfBuildActions[@]}" )
+  fi
   local PortableDir="${ARDUINO_PORTABLE_DIR:-$MountDir/Portables/Arduino2/portable}"
   local CoreDir="${ARDUINO_CORE_DIR:-$Esp32CoreDir}"
   local IdfBuildDir="$CompileDir/idf"
@@ -626,7 +630,7 @@ PYIDF
         -D "SDKCONFIG=$IdfBuildDir/sdkconfig" \
         -D "PRJS_IDF_DEPENDENCIES=$Dependencies" \
         -D "PRJS_GENERATED_INCLUDE=$SketchDir" \
-        -D "PRJS_VERSION_FILE=$BuildRoot/ProjectVersion.cmake" build
+        -D "PRJS_VERSION_FILE=$BuildRoot/ProjectVersion.cmake" "${IdfActions[@]}"
   ) || { cat "$CompileDir/IdfCompile.log" >>"$LogFile"; ShowFailure "ESP-IDF build failed"; }
   cat "$CompileDir/IdfCompile.log" >>"$LogFile"
   python3 "$ProjectDir/VerifyIdfBuild.py" "$IdfBuildDir" >>"$LogFile" 2>&1 || \

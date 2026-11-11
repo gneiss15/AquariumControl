@@ -1,4 +1,4 @@
-// WebSocketProtocol.h, Version: 2.43
+// WebSocketProtocol.h, Version: 2.44
 #pragma once
 #include <GnBasics.h>
 #include <algorithm>
@@ -172,9 +172,10 @@ inline TGNString Base64( uint8_t const * Data, size_t Length )
 inline TGNString AcceptKey( TGNString const & ClientKey )
  {
   const size_t SourceSize = ClientKey.length() + sizeof( AcceptGuid ) - 1;
-  TGNString Source = ClientKey;
+  TGNString Source;
   if( !GnReserveStringExact( Source, SourceSize ) )
     return TGNString();
+  Source.append( ClientKey );
   Source += FPSTR( AcceptGuid );
   uint8_t Digest[20];
   Sha1( Source.data(), Source.length(), Digest );

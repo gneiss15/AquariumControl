@@ -1,4 +1,4 @@
-<!-- BUILD-SECRETS.md, Version: 1.09 -->
+<!-- BUILD-SECRETS.md, Version: 1.11 -->
 # Build-private Dateien und gerätespezifischer Zustand
 
 Für die ESP-Projekte werden drei Arten von Quellen getrennt:
@@ -9,7 +9,7 @@ Für die ESP-Projekte werden drei Arten von Quellen getrennt:
 
 Die Konfiguration unter `DevState/<Device>/Config.json` liefert gerätespezifische Werte wie WLAN-Zugangsdaten und Kalibrierung. `../PrjsPrivate/Secrets.local.json` liefert gemeinsame und projektbezogene Vorgaben. Die Werte aus `DevState` haben Vorrang vor diesen Vorgaben.
 
-Beim Erzeugen eines ESP-Abbilds setzt der Build anschließend `Hostname`, `ApSsid`, `ApPw` und `FtpPw` auf den Funktionsnamen. Der Build verwendet dafür den Namen des Instanzordners. Ein Gerät ohne eigene Funktion verwendet seinen Gerätenamen als Instanznamen. Für freie Steckdosen verwenden wir `ShellySwX` bzw. `NousA8TSwX` mit der jeweiligen Gerätenummer. Der gemeinsame Wert für AP-Name und AP-Passwort muss 8 bis 32 Bytes lang sein.
+Beim initialen Erzeugen eines ESP-Abbilds setzt der Build anschließend `Hostname`, `ApSsid`, `ApPw` und `FtpPw` auf den Funktionsnamen. Dafür gilt der Name des Instanzordners als Funktion. Echte Funktionsnamen bleiben unverändert. Nur die Hardware-Platzhalter `ShellyX` und `NousX` werden für diese vier Felder zu `ShellySwX` bzw. `NousA8TSwX` erweitert, damit auch das AP-Passwort die Mindestlänge erfüllt. Der gemeinsame Wert für AP-Name und AP-Passwort muss 8 bis 32 UTF-8-Bytes lang sein.
 
 Beim Gerätetausch überträgt das Dashboard die laufenden Funktionswerte wie bisher auf die Zielhardware.
 
@@ -137,3 +137,7 @@ Projektlokale Arduino-Libraries werden immer einzeln als exakter Library-Root mi
 ```
 
 Sie dürfen nicht durch `--libraries "$PrjsDir/Libs"` ersetzt werden. Der übergeordnete Suchpfad hat bei den Projekten wiederholt `Multiple libraries were found ...` verursacht.
+
+## Rückgelesene Bestandsgeräte
+
+Für einen Build aus frisch geprüften Geräte-Configs verwenden die Switch-Projekte `PRJS_PRESERVE_FUNCTION_CONFIG=true ./EspCompile.sh`. Dann bleiben `Hostname`, `ApSsid`, `ApPw` und `FtpPw` aus DevState unverändert. Ohne diese ausdrücklich gesetzte Option gilt weiterhin die Initialregel aus dem Instanznamen. Die Mindestlänge des AP-Passworts begrenzt den Initialwert, nicht den separat gesetzten Hostnamen eines Bestandsgeräts.

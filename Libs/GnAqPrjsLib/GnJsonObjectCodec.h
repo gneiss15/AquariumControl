@@ -1,4 +1,4 @@
-// GnJsonObjectCodec.h, Version: 1.01
+// GnJsonObjectCodec.h, Version: 1.02
 #pragma once
 #include <GnBasics.h>
 #include <GnUdpSchemaSupport.h>
@@ -100,9 +100,8 @@ template<class T> bool GnJsonObjectRead(TGnWireValue Input,T & Value,TGNString &
    }
   return true;
  }
-template<class T> void GnJsonObjectStore(TGnWireValue Parent,TGNString const & Key,T const & Value)
+template<class T> void GnJsonObjectStore(TGnWireValue Output,T const & Value)
  {
-  auto Output=Parent.NewObject(Key);
   GnRestoreExtra(Output,Value.ExtraJson);
   std::apply([&](auto const &... Field){(Field.Store(Output,Value),...);},GnJsonObjectFields<T>());
  }

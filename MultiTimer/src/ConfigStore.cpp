@@ -1,4 +1,4 @@
-// ConfigStore.cpp, Version: 2.58
+// ConfigStore.cpp, Version: 2.60
 #define Do_TJsonChannels
 #define Do_TJsonHeatConfig
 #define Do_TJsonInterval
@@ -137,6 +137,26 @@ TGNString FormatJsonRows( json_object * Array, unsigned Indent )
     return {};
 
   const size_t RowCount = json_object_array_length( Array );
+  bool ObjectRows = RowCount > 0;
+  for( size_t RowIndex = 0;  RowIndex < RowCount;  ++RowIndex )
+    ObjectRows = ObjectRows && json_object_is_type( json_object_array_get_idx( Array, RowIndex ), json_type_object );
+  if( ObjectRows || RowCount == 0 )
+   {
+    const char * const Text = json_object_to_json_string_ext( Array, JSON_C_TO_STRING_PRETTY );
+    if( Text == nullptr )
+      return {};
+    const size_t Length = strlen( Text );
+    TGNString Result;
+    Result.reserve( Length + Indent * RowCount );
+    for( size_t Index = 0;  Index < Length;  ++Index )
+     {
+      Result += Text[ Index ];
+      if( Text[ Index ] == '\n' && Index + 1 < Length )
+        Result.append( Indent, ' ' );
+     }
+    return Result;
+   }
+
   size_t ColumnCount = 0;
   for( size_t RowIndex = 0;  RowIndex < RowCount;  ++RowIndex )
    {
@@ -376,13 +396,18 @@ bool TConfigStore::LoadSchedule( const TGNString & FileName, const TChannelConfi
   Error.clear();Warnings.clear();
   const TGNString Text=ReadAll(FileName,Error);
   if(!Error.empty())return false;
-  TJsonSchedule Document;
-  if(!GnReadJsonValue(Text,Document)) {Error="Invalid SwitchTimes JSON";return false;}
+  TGnWireDocument Document(Text);
+  const auto Schedule = Document.Root();
+  if( !Document.Valid() || !GnTypeValid(Schedule,TGnJsonType<TJsonSchedule>{}) )
+   {Error="Invalid SwitchTimes JSON";return false;}
+  TGNString RowError;
+  const auto Times = Schedule.Get("SwitchTimes");
+  const auto IntervalsJson = Schedule.Get("Intervals");
   TSwitchTimes NewTimes;
-  for(size_t Index=0;Index<Document.SwitchTimes.Value.Value.size();++Index)
+  for(size_t Index=0;Index<(Times.Array() ? Times.Size() : 0);++Index)
    {
     TJsonSwitchTime Row;
-    if(!GnReadJsonValue(GnWriteJson(Document.SwitchTimes.Value.Value[Index]),Row) ||
+    if(!GnRead(Times.At(Index),Row,RowError) ||
        !Row.Time.Known() || !Row.Days.Known() || !Row.State.Known() || !Row.Ch.Known())
      {AddInvalidRowWarning(Warnings,Index+1);continue;}
     const auto Channel=FindChannelId(Channels,Row.Ch);
@@ -396,10 +421,10 @@ bool TConfigStore::LoadSchedule( const TGNString & FileName, const TChannelConfi
     NewTimes.push_back(Entry);
    }
   TSwitchIntervals NewIntervals;
-  for(size_t Index=0;Index<Document.Intervals.Value.Value.size();++Index)
+  for(size_t Index=0;Index<(IntervalsJson.Array() ? IntervalsJson.Size() : 0);++Index)
    {
     TJsonInterval Row;
-    if(!GnReadJsonValue(GnWriteJson(Document.Intervals.Value.Value[Index]),Row) ||
+    if(!GnRead(IntervalsJson.At(Index),Row,RowError) ||
        !Row.Start.Known() || !Row.Period.Known() || !Row.OnDuration.Known() ||
        !Row.Days.Known() || !Row.Ch.Known())
      {AddInvalidRowWarning(Warnings,Index+1);continue;}

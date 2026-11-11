@@ -1,4 +1,4 @@
-// TimeStore.cpp, Version: 1.29
+// TimeStore.cpp, Version: 1.32
 #define Do_THttpResult
 #define Do_THttpTimePayload
 #define Do_TJsonFeedTime
@@ -55,6 +55,7 @@ void SetString( json_object * Object, char const * Name, TGNString const & Value
  }
 
 json_object * CloneJson( json_object * Value );
+bool ValidateProfileRows( json_object * Rows );
 
 bool BoolValue( json_object * Object, char const * Name, bool DefaultValue = false )
  {
@@ -164,6 +165,57 @@ bool SaveStore( std::filesystem::path const & FileName, json_object * Root )
     return false;
    }
   return true;
+ }
+
+void SetProfileSyncPending( json_object * Sync, json_object * Times, TGNString const & Revision )
+ {
+  SetString( Sync, "Rev", Revision );
+  json_object * SyncSets = nullptr, * TimeSets = nullptr;
+  if( !json_object_object_get_ex( Sync, "Sets", &SyncSets ) || !json_object_is_type( SyncSets, json_type_array ) )
+   {
+    SyncSets = json_object_new_array();
+    json_object_object_add( Sync, "Sets", SyncSets );
+   }
+  json_object_object_get_ex( Times, "Sets", &TimeSets );
+  for( size_t Index = 0; Index < json_object_array_length( TimeSets ); ++Index )
+   {
+    json_object * TimeSet = json_object_array_get_idx( TimeSets, Index );
+    const TGNString Device = StringValue( TimeSet, "Dev" );
+    const TGNString Type = StringValue( TimeSet, "Type" );
+    const TGNString Format = StringValue( TimeSet, "Format" );
+    if( Type != "SwitchTimes" || ( Format != "TmrSw" && Format != "MyTimer" ) ) continue;
+    json_object * Set = nullptr;
+    for( size_t SetIndex = 0; SetIndex < json_object_array_length( SyncSets ); ++SetIndex )
+     {
+      json_object * Candidate = json_object_array_get_idx( SyncSets, SetIndex );
+      if( StringValue( Candidate, "Dev" ) == Device ) { Set = Candidate; break; }
+     }
+    if( Set == nullptr )
+     {
+      Set = json_object_new_object();
+      SetString( Set, "Dev", Device );
+      json_object_array_add( SyncSets, Set );
+     }
+    SetString( Set, "Format", Format );
+    SetString( Set, "Rev", Revision );
+    json_object_object_add( Set, "Synced", json_object_new_boolean( false ) );
+   }
+ }
+
+void SetSwitchTimesPending( json_object * Times, TGNString const & Revision )
+ {
+  json_object * Sets = nullptr;
+  if( !json_object_object_get_ex( Times, "Sets", &Sets ) || !json_object_is_type( Sets, json_type_array ) )
+    return;
+  for( size_t Index = 0; Index < json_object_array_length( Sets ); ++Index )
+   {
+    json_object * Set = json_object_array_get_idx( Sets, Index );
+    const TGNString Format = StringValue( Set, "Format" );
+    if( StringValue( Set, "Type" ) != "SwitchTimes" || ( Format != "TmrSw" && Format != "MyTimer" ) )
+      continue;
+    SetString( Set, "TimeStamp", Revision );
+    json_object_object_add( Set, "Synced", json_object_new_boolean( false ) );
+   }
  }
 
 json_object * FindSet( json_object * Root, TGNString const & Device, TGNString const & Type )
@@ -943,16 +995,62 @@ bool TTimeStore::HandleCentralRequest( TGNString const & Method, TGNString const
     return true;
    }
   json_object * IncomingChannels = nullptr;
-  if( json_object_object_get_ex( Incoming, "Chs", &IncomingChannels ) )
+  json_object_object_get_ex( Incoming, "Chs", &IncomingChannels );
+  json_object * IncomingProfileRows = nullptr;
+  const bool IncludesProfiles = json_object_object_get_ex( Incoming, "Profs", &IncomingProfileRows );
+  if( IncludesProfiles && ( IncomingChannels == nullptr || !json_object_is_type( IncomingProfileRows, json_type_array ) ) )
    {
-    json_object * Profiles = json_object_from_file( ProfilesFile.c_str() );
-    json_object * ProfileRows = nullptr;
-    const bool ValidChannels = Profiles != nullptr &&
-      json_object_object_get_ex( Profiles, "Profs", &ProfileRows ) &&
-      ValidateCentralChannels( IncomingChannels, ProfileRows );
-    if( Profiles != nullptr ) json_object_put( Profiles );
-    if( !ValidChannels )
+    json_object_put( Incoming );
+    StatusCode = 400;
+    Response = GnJsonResult(false,"Profile data can only be saved together with channel assignments");
+    return true;
+   }
+  json_object * ProfileSnapshot = nullptr;
+  json_object * ExistingProfileRows = nullptr;
+  bool ProfilesChanged = false;
+  if( IncomingChannels != nullptr )
+   {
+    ProfileSnapshot = json_object_from_file( ProfilesFile.c_str() );
+    if( ProfileSnapshot == nullptr || !json_object_object_get_ex( ProfileSnapshot, "Profs", &ExistingProfileRows ) ||
+        !ValidateProfileRows( ExistingProfileRows ) )
      {
+      if( ProfileSnapshot != nullptr ) json_object_put( ProfileSnapshot );
+      json_object_put( Incoming );
+      StatusCode = 500;
+      Response = GnJsonResult(false,"Invalid central HeatProfiles.json");
+      return true;
+     }
+    json_object * ValidationRows = ExistingProfileRows;
+    if( IncludesProfiles )
+     {
+      json_object * ExpectedRevisionValue = nullptr;
+      const bool HasExpectedRevision = json_object_object_get_ex( Incoming, "ProfileTimeStamp", &ExpectedRevisionValue ) &&
+        json_object_is_type( ExpectedRevisionValue, json_type_string );
+      const TGNString ExpectedRevision = HasExpectedRevision
+        ? json_object_get_string( ExpectedRevisionValue ) : "";
+      const TGNString CurrentRevision = StringValue( ProfileSnapshot, "TimeStamp" );
+      if( !HasExpectedRevision || ExpectedRevision != CurrentRevision )
+       {
+        json_object_put( ProfileSnapshot );
+        json_object_put( Incoming );
+        StatusCode = 409;
+        Response = GnJsonResult(false,"Profiles changed; reload before saving channel assignments");
+        return true;
+       }
+      if( !ValidateProfileRows( IncomingProfileRows ) )
+       {
+        json_object_put( ProfileSnapshot );
+        json_object_put( Incoming );
+        StatusCode = 400;
+        Response = GnJsonResult(false,"Invalid PI profiles");
+        return true;
+       }
+      ValidationRows = IncomingProfileRows;
+      ProfilesChanged = JsonText( ExistingProfileRows, false ) != JsonText( IncomingProfileRows, false );
+     }
+    if( !ValidateCentralChannels( IncomingChannels, ValidationRows ) )
+     {
+      json_object_put( ProfileSnapshot );
       json_object_put( Incoming );
       StatusCode = 400;
       Response = GnJsonResult(false,"Invalid channel assignments or unknown heater profile");
@@ -962,6 +1060,7 @@ bool TTimeStore::HandleCentralRequest( TGNString const & Method, TGNString const
   json_object * OldRoot = LoadStore( FileName );
   if( OldRoot == nullptr )
    {
+    if( ProfileSnapshot != nullptr ) json_object_put( ProfileSnapshot );
     json_object_put( Incoming );
     StatusCode = 500;
     Response = GnJsonResult(false,"Invalid existing Times.json");
@@ -974,6 +1073,7 @@ bool TTimeStore::HandleCentralRequest( TGNString const & Method, TGNString const
     if( !SameChannelTopology( OldChannels, IncomingChannels ) )
      {
       json_object_put( OldRoot );
+      if( ProfileSnapshot != nullptr ) json_object_put( ProfileSnapshot );
       json_object_put( Incoming );
       StatusCode = 400;
       Response = GnJsonResult(false,"Channel editing cannot add, remove or reorder channel rows");
@@ -981,8 +1081,75 @@ bool TTimeStore::HandleCentralRequest( TGNString const & Method, TGNString const
      }
    }
 
-  const bool Changed = CopySetMetadataForManualSave( OldRoot, Incoming, ProfilesFile );
+  json_object * ProfileSyncSnapshot = nullptr;
+  json_object * UpdatedProfiles = nullptr;
+  json_object * UpdatedProfileSync = nullptr;
+  const std::filesystem::path ProfileSyncFile = ProfilesFile.parent_path() / "HeatProfiles.sync.json";
+  bool ProfileSyncExisted = false;
+  bool ProfileFilesSaved = false;
+  bool Changed = CopySetMetadataForManualSave( OldRoot, Incoming, ProfilesFile );
+  if( ProfilesChanged )
+   {
+    UpdatedProfiles = CloneJson( ProfileSnapshot );
+    if( UpdatedProfiles == nullptr )
+     {
+      json_object_put( ProfileSnapshot ); json_object_put( OldRoot ); json_object_put( Incoming );
+      StatusCode = 500; Response = GnJsonResult(false,"Cannot prepare PI profile update"); return true;
+     }
+    const TGNString Revision = NowTimeStamp();
+    json_object_object_add( UpdatedProfiles, "Profs", CloneJson( IncomingProfileRows ) );
+    SetString( UpdatedProfiles, "TimeStamp", Revision );
+    ProfileSyncExisted = std::filesystem::is_regular_file( ProfileSyncFile );
+    if( ProfileSyncExisted )
+     {
+      ProfileSyncSnapshot = json_object_from_file( ProfileSyncFile.c_str() );
+      if( ProfileSyncSnapshot == nullptr )
+       {
+        json_object_put( UpdatedProfiles ); json_object_put( ProfileSnapshot );
+        json_object_put( OldRoot ); json_object_put( Incoming );
+        StatusCode = 500; Response = GnJsonResult(false,"Cannot load HeatProfiles sync state"); return true;
+       }
+      UpdatedProfileSync = CloneJson( ProfileSyncSnapshot );
+     }
+    else
+      UpdatedProfileSync = json_tokener_parse( "{\"Ver\":1,\"Rev\":\"\",\"Sets\":[]}" );
+    if( UpdatedProfiles == nullptr || UpdatedProfileSync == nullptr )
+     {
+      if( UpdatedProfiles != nullptr ) json_object_put( UpdatedProfiles );
+      if( UpdatedProfileSync != nullptr ) json_object_put( UpdatedProfileSync );
+      if( ProfileSyncSnapshot != nullptr ) json_object_put( ProfileSyncSnapshot );
+      json_object_put( ProfileSnapshot ); json_object_put( OldRoot ); json_object_put( Incoming );
+      StatusCode = 500; Response = GnJsonResult(false,"Cannot prepare PI profile update"); return true;
+     }
+    SetProfileSyncPending( UpdatedProfileSync, OldRoot, Revision );
+    SetSwitchTimesPending( Incoming, Revision );
+    Changed = true;
+    if( !SaveStore( ProfilesFile, UpdatedProfiles ) || !SaveStore( ProfileSyncFile, UpdatedProfileSync ) )
+     {
+      SaveStore( ProfilesFile, ProfileSnapshot );
+      if( ProfileSyncExisted ) SaveStore( ProfileSyncFile, ProfileSyncSnapshot );
+      else { std::error_code RemoveError; std::filesystem::remove( ProfileSyncFile, RemoveError ); }
+      json_object_put( UpdatedProfileSync );
+      if( ProfileSyncSnapshot != nullptr ) json_object_put( ProfileSyncSnapshot );
+      json_object_put( UpdatedProfiles ); json_object_put( ProfileSnapshot );
+      json_object_put( OldRoot ); json_object_put( Incoming );
+      StatusCode = 500; Response = GnJsonResult(false,"Cannot save PI profiles"); return true;
+     }
+    ProfileFilesSaved = true;
+   }
+  json_object_object_del( Incoming, "Profs" );
+  json_object_object_del( Incoming, "ProfileTimeStamp" );
   const bool Saved = SaveStore( FileName, Incoming );
+  if( !Saved && ProfileFilesSaved )
+   {
+    SaveStore( ProfilesFile, ProfileSnapshot );
+    if( ProfileSyncExisted ) SaveStore( ProfileSyncFile, ProfileSyncSnapshot );
+    else { std::error_code RemoveError; std::filesystem::remove( ProfileSyncFile, RemoveError ); }
+   }
+  if( UpdatedProfileSync != nullptr ) json_object_put( UpdatedProfileSync );
+  if( ProfileSyncSnapshot != nullptr ) json_object_put( ProfileSyncSnapshot );
+  if( UpdatedProfiles != nullptr ) json_object_put( UpdatedProfiles );
+  if( ProfileSnapshot != nullptr ) json_object_put( ProfileSnapshot );
   json_object_put( OldRoot );
   json_object_put( Incoming );
   if( !Saved )

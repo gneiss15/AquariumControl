@@ -1,4 +1,4 @@
-# VerifyActivation.py, Version: 1.05
+# VerifyActivation.py, Version: 1.07
 """Check actual Main validation and common handlers without migration receipts."""
 from pathlib import Path
 import subprocess
@@ -39,6 +39,9 @@ class TEspRescueUpdater {
  public:
  const esp_partition_t * FMainPartition=&Main;
  bool FUpdateCompleted=false;
+ bool FMainWriteUnverified=false,FFileSystemWriteUnverified=false;
+ void SetPhase(const char*) {}
+ void SendEspError(int s,const char* t,int) { SendText(s,500,t); }
  void HandleCommit(int);
  void HandleMain(int);
  void SendText(int,int Code,const char*){Status=Code;}
@@ -57,7 +60,13 @@ Tests=r'''int main(void){
  DescriptionOk=false;assert(ShellyMainActivationError());DescriptionOk=true;
  ImageOk=false;assert(ShellyMainActivationError());ImageOk=true;
  Locked=true;Updater.HandleMain(0);assert(Status==400&&BootSelections==0);Locked=false;
- Updater.FUpdateCompleted=true;Updater.HandleCommit(0);
+ Updater.FUpdateCompleted=true;
+ Updater.FMainWriteUnverified=true;Updater.HandleCommit(0);
+ assert(Status==409&&BootSelections==0&&Restarts==0);
+ Updater.FMainWriteUnverified=false;
+ Updater.FFileSystemWriteUnverified=true;Updater.HandleMain(0);
+ assert(Status==409&&BootSelections==0&&Restarts==0);
+ Updater.FFileSystemWriteUnverified=false;Updater.HandleCommit(0);
  assert(Status==200&&BootSelections==1&&Restarts==1);
  return 0;
 }

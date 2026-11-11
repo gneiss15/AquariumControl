@@ -1,4 +1,4 @@
-// StatusClient.js, Version: 1.08
+// StatusClient.js, Version: 1.09
 import './Messages.js';
 
 const RequestTimeoutMilliseconds = 6000;
@@ -31,6 +31,11 @@ function SubscribeStatus(Client) {
           if (Data.ID === Subscriber.ID) Subscriber.AcceptStatus(Data);
     } catch (Error) { console.error('Dashboard push failed', Error); }
   };
+  Events.addEventListener('times', Event => {
+    if (StatusEvents !== Events) return;
+    LastEventAt = Date.now();
+    window.dispatchEvent(new CustomEvent('dashboard-times-changed', {detail: Event.data}));
+  });
   Events.onerror = () => {
     if (StatusEvents !== Events) return;
     PushConnected = false;
