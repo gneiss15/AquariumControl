@@ -1,7 +1,30 @@
-// Dashboard.js, Version: 1.76
+// Dashboard.js, Version: 2.15
 import {TDeviceStatusClient} from './StatusClient.js';
 import {TFeedbackAlarm} from './FeedbackAlarm.js';
 
+
+// Use browser-local time; clock ticks never request device or server data.
+function UpdateBrowserClock() {
+  const Clock = document.getElementById('BrowserClock');
+  if (!Clock) return;
+  const German = document.getElementById('MLang')?.textContent.trim() === 'DE';
+  const Now = new Date();
+  Clock.textContent = Now.toLocaleString(German ? 'de-DE' : 'en-GB', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  });
+  Clock.dateTime = Now.toISOString();
+  Clock.title = German ? 'Datum und Uhrzeit (Browserzeit)' : 'Date and time (browser clock)';
+}
+function StartBrowserClock() {
+  UpdateBrowserClock();
+  setInterval(UpdateBrowserClock, 1000);
+}
+if (document.readyState === 'loading')
+  document.addEventListener('DOMContentLoaded', StartBrowserClock, {once: true});
+else StartBrowserClock();
+// End browser clock.
+let LastDashboardUpdateAt = null;
 const OfflineCheckMilliseconds = 1000;
 const DashboardHealthNormalMilliseconds = 15000;
 const DashboardHealthInitialMilliseconds = 2000;
@@ -38,25 +61,29 @@ let DashboardHealthDelay = DashboardHealthInitialMilliseconds;
 let DashboardHealthRequestRunning = false;
 let DashboardWasUnavailable = false;
 let ActiveConfigDevice = null;
-let CentralTimeStore = {Version: 1, Sets: [], Times: []};
-let CentralHeatProfiles = {Profiles: []};
+let CentralTimeStore = {Ver: 1, Sets: [], Times: []};
+let CentralHeatProfiles = {Profs: []};
+let CentralHeatProfilesSaved = {Profs: [], TimeStamp: ''};
 let CentralHeatProfileStatus = {Sets: []};
-let CentralChannelStore = {Channels: {}};
+let CentralChannelStore = {Chs: {}};
+let CentralProfileAssignmentView = {Devices: []};
 let CentralChannelDrafts = new Map();
 let CentralTimeSortKey = null;
+let CentralTimesDirty = false;
 let OverviewOutputOrder = {};
 let OverviewFitPending = false;
+let SyncStatusRefreshTimer = null;
 let AssignmentView = null;
 let AssignmentTimer = null;
 let AssignmentLoading = false;
 
 class TDashboardDevice {
   constructor(Configuration) {
-    this.Configuration = Configuration;
-    this.TechnicalName = Configuration.Function || Configuration.Name || new URL(Configuration.BaseUrl, window.location.href).hostname;
+    this.Cfg = Configuration;
+    this.TechnicalName = Configuration.Func || Configuration.Name || new URL(Configuration.BaseUrl, window.location.href).hostname;
     this.BaseUrl = new URL(Configuration.BaseUrl, window.location.href);
-    this.ConfigUrl = Configuration.ConfigUrl
-      ? new URL(Configuration.ConfigUrl, this.BaseUrl)
+    this.CfgUrl = Configuration.CfgUrl
+      ? new URL(Configuration.CfgUrl, this.BaseUrl)
       : null;
     this.Views = (Array.isArray(Configuration.GroupViews) && Configuration.GroupViews.length > 0
       ? Configuration.GroupViews
@@ -82,21 +109,21 @@ class TDashboardDevice {
       CreateConfigurationTab(this);
   }
 
-  get DisplayName() { return DeviceDisplayName(this.TechnicalName, this.Configuration); }
+  get DisplayName() { return DeviceDisplayName(this.TechnicalName, this.Cfg); }
 
   async Start() {
     this.StopClient();
     SetConnectionState(this, 'Offline');
-    if (this.Configuration.Active === false) return;
+    if (this.Cfg.Active === false) return;
     try {
       this.Client = new TDeviceStatusClient(
         this.BaseUrl,
         (Status, Sequence) => this.HandleStatus(Status, Sequence),
         Connected => this.HandleConnectionChanged(Connected),
-        this.Configuration.ExternalSourceId || null
+        this.Cfg.ExternalSourceId || null
       );
       await this.Client.Start();
-      this.DeviceInfo = this.Client.Device;
+      this.DeviceInfo = this.Client.Dev;
       UpdateDeviceInfo(this);
       this.ScheduleRetry(false);
     } catch (Error) {
@@ -129,30 +156,34 @@ class TDashboardDevice {
 
   HandleStatus(Status, Sequence) {
     this.Status = Status;
+    EnsureRoomTemperatureView(this, Status);
     if (Array.isArray(Status.FeedbackMonitors)) FeedbackAlarm.Update(Status.FeedbackMonitors);
     this.LastStatusAt = new Date();
     for (const View of this.Views)
       UpdateDeviceStatus(View, Sequence);
+    UpdateDashboardErrors();
     UpdateDashboardTimestamp();
   }
 
   HandleConnectionChanged(Connected) {
     this.UdpConnected = Connected;
     SetConnectionState(this, Connected ? 'Live' : 'Offline');
-    if (!Connected && this.Configuration.ExternalSourceId) ShowDeviceOffline(this);
+    if (!Connected && this.Cfg.ExternalSourceId) ShowDeviceOffline(this);
+    UpdateDashboardErrors();
   }
 }
 
 class TDashboardDeviceView {
   constructor(Device, Configuration) {
     this.Owner = Device;
-    this.Configuration = Device.Configuration;
-    this.Group = Configuration.Group || Device.Configuration.Group || 'Other';
-    this.MeasurementIds = Array.isArray(Configuration.Measurements) ? new Set(Configuration.Measurements) : null;
+    this.Cfg = Device.Cfg;
+    this.Group = Configuration.Group || Device.Cfg.Group || 'Other';
+    this.MeasurementIds = Array.isArray(Configuration.Meas) ? new Set(Configuration.Meas) : null;
     this.StatusFunction = Configuration.StatusFunction || null;
     this.TemperatureOnly = Configuration.TemperatureOnly === true;
-    this.ChannelIds = Array.isArray(Configuration.Channels)
-      ? new Set(Configuration.Channels.map(String))
+    this.RoomTemperatureOnly = Configuration.RoomTemperatureOnly === true;
+    this.ChannelIds = Array.isArray(Configuration.Chs)
+      ? new Set(Configuration.Chs.map(String))
       : null;
     this.Card = null;
     this.StatusRow = null;
@@ -162,9 +193,9 @@ class TDashboardDeviceView {
 
   get BaseUrl() { return this.Owner.BaseUrl; }
   get Client() { return this.Owner.Client; }
-  get ConfigUrl() { return this.Owner.ConfigUrl; }
+  get ConfigUrl() { return this.Owner.CfgUrl; }
   get DeviceInfo() { return this.Owner.DeviceInfo; }
-  get DisplayName() { return this.StatusFunction ? `${this.TemperatureOnly ? Tr('TemperatureSource', 'Temperature source') + ' · ' : ''}${DeviceDisplayName(this.StatusFunction)}` : this.Owner.DisplayName; }
+  get DisplayName() { if (this.RoomTemperatureOnly) return Tr('RoomTemperature', 'Room temperature'); return this.StatusFunction ? `${this.TemperatureOnly ? Tr('TemperatureSource', 'Temperature source') + ' · ' : ''}${DeviceDisplayName(this.StatusFunction)}` : this.Owner.DisplayName; }
   get LastStatusAt() { return this.Owner.LastStatusAt; }
   get Status() { return this.Owner.Status; }
   get TechnicalName() { return this.Owner.TechnicalName; }
@@ -208,6 +239,8 @@ function Tr(Name, DefaultText = undefined) {
 function TrAll() {
   for (const Element of document.querySelectorAll('[data-tr]'))
     Element.textContent = Tr(Element.dataset.tr, Element.textContent);
+  for (const Element of document.querySelectorAll('[data-tr-aria]'))
+    Element.setAttribute('aria-label', Tr(Element.dataset.trAria, Element.getAttribute('aria-label')));
   for (const Element of document.querySelectorAll('[data-tr-title]')) {
     const Text = Tr(Element.dataset.trTitle, Element.title);
     Element.title = Text;
@@ -218,8 +251,8 @@ function TrAll() {
 }
 
 function DeviceDisplayName(Name, Configuration = null) {
-  const Config = Configuration || Devices.find(Device => Device.TechnicalName === Name)?.Configuration;
-  if (Config?.UseHardwareName && Config.HardwareName) return Config.HardwareName;
+  const Config = Configuration || Devices.find(Device => Device.TechnicalName === Name)?.Cfg;
+  if (Config?.UseHwName && Config.HwName) return Config.HwName;
   if (Config?.EndpointFunction) return Tr(`Channel.${Config.EndpointFunction}`, Tr(`Device.${Config.EndpointFunction}`, Config.EndpointFunction));
   if (Name === 'GN-Pi') return Tr('Device.MultiTimer Aq1 & 2', 'Zeitschaltuhr Aq1 & Aq2');
   return Tr(`Device.${Name}`, Name);
@@ -229,9 +262,9 @@ function ChannelDisplayName(Channel, Device = null) {
   const RawName = Channel?.Name || Channel?.Id;
   const DeviceName = typeof Device === 'string' ? Device : Device?.TechnicalName;
   const Configuration = typeof Device === 'string'
-    ? Devices.find(Item => Item.TechnicalName === Device)?.Configuration : Device?.Configuration;
+    ? Devices.find(Item => Item.TechnicalName === Device)?.Cfg : Device?.Cfg;
   if (Configuration?.EndpointHardwareLabels?.[RawName]) return Configuration.EndpointHardwareLabels[RawName];
-  if (Configuration?.UseHardwareName && Configuration.HardwareName) return Configuration.HardwareName;
+  if (Configuration?.UseHwName && Configuration.HwName) return Configuration.HwName;
   const DeviceKey = `Channel.${DeviceName}.${RawName}`;
   if (DeviceName && Array.isArray(Translations[DeviceKey]))
     return Tr(DeviceKey);
@@ -240,11 +273,82 @@ function ChannelDisplayName(Channel, Device = null) {
   return `${Tr('Channel', 'Channel')} ${Channel?.Id ?? ''}`.trim();
 }
 
+// Central editors need aquarium context; overview cards already have group headings.
+function EditorDeviceLabel(Name, Configuration = null) {
+  const Config = Configuration || Devices.find(Device => Device.TechnicalName === Name)?.Cfg;
+  const Groups = [...new Set((Config?.GroupViews || [{Group: Config?.Group}]).map(View => View.Group).filter(Boolean))];
+  return AssignmentFunctionLabel(Name, Groups, DeviceDisplayName(Name, Config));
+}
+
+function EditorChannelLabel(Channel, Device) {
+  const Function = Channel?.Name || Channel?.Id || '';
+  const Endpoint = AssignmentView?.Endpoints?.find(Item => Item.Func === Function);
+  const Config = Devices.find(Item => Item.TechnicalName === Device)?.Cfg;
+  const Views = Config?.GroupViews || [{Group: Config?.Group}];
+  const Groups = Endpoint?.Groups || Views.filter(View => !View.Chs || View.Chs.includes(Function)).map(View => View.Group).filter(Boolean);
+  const Aquarium = String(Function).match(/Aq\d+/g) || [];
+  return AssignmentFunctionLabel(Function, Aquarium.length ? Aquarium : Groups, ChannelDisplayName(Channel, Device));
+}
+
+class TEndpointDirectory {
+  Entries() {
+    const View = CentralProfileAssignmentView || {};
+    const Entries = [];
+    for (const Endpoint of View.Endpoints || []) {
+      if (!Endpoint.OutAddress) continue;
+      Entries.push({
+        Id: Endpoint.OutAddress,
+        Name: AssignmentFunctionLabel(Endpoint.Func, Endpoint.Groups || [], Endpoint.UseHwName ? Endpoint.HwName : null),
+        Aliases: [Endpoint.Func, Endpoint.HwName].filter(Boolean)
+      });
+    }
+    for (const Device of View.Devices || []) {
+      if (!Device.DevId) continue;
+      const Sensor = (View.Endpoints || []).find(Endpoint =>
+        Endpoint.OutAddress?.split('/')[0] === Device.DevId && Number(Endpoint.Caps) === 2);
+      const Function = Sensor?.Func || Device.Func || Device.HwName || Device.DevId;
+      Entries.push({
+        Id: Device.DevId,
+        Name: AssignmentFunctionLabel(Function, Sensor?.Groups || [], Sensor?.UseHwName ? Sensor.HwName : null),
+        Aliases: [Device.Func, Device.HwName, Function].filter(Boolean)
+      });
+    }
+    for (const Device of Devices) {
+      if (!Device.Cfg?.ExternalSourceId) continue;
+      Entries.push({Id: Device.Cfg.ExternalSourceId, Name: EditorDeviceLabel(Device.TechnicalName),
+        Aliases: [Device.TechnicalName]});
+    }
+    return Entries;
+  }
+
+  IdToName(Id) {
+    return this.Entries().find(Entry => Entry.Id === Id)?.Name || '';
+  }
+
+  IdToLabel(Id, Detail = '', FallbackName = '') {
+    if (!Id) return '';
+    const Name = this.IdToName(Id) || FallbackName;
+    return Name ? `${Name}${Detail ? ` · ${Detail}` : ''} (${Id})` : Id;
+  }
+
+  NameToId(Value) {
+    const Text = String(Value || '').trim();
+    if (!Text) return '';
+    const Entries = this.Entries();
+    const IdMatch = /\s+\(([^()]+)\)$/.exec(Text);
+    if (IdMatch && Entries.some(Entry => Entry.Id === IdMatch[1])) return IdMatch[1];
+    const Matches = [...new Set(Entries.filter(Entry => Entry.Name === Text || Entry.Aliases.includes(Text)).map(Entry => Entry.Id))];
+    return Matches.length === 1 ? Matches[0] : '';
+  }
+}
+
+const EndpointDirectory = new TEndpointDirectory();
+
 function RefreshTranslatedContent() {
   TrAll();
   for (const Device of Devices) {
     if (Device.ConfigSelectorOption !== null)
-      Device.ConfigSelectorOption.textContent = DeviceDisplayName(Device.TechnicalName);
+      Device.ConfigSelectorOption.textContent = EditorDeviceLabel(Device.TechnicalName);
     for (const View of Device.Views) {
       View.StatusRow.querySelector('.DeviceName').textContent = View.DisplayName;
       SetConnectionState(View, View.StatusRow.querySelector('.ConnectionBadge').classList.contains('Live')
@@ -256,8 +360,19 @@ function RefreshTranslatedContent() {
   }
   for (const [GroupId, Group] of DeviceGroups)
     Group.Title.textContent = DeviceGroupDisplayName(GroupId);
-  if (CentralTimeStore.Sets.length > 0 || CentralTimeStore.Times.length > 0)
+  UpdateDashboardErrors();
+  if (CentralTimeStore.Sets.length > 0 || CentralTimeStore.Times.length > 0) {
+    CentralTimeStore.Times = CollectCentralTimes();
     RenderCentralTimes();
+  }
+  if (document.querySelector('#HeatProfilesEditor .HeatProfileCard')) {
+    for (const Source of document.querySelectorAll('#HeatProfilesEditor select[data-profile-source]'))
+      Source.UpdateOptions?.(true);
+    RenderChannelProfiles(true);
+    if (CentralHeatProfileStatus) RenderHeatProfileStatus(CentralHeatProfileStatus);
+  }
+  if (document.getElementById('Assignments').classList.contains('Active')) LoadAssignments();
+  RenderDashboardTimestamp();
   if (!document.getElementById('DetailOverlay').hidden)
     CloseChannelDetails();
 }
@@ -333,10 +448,7 @@ function CreateDeviceCard(Device) {
   const Group = GetDeviceGroup(Device.Group);
   Group.Views.push(Device);
   Group.StatusList.appendChild(Header);
-  if (Device.Configuration.StatusOnly === true) {
-    const Measurements = Card.querySelector('.MeasurementList');
-    const ErrorPanel = Card.querySelector('.ErrorPanel');
-    Measurements.after(ErrorPanel);
+  if (Device.Cfg.StatusOnly === true) {
     Card.querySelector('.ChannelList').hidden = true;
   }
   Card.classList.add('GroupOutputCard');
@@ -410,19 +522,20 @@ function HandleDashboardResize() {
 function UpdateDeviceInfo(Device) {
   if (Device.DeviceInfo === null) return;
 
-  if (!Device.Configuration.Name) {
-    Device.TechnicalName = Device.Configuration.Function || Device.DeviceInfo.Name || Device.DeviceInfo.DeviceId || Device.TechnicalName;
+  if (!Device.Cfg.Name) {
+    Device.TechnicalName = Device.Cfg.Func || Device.DeviceInfo.Name || Device.DeviceInfo.DevId || Device.TechnicalName;
     if (Device.ConfigSelectorOption !== null)
-      Device.ConfigSelectorOption.textContent = DeviceDisplayName(Device.TechnicalName);
+      Device.ConfigSelectorOption.textContent = EditorDeviceLabel(Device.TechnicalName);
   }
 
-  if (Device.DeviceInfo.ConfigUrl)
-    Device.ConfigUrl = new URL(Device.DeviceInfo.ConfigUrl, Device.BaseUrl);
+  if (Device.DeviceInfo.CfgUrl)
+    Device.CfgUrl = new URL(Device.DeviceInfo.CfgUrl, Device.BaseUrl);
   if (Device.ConfigSelectorOption !== null)
-    Device.ConfigSelectorOption.disabled = Device.ConfigUrl === null;
+    Device.ConfigSelectorOption.disabled = Device.CfgUrl === null;
 }
 
 function SetConnectionState(Device, State) {
+  Device.ConnectionState = State;
   for (const View of Device.Views || [Device]) {
     const Badge = View.StatusRow.querySelector('.ConnectionBadge');
     Badge.className = `ConnectionBadge ${State}`;
@@ -449,11 +562,6 @@ function ShowDeviceOffline(Device) {
   SetConnectionState(Device, 'Offline');
   const ChangedGroups = new Set();
   for (const View of Device.Views || [Device]) {
-    const Panel = View.Card.querySelector('.ErrorPanel');
-    const List = View.Card.querySelector('.ErrorList');
-    List.replaceChildren();
-    Panel.hidden = true;
-
     const Measurements = View.Card.querySelector('.MeasurementList');
     Measurements.hidden = true;
     Measurements.replaceChildren();
@@ -467,30 +575,25 @@ function ShowDeviceOffline(Device) {
   }
   for (const GroupId of ChangedGroups)
     UpdateGroupOutputs(DeviceGroups.get(GroupId));
+  UpdateDashboardErrors();
 }
 
-function ShowDeviceError(Device, Message) {
-  const Panel = Device.Card.querySelector('.ErrorPanel');
-  const List = Device.Card.querySelector('.ErrorList');
-  List.replaceChildren(CreateElement('li', '', Message));
-  Panel.hidden = false;
-  const Measurements = Device.Card.querySelector('.MeasurementList');
-  Measurements.hidden = true;
-  Measurements.replaceChildren();
-  const Channels = Device.Card.querySelector('.ChannelList');
-  if (Device.Configuration.StatusOnly === true) {
-    Channels.hidden = true;
-    Channels.replaceChildren();
-  } else {
-    Channels.hidden = false;
-    Channels.replaceChildren(CreateElement('div', 'EmptyChannels', Tr('NoStatusData', 'Keine Statusdaten verfügbar.')));
+function EnsureRoomTemperatureView(Device, Status) {
+  if (Device.Cfg.DevType !== 'MultiTimer') return;
+  const Present = (Status.Meas || []).some(Measurement => Measurement.Kind === 'RoomTemperature');
+  let View = Device.Views.find(Item => Item.RoomTemperatureOnly);
+  if (Present && !View) {
+    View = new TDashboardDeviceView(Device, {Group: 'System', Meas: ['RoomTemperature'], Chs: [], RoomTemperatureOnly: true});
+    Device.Views.push(View);
+    View.Card = CreateDeviceCard(View);
+    SetConnectionState(View, Device.ConnectionState || 'Offline');
   }
+  if (View) View.StatusRow.hidden = !Present;
 }
 
 function UpdateDeviceStatus(Device) {
   const Status = Device.Status;
   if (Status === null) return;
-  UpdateErrors(Device);
   UpdateFeedbackRows(Device);
   UpdateMeasurements(Device);
   UpdateChannels(Device);
@@ -498,13 +601,15 @@ function UpdateDeviceStatus(Device) {
 }
 
 function UpdateFeedbackRows(Device) {
+  if (Device.RoomTemperatureOnly) { Device.FeedbackRows = []; return; }
   Device.FeedbackRows = (Device.Status.FeedbackMonitors || []).map(Monitor => {
     const Row = CreateElement('div', 'ChannelRow FeedbackRow');
     Row.dataset.outputId = `Feedback.${Monitor.Id}`;
     const Labels = {OK: Tr('FeedbackOK', 'Zustand bestätigt'),
       Unknown: String(Monitor.Reason).startsWith('Invalid') ? Tr('FeedbackInvalid', 'Rückmeldung inkorrekt') : Tr('FeedbackUnknown', 'Rückmeldung fehlt'),
       Pending: Tr('FeedbackPending', 'Zustand wird geprüft'), Mismatch: Tr('FeedbackMismatch', 'Zustand nicht bestätigt')};
-    Row.append(CreateElement('span', '', Monitor.SwitchFunction), CreateElement('span', Monitor.State === 'Mismatch' ? 'Error' : '', Labels[Monitor.State] || Monitor.State));
+    Row.append(CreateElement('span', '', `- ${Tr('FeedbackLabel', 'Rückmeldung')}`),
+      CreateElement('span', Monitor.State === 'Mismatch' ? 'Error' : '', Labels[Monitor.State] || Monitor.State));
     return Row;
   });
 }
@@ -546,11 +651,23 @@ function RenewFeedbackSoundCookie() {
     StoreFeedbackSoundCookie(Preference.Enabled);
 }
 
+// Fixed local SVG symbols; labels describe the action, independently of audio permission.
+function ActionIcon(Name) {
+  const Paths = {
+    Sound: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
+    Mute: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="m3 3 18 18"/>',
+    Trash: '<path d="M3 7h18M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6m4-6v6"/>'
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${Paths[Name]}</svg>`;
+}
+
 const FeedbackAlarm = new TFeedbackAlarm(() => {
   const Toggle = document.getElementById('FeedbackSoundToggle');
   const Running = FeedbackAlarm.Enabled && FeedbackAlarm.Context?.state === 'running';
-  Toggle.textContent = Running ? Tr('AlarmSoundOff', 'Warnton ausschalten')
-    : FeedbackAlarm.Requested ? Tr('AlarmSoundRelease', 'Warnton freigeben') : Tr('AlarmSoundOn', 'Warnton aktivieren');
+  const Key = Running ? 'AlarmSoundOff' : FeedbackAlarm.Requested ? 'AlarmSoundRelease' : 'AlarmSoundOn';
+  Toggle.dataset.trTitle = Key;
+  Toggle.title = Tr(Key); Toggle.setAttribute('aria-label', Tr(Key));
+  Toggle.innerHTML = ActionIcon(Running ? 'Mute' : 'Sound');
   Toggle.setAttribute('aria-pressed', String(FeedbackAlarm.Enabled && FeedbackAlarm.Context?.state === 'running'));
   document.getElementById('FeedbackSoundAcknowledge').hidden = FeedbackAlarm.Active.size === 0;
   document.getElementById('FeedbackSoundAcknowledge').disabled = [...FeedbackAlarm.Active].every(Key => FeedbackAlarm.Acknowledged.has(Key));
@@ -570,21 +687,25 @@ document.getElementById('FeedbackSoundToggle').addEventListener('click', async (
 });
 document.getElementById('FeedbackSoundAcknowledge').addEventListener('click', () => FeedbackAlarm.Acknowledge());
 
-function UpdateErrors(Device) {
-  const Panel = Device.Card.querySelector('.ErrorPanel');
-  const List = Device.Card.querySelector('.ErrorList');
-  const Errors = [...(Device.Status.Errors || [])];
-
-  if (Device.Status.LastError?.Message)
-    Errors.push(`Letzter Logfehler: ${Device.Status.LastError.Message}`);
-  if (Errors.length === 0) {
-    Panel.hidden = true;
-    List.replaceChildren();
-    return;
+function UpdateDashboardErrors() {
+  const Panel = document.getElementById('DeviceErrorMessages');
+  const List = document.getElementById('DeviceErrorList');
+  const Entries = [];
+  for (const Device of Devices) {
+    if (Device.Status === null || Device.ConnectionState === 'Offline') continue;
+    const Errors = [...new Set((Device.Status.Errs || []).map(String))];
+    if (Device.Status.LastErr?.Message)
+      Errors.push(`${Tr('LastLogError', 'Last logged error')}: ${Device.Status.LastErr.Message}`);
+    if (Errors.length)
+      Entries.push({Name: DeviceDisplayName(Device.TechnicalName, Device.Cfg), Errors});
   }
-
-  List.replaceChildren(...Errors.map(Error => CreateElement('li', '', Error)));
-  Panel.hidden = false;
+  List.replaceChildren(...Entries.map(Entry => {
+    const Row = CreateElement('div', 'DeviceErrorEntry');
+    Row.append(CreateElement('strong', 'DeviceErrorSource', Entry.Name),
+      CreateElement('span', 'DeviceErrorText', Entry.Errors.join(' · ')));
+    return Row;
+  }));
+  Panel.hidden = Entries.length === 0;
 }
 
 function FormatMeasurement(Measurement) {
@@ -602,15 +723,15 @@ function FormatMeasurement(Measurement) {
 
 function CreateMeasurementRow(Measurement) {
   const Row = CreateElement('div', 'MeasurementRow');
-  Row.dataset.outputId = String(Measurement.Id || '');
-  Row.appendChild(CreateElement('span', 'MeasurementName', Measurement.Name || Measurement.Id || 'Messwert'));
+  Row.dataset.outputId = String(Measurement.Kind || '');
+  Row.appendChild(CreateElement('span', 'MeasurementName', Measurement.Kind === 'RoomTemperature' ? Tr('RoomTemperature', 'Room temperature') : Measurement.Name || Measurement.Kind || 'Messwert'));
   const Value = CreateElement(
     'strong',
     Measurement.Valid === false ? 'MeasurementValue Invalid' : 'MeasurementValue',
     FormatMeasurement(Measurement)
   );
-  if (Measurement.Error)
-    Value.title = Measurement.Error;
+  if (Measurement.Err)
+    Value.title = Measurement.Err;
   Row.appendChild(Value);
   return Row;
 }
@@ -644,19 +765,21 @@ function CreatePowerMeterRow(PowerMeter, Name, Label = null) {
 
 function UpdateMeasurements(Device) {
   const Container = Device.Card.querySelector('.MeasurementList');
-  const Measurements = (Device.Status.Measurements || []).filter(Measurement => Device.MeasurementIds === null || Device.MeasurementIds.has(Measurement.Id));
+  const Measurements = (Device.Status.Meas || []).filter(Measurement => (Measurement.Kind !== 'RoomTemperature' || Device.RoomTemperatureOnly) && (Device.MeasurementIds === null || Device.MeasurementIds.has(Measurement.Kind)));
   const Rows = Measurements.map(CreateMeasurementRow);
-  if (Device.Configuration.ExternalSourceId && Object.hasOwn(Device.Status, 'BatteryPercent')) {
-    const Value = Device.Status.BatteryPercent;
-    Rows.push(CreateMeasurementRow({Id: 'BatteryPercent',
-      Name: `${Tr('BatteryLevel', 'Akkustand')} ${Device.DisplayName}`, Value,
+  if (Device.Cfg.ExternalSourceId && Object.hasOwn(Device.Status, 'BatteryPct')) {
+    const Value = Device.Status.BatteryPct;
+    const BatteryRow = CreateMeasurementRow({Kind: 'BatteryPercent',
+      Name: Tr('LaptopBatteryLabel', 'Laptop Akku'), Value,
       Valid: typeof Value === 'number' && Number.isFinite(Value) && Value >= 0 && Value <= 100,
-      Unit: '%', Decimals: 0}));
+      Unit: '%', Decimals: 0});
+    BatteryRow.dataset.outputId = 'LaptopBattery';
+    Rows.push(BatteryRow);
   }
   if (Device.Status.PowerMeter)
-    Rows.push(CreatePowerMeterRow(Device.Status.PowerMeter, Device.Configuration.PowerLabel || 'Power',
-      Device.Configuration.UseHardwareName && Device.Configuration.HardwareName
-        ? `${Tr('Power', 'Power')} ${Device.Configuration.HardwareName}` : Device.Configuration.EndpointFunction ? `${Tr('Power', 'Power')} ${ChannelDisplayName({Name: Device.Configuration.EndpointFunction})}` : null));
+    Rows.push(CreatePowerMeterRow(Device.Status.PowerMeter, Device.Cfg.PowerLabel || 'Power',
+      Device.Cfg.UseHwName && Device.Cfg.HwName
+        ? `${Tr('Power', 'Power')} ${Device.Cfg.HwName}` : Device.Cfg.EndpointFunction ? `${Tr('Power', 'Power')} ${ChannelDisplayName({Name: Device.Cfg.EndpointFunction})}` : null));
   Container.hidden = Rows.length === 0;
   Container.replaceChildren(...Rows);
   Device.MeasurementRows = Rows;
@@ -664,17 +787,20 @@ function UpdateMeasurements(Device) {
 
 function UpdateChannels(Device) {
   const Container = Device.Card.querySelector('.ChannelList');
-  if (Device.Configuration.StatusOnly === true) {
+  if (Device.Cfg.StatusOnly === true) {
     Container.hidden = true;
     Container.replaceChildren();
     return;
   }
   Container.hidden = false;
-  const AllChannels = Device.Status.Channels || [];
+  const AllChannels = Device.Status.Chs || [];
+  const Type = Device.DeviceInfo?.DevType ?? Device.Client?.Dev?.DevType;
+  const Feeder = Type === 'Feeder' || Type === 'FeederSimple';
   const Channels = (Device.ChannelIds === null
     ? AllChannels
     : AllChannels.filter(Channel => Device.ChannelIds.has(String(Channel.Name || Channel.Id))))
-    .filter(Channel => String(Channel.Name || '').toLowerCase() !== 'fütterung');
+    .filter(Channel => !(Feeder && (Channel.HwCh === 0 || Channel.Id?.endsWith('/0'))) &&
+      String(Channel.Name || '').toLowerCase() !== 'fütterung');
   const Rows = Channels.map(Channel => CreateChannelRow(Device, Channel));
   Container.replaceChildren(...Rows);
   Device.ChannelRows = Rows;
@@ -712,15 +838,6 @@ function UpdateGroupOutputs(Group) {
     Group.Outputs.appendChild(Row);
   }
 
-  for (const View of Group.Views) {
-    const Panel = View.Card.querySelector('.ErrorPanel');
-    if (!Panel.hidden) {
-      const ErrorRow = Panel.cloneNode(true);
-      ErrorRow.querySelector('strong').textContent = View.DisplayName;
-      Group.Outputs.appendChild(ErrorRow);
-    }
-  }
-
   const PowerOrder = {PowerHeater: 0, PowerLight: 1};
   const PowerRows = OutputRows.filter(Row => Row.classList.contains('PowerMeterRow'))
     .sort((Left, Right) => (PowerOrder[Left.dataset.powerLabel] ?? 2) -
@@ -731,16 +848,33 @@ function UpdateGroupOutputs(Group) {
     UsedRows.add(Row);
     Group.Outputs.appendChild(Row);
   }
+  if (Group.Section.dataset.group === 'System') {
+    const LaptopOutputIds = ['LaptopSw', 'Feedback.LaptopPower', 'LaptopBattery'];
+    const Children = [...Group.Outputs.children];
+    const LaptopRows = new Map(LaptopOutputIds.map(Id =>
+      [Id, Children.find(Row => Row.dataset.outputId === Id)]));
+    const ExistingRows = new Set([...LaptopRows.values()].filter(Boolean));
+    if (ExistingRows.size > 1) {
+      const FirstIndex = Children.findIndex(Row => ExistingRows.has(Row));
+      const Anchor = Children.slice(FirstIndex).find(Row => !ExistingRows.has(Row)) || null;
+      const OrderedRows = document.createDocumentFragment();
+      for (const Id of LaptopOutputIds) {
+        const Row = LaptopRows.get(Id);
+        if (Row) OrderedRows.appendChild(Row);
+      }
+      Group.Outputs.insertBefore(OrderedRows, Anchor);
+    }
+  }
   ScheduleOverviewFit();
 }
 
 function GetButtonAction(Device, Channel) {
-  const Action = Device.DeviceInfo?.Actions?.ButtonPress;
-  if (!Action?.Path || !Channel.HasOutput) return null;
+  const Action = Device.DeviceInfo?.ButtonPress;
+  if (!Action?.Url || !Channel.HasOut || !Number.isInteger(Channel.HwCh)) return null;
 
   const Presses = (Action.Presses || []).map(Press => String(Press).toLowerCase());
   return {
-    Path: Action.Path,
+    Url: Action.Url,
     Short: Presses.includes('short'),
     Long: Presses.includes('long')
   };
@@ -750,10 +884,10 @@ function BuildButtonActionUrl(Device, Channel, Press) {
   const Action = GetButtonAction(Device, Channel);
   if (Action === null) throw new Error('Tasteraktion wird von diesem Kanal nicht unterstützt.');
 
-  const Path = Action.Path
-    .replace('{ChannelId}', encodeURIComponent(String(Channel.Id)))
+  const Url = Action.Url
+    .replace('{ChannelId}', encodeURIComponent(String(Channel.HwCh)))
     .replace('{Press}', encodeURIComponent(String(Press).toLowerCase()));
-  return new URL(Path, Device.BaseUrl);
+  return new URL(Url);
 }
 
 function ShowDashboardMessage(Message, IsError = true) {
@@ -830,7 +964,7 @@ function CreateChannelRow(Device, Channel) {
   Details.setAttribute('aria-label', `${ChannelDisplayName(Channel, Device)}: Details öffnen.`);
   Row.appendChild(Details);
 
-  const State = Channel.HasOutput ? Channel.State : Channel.InputState;
+  const State = Channel.HasOut ? Channel.State : Channel.InState;
   const Action = GetButtonAction(Device, Channel);
   const StateElement = CreateElement(Action?.Short ? 'button' : 'span', 'ChannelState');
   if (Action?.Short) {
@@ -851,29 +985,31 @@ function CreateChannelRow(Device, Channel) {
     SetStateText(StateElement, FormatState(State, Channel), `${StateElement.className} Unknown`.trim());
   Row.appendChild(StateElement);
 
-  if (Channel.Error || Channel.OverrideActive) {
+  if (Channel.Err || Channel.OvrActive) {
     Row.classList.add('HasMarker');
-    Row.appendChild(CreateElement('span', Channel.Error ? 'ChannelMarker Error' : 'ChannelMarker Override', '●'));
+    Row.appendChild(CreateElement('span', Channel.Err ? 'ChannelMarker Error' : 'ChannelMarker Override', '●'));
   }
   return Row;
 }
 
 function FormatState(State, Channel = null) {
   const Labels = Channel?.StateLabels || {};
-  if (State === true) return Labels.True || Tr('On', 'EIN');
-  if (State === false) return Labels.False || Tr('Off', 'AUS');
-  return Labels.Unknown || '–';
+  if (State === true) return Labels.True ? Tr(Labels.True) : Tr('On', 'EIN');
+  if (State === false) return Labels.False ? Tr(Labels.False) : Tr('Off', 'AUS');
+  return Labels.Unknown ? Tr(Labels.Unknown) : '–';
 }
 
 function FormatOverride(Channel) {
-  const State = FormatState(Channel.OverrideState, Channel);
-  if (Channel.OverrideUntil)
-    return `${State} bis ${FormatDateTime(Channel.OverrideUntil)}`;
+  const State = FormatState(Channel.OvrState, Channel);
+  if (Channel.OvrUntil)
+    return `${State} bis ${FormatDateTime(Channel.OvrUntil)}`;
   return `${State} ${Tr('UntilNextEvent', 'bis zum nächsten Ereignis')}`;
 }
 
+const NextChangeSource = Object.fromEntries(GnJson.Describe('TNextChangeSource').Enum.map(Item => [Item.Name, Item.Value]));
+
 function FormatNextChange(Channel, NextChange) {
-  if (NextChange.Source === 'FeedTime') {
+  if (NextChange.Src === NextChangeSource.FeedTime) {
     const Details = [FormatDateTime(NextChange.Time)];
     if (Number.isFinite(Number(NextChange.Portions))) {
       const Portions = Number(NextChange.Portions);
@@ -883,11 +1019,11 @@ function FormatNextChange(Channel, NextChange) {
   }
 
   const SourceNames = {
-    Interval: Tr('Interval', 'Intervall'),
-    OverrideEnd: Tr('OverrideEnd', 'Override-Ende'),
-    SwitchTime: Tr('SwitchTime', 'Schaltzeit')
+    [NextChangeSource.OverrideEnd]: Tr('OverrideEnd', 'Override-Ende'),
+    [NextChangeSource.SwitchTime]: Tr('SwitchTime', 'Schaltzeit'),
+    [NextChangeSource.CalibrationOverride]: Tr('CalibrationOverride', 'Kalibrierübersteuerung')
   };
-  const Source = SourceNames[NextChange.Source] || NextChange.Source || Tr('Change', 'Änderung');
+  const Source = SourceNames[NextChange.Src] || Tr('Change', 'Änderung');
   return `${FormatState(NextChange.State, Channel)} · ${FormatDateTime(NextChange.Time)} · ${Source}`;
 }
 
@@ -924,27 +1060,27 @@ function AddDetailRow(Container, Label, Value, ClassName = '') {
 }
 
 function OpenChannelDetails(Device, Channel) {
-  const State = Channel.HasOutput ? Channel.State : Channel.InputState;
+  const State = Channel.HasOut ? Channel.State : Channel.InState;
   const Body = document.getElementById('DetailBody');
   document.getElementById('DetailTitle').textContent = ChannelDisplayName(Channel, Device);
   Body.replaceChildren();
 
   AddDetailRow(Body, Tr('Device', 'Gerät'), Device.DisplayName);
   AddDetailRow(Body, Tr('State', 'Zustand'), FormatState(State, Channel), State === true ? 'Good' : '');
-  if (Channel.HasOutput && Channel.AutomaticState !== null && Channel.AutomaticState !== undefined)
+  if (Channel.HasOut && Channel.AutomaticState !== null && Channel.AutomaticState !== undefined)
     AddDetailRow(Body, Tr('Automatic', 'Automatik'), FormatState(Channel.AutomaticState, Channel));
-  if (Channel.HasInput)
-    AddDetailRow(Body, Tr('Input', 'Eingang'), FormatState(Channel.InputState));
-  if (Channel.OverrideActive)
+  if (Channel.HasIn)
+    AddDetailRow(Body, Tr('Input', 'Eingang'), FormatState(Channel.InState));
+  if (Channel.OvrActive)
     AddDetailRow(Body, Tr('ManualOverride', 'Manuelle Vorgabe'), FormatOverride(Channel), 'Warning');
   if (Channel.NextChange)
     AddDetailRow(
       Body,
-      Channel.NextChange.Source === 'FeedTime' ? Tr('NextFeeding', 'Nächste Fütterung') : Tr('NextChange', 'Nächste Änderung'),
+      Channel.NextChange.Src === NextChangeSource.FeedTime ? Tr('NextFeeding', 'Nächste Fütterung') : Tr('NextChange', 'Nächste Änderung'),
       FormatNextChange(Channel, Channel.NextChange)
     );
-  if (Channel.Error)
-    AddDetailRow(Body, Tr('Error', 'Fehler'), Channel.Error, 'Error');
+  if (Channel.Err)
+    AddDetailRow(Body, Tr('Error', 'Fehler'), Channel.Err, 'Error');
 
   AddDetailRow(Body, Tr('Connection', 'Verbindung'),
     Device.Views[0]?.StatusRow.querySelector('.ConnectionBadge').textContent || Tr('Offline', 'Offline'));
@@ -953,10 +1089,10 @@ function OpenChannelDetails(Device, Channel) {
     AddDetailRow(Body, Tr('TimeSync', 'Zeitsynchronisation'), Device.Status.TimeSynchronized ? Tr('Synchronized', 'Synchron') : Tr('NotSynchronized', 'Nicht synchron'));
   }
   AddDetailRow(Body, Tr('Updated', 'Aktualisiert'), FormatTime(Device.LastStatusAt));
-  if (Device.DeviceInfo?.FirmwareVersion)
-    AddDetailRow(Body, 'Firmware', Device.DeviceInfo.FirmwareVersion);
-  if (Device.DeviceInfo?.DataVersion)
-    AddDetailRow(Body, 'Data', Device.DeviceInfo.DataVersion);
+  if (Device.DeviceInfo?.FirmwareVer)
+    AddDetailRow(Body, 'Firmware', Device.DeviceInfo.FirmwareVer);
+  if (Device.DeviceInfo?.DataVer)
+    AddDetailRow(Body, 'Data', Device.DeviceInfo.DataVer);
 
   const Action = GetButtonAction(Device, Channel);
   if (Action?.Short || Action?.Long) {
@@ -1003,9 +1139,9 @@ function CloseChannelDetails() {
 }
 
 function CreateConfigurationTab(Device) {
-  const Option = CreateElement('option', '', Device.DisplayName);
+  const Option = CreateElement('option', '', EditorDeviceLabel(Device.TechnicalName, Device.Cfg));
   Option.value = Device.ConfigTabId;
-  Option.disabled = Device.ConfigUrl === null;
+  Option.disabled = Device.CfgUrl === null;
   document.getElementById('PageSelector').appendChild(Option);
   Device.ConfigSelectorOption = Option;
 
@@ -1023,14 +1159,14 @@ function CreateConfigurationTab(Device) {
 }
 
 function GetConfigurationFrameUrl(Device) {
-  const Url = new URL(Device.ConfigUrl);
-  if (Device.DeviceInfo?.DataVersion)
-    Url.searchParams.set('_DataVersion', Device.DeviceInfo.DataVersion);
+  const Url = new URL(Device.CfgUrl);
+  if (Device.DeviceInfo?.DataVer)
+    Url.searchParams.set('_DataVersion', Device.DeviceInfo.DataVer);
   return Url.toString();
 }
 
 function LoadConfigurationFrame(Device) {
-  if (Device.ConfigFrame !== null || Device.ConfigUrl === null) return;
+  if (Device.ConfigFrame !== null || Device.CfgUrl === null) return;
 
   const Canvas = CreateElement('div', 'ConfigCanvas');
   const Frame = CreateElement('iframe', 'ConfigFrame');
@@ -1113,7 +1249,7 @@ function StoreConfigurationSetting(Name, Value) {
 
 function SendConfigurationSetting(TargetWindow, Name, Found, Value = null) {
   TargetWindow?.postMessage({
-    Source: 'GnDashboard',
+    Src: 'GnDashboard',
     Type: 'SettingValue',
     Name,
     Found,
@@ -1133,7 +1269,7 @@ function UpdateFrameScaleLabel(Device) {
 
 function HandleConfigurationMessage(Event) {
   const Device = Devices.find(Item => Item.ConfigFrame?.contentWindow === Event.source);
-  if (Device === undefined || Event.data?.Source !== 'GnConfigPage') return;
+  if (Device === undefined || Event.data?.Src !== 'GnConfigPage') return;
 
   if (Event.data.Type === 'ViewportScale') {
     const Scale = Number(Event.data.Scale);
@@ -1165,7 +1301,7 @@ function FitFrame(Device) {
   const AvailableHeight = Device.ConfigViewport.clientHeight;
   if (AvailableWidth <= 0 || AvailableHeight <= 0) return;
 
-  if (Device.Configuration.Responsive === true) {
+  if (Device.Cfg.Responsive === true) {
     Device.ConfigCanvas.style.width = `${AvailableWidth}px`;
     Device.ConfigCanvas.style.height = `${AvailableHeight}px`;
     Device.ConfigFrame.style.width = `${AvailableWidth}px`;
@@ -1176,12 +1312,12 @@ function FitFrame(Device) {
     return;
   }
 
-  const ConfiguredWidth = Number(Device.Configuration.FrameWidth);
+  const ConfiguredWidth = Number(Device.Cfg.FrameWidth);
   const NaturalFrameWidth = Number.isFinite(ConfiguredWidth) && ConfiguredWidth >= 320
     ? ConfiguredWidth
     : DefaultFrameWidth;
   const FrameWidth = Math.max(NaturalFrameWidth, AvailableWidth);
-  const ConfiguredMinimum = Number(Device.Configuration.MinimumScale);
+  const ConfiguredMinimum = Number(Device.Cfg.MinimumScale);
   const MinimumScale = Number.isFinite(ConfiguredMinimum)
     ? Math.min(0.95, Math.max(0.5, ConfiguredMinimum))
     : DefaultMinimumScale;
@@ -1220,13 +1356,13 @@ function CentralSetKey(Device, Type) {
 }
 
 function FindCentralSet(Device, Type) {
-  return CentralTimeStore.Sets.find(Set => Set.Device === Device && Set.Type === Type) || null;
+  return CentralTimeStore.Sets.find(Set => Set.Dev === Device && Set.Type === Type) || null;
 }
 
 function UpdateTimeKindSelector() {
   const SetSelector = document.getElementById('TimeSetSelector');
   const KindSelector = document.getElementById('TimeKindSelector');
-  const Selected = CentralTimeStore.Sets.find(Set => CentralSetKey(Set.Device, Set.Type) === SetSelector.value);
+  const Selected = CentralTimeStore.Sets.find(Set => CentralSetKey(Set.Dev, Set.Type) === SetSelector.value);
   const Kinds = Selected?.Type === 'FeedTimes'
     ? ['FeedTime']
     : ['MyTimer', 'TmrSw'].includes(Selected?.Format) ? ['SwitchTime', 'Interval'] : ['SwitchTime'];
@@ -1241,10 +1377,10 @@ function UpdateTimeSetSelector() {
   const Selector = document.getElementById('TimeSetSelector');
   const Previous = Selector.value;
   const Sets = [...CentralTimeStore.Sets].sort((Left, Right) =>
-    String(Left.Device).localeCompare(String(Right.Device), 'de') || String(Left.Type).localeCompare(String(Right.Type), 'de'));
+    String(Left.Dev).localeCompare(String(Right.Dev), 'de') || String(Left.Type).localeCompare(String(Right.Type), 'de'));
   Selector.replaceChildren(...Sets.map(Set => {
-    const Option = CreateElement('option', '', DeviceDisplayName(Set.Device));
-    Option.value = CentralSetKey(Set.Device, Set.Type);
+    const Option = CreateElement('option', '', EditorDeviceLabel(Set.Dev));
+    Option.value = CentralSetKey(Set.Dev, Set.Type);
     return Option;
   }));
   if ([...Selector.options].some(Option => Option.value === Previous)) Selector.value = Previous;
@@ -1264,7 +1400,7 @@ function CreateTimeStatusIndicator(Synced) {
 }
 
 function UpdateTimeStatusIndicators(Sets) {
-  const States = new Map(Sets.map(Set => [CentralSetKey(Set.Device, Set.Type), Set]));
+  const States = new Map(Sets.map(Set => [CentralSetKey(Set.Dev, Set.Type), Set]));
   for (const Row of document.getElementById('TimesData').rows) {
     const Set = States.get(CentralSetKey(Row.dataset.device, Row.dataset.type));
     const Synced = Set?.Synced === true;
@@ -1295,6 +1431,16 @@ async function RefreshDashboardSyncStatus() {
   UpdateTimeStatusIndicators(Times.Sets);
   RenderHeatProfileStatus(Profiles);
   return Times.Sets.every(Set => Set.Synced) && Profiles.Sets.every(Set => Set.Synced);
+}
+
+function ScheduleDashboardSyncStatusRefresh() {
+  if (SyncStatusRefreshTimer !== null)
+    clearTimeout(SyncStatusRefreshTimer);
+  SyncStatusRefreshTimer = setTimeout(() => {
+    SyncStatusRefreshTimer = null;
+    RefreshDashboardSyncStatus().catch(Error =>
+      console.debug('Could not refresh dashboard sync status', Error));
+  }, 200);
 }
 
 function CancelSyncNotice(Message) {
@@ -1349,6 +1495,22 @@ function ShowSyncError(Message, Text) {
   Message.hidden = false;
 }
 
+function CentralTimeValue(Entry) {
+  return String(Array.isArray(Entry.Data) ? Entry.Data[0] : Entry.Data?.Time || '');
+}
+
+function CentralTimeChannelId(Entry) {
+  if (Entry.Kind === 'FeedTime') return '';
+  if (Entry.Kind === 'Interval') return Entry.Data?.[4] || '';
+  return Entry.Data?.Ch || TimeChannelAddress(Entry.Dev, TimeChannelRows(Entry.Dev)[0]);
+}
+
+function CentralTimeChannelLabel(Entry, ChannelId = CentralTimeChannelId(Entry)) {
+  if (!ChannelId) return '';
+  const Channel = TimeChannelRows(Entry.Dev).find(Item => TimeChannelAddress(Entry.Dev, Item) === ChannelId) || {Id: ChannelId};
+  return EditorChannelLabel(Channel, Entry.Dev);
+}
+
 function RenderCentralTimes() {
   const Body = document.getElementById('TimesData');
   CentralTimeSortKey = null;
@@ -1356,16 +1518,22 @@ function RenderCentralTimes() {
   const Rows = CentralTimeStore.Times.map((Entry, Index) => {
     const Row = document.createElement('tr');
     Row.dataset.id = Entry.Id;
-    Row.dataset.device = Entry.Device;
+    Row.dataset.device = Entry.Dev;
     Row.dataset.type = Entry.Type;
     Row.dataset.kind = Entry.Kind;
+    const DeviceLabel = EditorDeviceLabel(Entry.Dev);
+    Row.dataset.timeSort = CentralTimeValue(Entry);
     Row.appendChild(CreateElement('td', '', String(Index + 1)));
-    Row.appendChild(CreateElement('td', '', DeviceDisplayName(Entry.Device)));
+    const DeviceChannelCell = CreateElement('td', 'TimeDeviceChannel');
+    DeviceChannelCell.appendChild(CreateElement('span', 'TimeDeviceName', DeviceLabel));
+    const ChannelEditor = RenderTimeChannelEditor(Entry);
+    if (ChannelEditor) DeviceChannelCell.appendChild(ChannelEditor);
+    Row.appendChild(DeviceChannelCell);
     const DataCell = document.createElement('td');
     DataCell.dataset.sortValue = JSON.stringify(Entry.Data);
     DataCell.appendChild(RenderTimeDataEditor(Entry));
     Row.appendChild(DataCell);
-    const Set = FindCentralSet(Entry.Device, Entry.Type);
+    const Set = FindCentralSet(Entry.Dev, Entry.Type);
     const StatusCell = CreateElement('td', `TimeStatusCell ${Set?.Synced ? 'TimeStatusSynced' : 'TimeStatusPending'}`);
     StatusCell.dataset.sortValue = Set?.Synced ? '1' : '0';
     StatusCell.appendChild(CreateTimeStatusIndicator(Set?.Synced === true));
@@ -1374,7 +1542,9 @@ function RenderCentralTimes() {
     const Actions = CreateElement('span', 'TimeOrderButtons');
     const Up = CreateElement('button', 'SecondaryButton CompactButton', '↑');
     const Down = CreateElement('button', 'SecondaryButton CompactButton', '↓');
-    const Delete = CreateElement('button', 'SecondaryButton CompactButton', '×');
+    const Delete = CreateElement('button', 'SecondaryButton CompactButton TrashButton');
+    Delete.innerHTML = ActionIcon('Trash');
+    Delete.dataset.trTitle = 'Delete'; Delete.title = Tr('Delete'); Delete.setAttribute('aria-label', Tr('Delete'));
     Up.type = Down.type = Delete.type = 'button';
     Up.disabled = CentralTimeSortKey !== null || Index === 0;
     Down.disabled = CentralTimeSortKey !== null || Index + 1 === CentralTimeStore.Times.length;
@@ -1399,6 +1569,7 @@ function SortCentralTimes(Column, Button) {
   }
   const Body = document.getElementById('TimesData');
   const Rows = [...Body.rows];
+  const CurrentEntries = new Map(CollectCentralTimes().map(Entry => [Entry.Id, Entry]));
   const Direction = Button.dataset.direction === 'asc' ? 'desc' : 'asc';
   document.querySelectorAll('.TableSortButton').forEach(Item => {
     Item.dataset.direction = '';
@@ -1407,12 +1578,20 @@ function SortCentralTimes(Column, Button) {
   Button.dataset.direction = Direction;
   CentralTimeSortKey = Column;
   Button.setAttribute('aria-sort', Direction === 'asc' ? 'ascending' : 'descending');
-  const CellIndex = {device: 1, data: 2, status: 3}[Column];
-  const EditedData = Column === 'data' ? new Map(CollectCentralTimes().map(Entry => [Entry.Id, JSON.stringify(Entry.Data)])) : null;
   Rows.sort((Left, Right) => {
-    const A = Column === 'data' ? EditedData.get(Left.dataset.id) : Column === 'status' ? Left.cells[CellIndex].dataset.sortValue : Left.cells[CellIndex].textContent;
-    const B = Column === 'data' ? EditedData.get(Right.dataset.id) : Column === 'status' ? Right.cells[CellIndex].dataset.sortValue : Right.cells[CellIndex].textContent;
-    return String(A).localeCompare(String(B), undefined, {numeric: true}) * (Direction === 'asc' ? 1 : -1);
+    let Result = 0;
+    if (Column === 'time') {
+      Result = CentralTimeValue(CurrentEntries.get(Left.dataset.id) || {Data: {}})
+        .localeCompare(CentralTimeValue(CurrentEntries.get(Right.dataset.id) || {Data: {}}), undefined, {numeric: true});
+    } else if (Column === 'device-channel') {
+      const LeftEntry = CurrentEntries.get(Left.dataset.id) || {Dev: Left.dataset.device, Kind: Left.dataset.kind, Data: {}};
+      const RightEntry = CurrentEntries.get(Right.dataset.id) || {Dev: Right.dataset.device, Kind: Right.dataset.kind, Data: {}};
+      const LeftChannel = CentralTimeChannelId(LeftEntry);
+      const RightChannel = CentralTimeChannelId(RightEntry);
+      Result = EditorDeviceLabel(LeftEntry.Dev).localeCompare(EditorDeviceLabel(RightEntry.Dev), undefined, {numeric: true}) ||
+        CentralTimeChannelLabel(LeftEntry, LeftChannel).localeCompare(CentralTimeChannelLabel(RightEntry, RightChannel), undefined, {numeric: true});
+    }
+    return Result * (Direction === 'asc' ? 1 : -1);
   });
   Body.replaceChildren(...Rows);
   Rows.forEach((Row, Index) => Row.cells[0].textContent = String(Index + 1));
@@ -1422,13 +1601,17 @@ function SortCentralTimes(Column, Button) {
 async function LoadCentralTimes() {
   const Message = document.getElementById('TimeMessage');
   try {
-    const Url = new URL('api/times', window.location.href);
-    Url.searchParams.set('_', Date.now().toString());
-    const Response = await fetch(Url, {cache: 'no-store'});
-    if (!Response.ok) throw new Error(`HTTP ${Response.status}`);
-    const Store = await Response.json();
+    const [Store, Assignments] = await Promise.all([
+      FetchDashboardJson('api/times'),
+      FetchDashboardJson('api/device-assignments')
+    ]);
     if (!Array.isArray(Store.Sets) || !Array.isArray(Store.Times)) throw new Error('Ungültiges Format');
+    if (!Array.isArray(Assignments.Devices) || !Array.isArray(Assignments.Endpoints))
+      throw new Error('Ungültige Gerätezuordnung');
+    AssignmentView = Assignments;
+    CentralProfileAssignmentView = Assignments;
     CentralTimeStore = Store;
+    CentralTimesDirty = false;
     Message.hidden = true;
     RenderCentralTimes();
     return true;
@@ -1441,17 +1624,24 @@ async function LoadCentralTimes() {
 
 function DefaultCentralTimeData(Set, Kind) {
   if (Kind === 'FeedTime') return ['00:00', 255, 1];
-  const ChannelState = CentralTimeStore.Channels?.[Set?.Device];
+  const ChannelState = CentralTimeStore.Chs?.[Set?.Dev];
   const ChannelRows = Array.isArray(ChannelState) ? ChannelState : ChannelState?.Rows;
-  const ChannelId = ChannelRows?.[0]?.Id || '';
+  const ChannelId = TimeChannelAddress(Set.Dev, ChannelRows?.[0]);
   if (Kind === 'Interval') {
     return ['00:00', '01:00', '00:15', 255, ChannelId];
   }
-  return Set?.Format === 'TmrSw' ? ['00:00', 255, false] : ['00:00', 255, ChannelId, false];
+  return {Time:'00:00',Days:255,Ch:ChannelId,State:false};
+}
+
+function TimeChannelAddress(Device, Row) {
+  const Service = AssignmentView?.Devices?.find(Item => Item.Func === Device || Item.DevId === Device)?.DevId;
+  if (!Service || !Row) return '';
+  const Position = /^Main ([1-8])$/.exec(Row.PhysPos || '');
+  return `${Service}/${Position ? Position[1] : 0}`;
 }
 
 function TimeChannelRows(Device) {
-  const State = CentralTimeStore.Channels?.[Device];
+  const State = CentralTimeStore.Chs?.[Device];
   return Array.isArray(State) ? State : State?.Rows || [];
 }
 
@@ -1480,6 +1670,8 @@ function AddTimeSelect(Container, Key, LabelText, Options, Value, Disabled = fal
     Option.selected = String(OptionValue.Value) === String(Value);
     Select.appendChild(Option);
   }
+  const SelectedIndex = Options.findIndex(Option => String(Option.Value) === String(Value));
+  if (SelectedIndex >= 0) Select.selectedIndex = SelectedIndex;
   Select.disabled = Disabled;
   Label.appendChild(Select);
   Container.appendChild(Label);
@@ -1506,55 +1698,100 @@ function AddTimeMask(Container, Value) {
 }
 
 function RenderTimeDataEditor(Entry) {
-  const Set = FindCentralSet(Entry.Device, Entry.Type);
   const Data = Entry.Data;
   const Editor = CreateElement('div', 'TimeDataEditor');
   const IsFeed = Entry.Kind === 'FeedTime';
   const IsInterval = Entry.Kind === 'Interval';
-  const IsMyTimer = Set?.Format === 'MyTimer';
-  const ChannelRows = TimeChannelRows(Entry.Device);
-  const DefaultChannel = ChannelRows[0]?.Id || '';
 
   if (IsInterval) {
     AddTimeField(Editor, 'time', Tr('Start', 'Start'), 'time', Data[0]);
     AddTimeField(Editor, 'period', Tr('Period', 'Periode'), 'time', Data[1]);
     AddTimeField(Editor, 'onTime', Tr('OnTime', 'Ein-Zeit'), 'time', Data[2]);
   } else {
-    AddTimeField(Editor, 'time', Tr('Time', 'Zeit'), 'time', Data[0]);
+    AddTimeField(Editor, 'time', Tr('Time', 'Zeit'), 'time', IsFeed ? Data[0] : Data.Time);
   }
   const MaskIndex = IsFeed ? 1 : IsInterval ? 3 : 1;
-  AddTimeMask(Editor, Number(Data[MaskIndex]) || 0);
-
-  if (IsMyTimer) {
-    const ChannelIndex = IsInterval ? 4 : 2;
-    AddTimeSelect(Editor, 'channel', Tr('Channel', 'Kanal'), ChannelRows.map(Row => ({Value: Row.Id, Label: ChannelDisplayName(Row)})), Data[ChannelIndex] || DefaultChannel);
-  } else if (IsInterval || (!IsFeed && ChannelRows.length > 0)) {
-    const ChannelId = IsInterval ? (Data[4] || DefaultChannel) : DefaultChannel;
-    if (ChannelId)
-      AddTimeSelect(Editor, 'channel', Tr('Channel', 'Kanal'), [{Value: ChannelId, Label: ChannelDisplayName({Id: ChannelId})}], ChannelId, true);
-  }
+  AddTimeMask(Editor, Number(IsFeed || IsInterval ? Data[MaskIndex] : Data.Days) || 0);
 
   if (IsFeed) {
     AddTimeSelect(Editor, 'portion', Tr('Portions', 'Portionen'), Array.from({length: 9}, (_, Index) => ({Value: Index + 1, Label: String(Index + 1)})), Data[2]);
   } else if (!IsInterval) {
-    AddTimeField(Editor, 'active', Tr('OnOff', 'An/Aus'), 'checkbox', Data[IsMyTimer ? 3 : 2]);
+    AddTimeField(Editor, 'active', Tr('OnOff', 'An/Aus'), 'checkbox', Data.State);
   }
   return Editor;
 }
 
+let TimeChannelMeasureContext = null;
+let TimeChannelMeasureFont = '';
+let TimeChannelSelectOverhead = 0;
+function FitTimeChannelSelect(Select) {
+  const Font = getComputedStyle(document.body).font;
+  if (!TimeChannelMeasureContext) {
+    TimeChannelMeasureContext = document.createElement('canvas').getContext('2d');
+    if (!TimeChannelMeasureContext) return;
+  }
+  if (Font !== TimeChannelMeasureFont) {
+    TimeChannelMeasureFont = Font;
+    TimeChannelMeasureContext.font = Font;
+    const Probe = document.createElement('select');
+    Probe.className = 'TimeChannelSelect';
+    Probe.style.cssText = 'position:fixed;left:-10000px;top:0;visibility:hidden;width:auto';
+    const Option = document.createElement('option');
+    Option.textContent = 'M';
+    Probe.appendChild(Option);
+    document.body.appendChild(Probe);
+    TimeChannelSelectOverhead = Math.max(0, Probe.getBoundingClientRect().width - TimeChannelMeasureContext.measureText('M').width);
+    Probe.remove();
+  }
+  TimeChannelMeasureContext.font = Font;
+  const TextWidth = Math.max(0, ...[...Select.options].map(Option => TimeChannelMeasureContext.measureText(Option.textContent).width));
+  Select.style.width = `${Math.ceil(TextWidth + TimeChannelSelectOverhead + 1)}px`;
+}
+
+function RenderTimeChannelEditor(Entry) {
+  if (Entry.Kind === 'FeedTime') return null;
+  const Set = FindCentralSet(Entry.Dev, Entry.Type);
+  const Data = Entry.Data;
+  const IsInterval = Entry.Kind === 'Interval';
+  const IsMyTimer = Set?.Format === 'MyTimer';
+  const Rows = TimeChannelRows(Entry.Dev);
+  const DefaultChannel = TimeChannelAddress(Entry.Dev, Rows[0]);
+  const ChannelId = IsInterval ? (Data[4] || DefaultChannel) : (Data.Ch || DefaultChannel);
+  if (!ChannelId) return null;
+
+  const Options = IsMyTimer
+    ? Rows.map(Row => ({Value: TimeChannelAddress(Entry.Dev, Row), Label: EditorChannelLabel(Row, Entry.Dev)}))
+    : [{Value: ChannelId, Label: CentralTimeChannelLabel(Entry, ChannelId)}];
+  const Select = document.createElement('select');
+  Select.className = 'TimeChannelSelect';
+  Select.dataset.field = 'channel';
+  Select.setAttribute('aria-label', Tr('Channel', 'Kanal'));
+  for (const Item of Options) {
+    const Option = CreateElement('option', '', Item.Label);
+    Option.value = Item.Value;
+    Select.appendChild(Option);
+  }
+  FitTimeChannelSelect(Select);
+  const SelectedIndex = Options.findIndex(Item => Item.Value === ChannelId);
+  if (SelectedIndex >= 0) Select.selectedIndex = SelectedIndex;
+  Select.disabled = !IsMyTimer;
+  return Select;
+}
+
 function AddCentralTime() {
   const SetKey = document.getElementById('TimeSetSelector').value;
-  const Set = CentralTimeStore.Sets.find(Item => CentralSetKey(Item.Device, Item.Type) === SetKey);
+  const Set = CentralTimeStore.Sets.find(Item => CentralSetKey(Item.Dev, Item.Type) === SetKey);
   if (!Set) return;
   const Kind = document.getElementById('TimeKindSelector').value;
   CentralTimeStore.Times = CollectCentralTimes();
   CentralTimeStore.Times.push({
     Id: NewTimeUuid(),
-    Device: Set.Device,
+    Dev: Set.Dev,
     Type: Set.Type,
     Kind,
     Data: DefaultCentralTimeData(Set, Kind)
   });
+  CentralTimesDirty = true;
   RenderCentralTimes();
 }
 
@@ -1565,19 +1802,15 @@ function CollectCentralTimes() {
     const Set = FindCentralSet(Row.dataset.device, Row.dataset.type);
     if (!Existing || !Set) continue;
     const Editor = Row.querySelector('.TimeDataEditor');
+    const Channel = Row.querySelector('.TimeChannelSelect')?.value;
     const Field = Key => Editor.querySelector(`[data-field="${Key}"]`);
     let Mask = Field('enabled').checked ? 128 : 0;
     for (const Day of Editor.querySelectorAll('[data-field="day"]')) if (Day.checked) Mask |= Number(Day.dataset.bit);
     let Data;
-    if (Existing.Kind === 'FeedTime') Data = [Field('time').value, Mask, Number(Field('portion').value)];
-    else if (Existing.Kind === 'Interval') Data = [Field('time').value, Field('period').value, Field('onTime').value, Mask, Field('channel')?.value ?? Existing.Data[4] ?? ''];
-    else if (Set.Format === 'MyTimer') Data = [Field('time').value, Mask, Field('channel').value, Field('active').checked];
-    else {
-      const Active = Field('active').checked;
-      const OriginalActive = Existing.Data[2];
-      Data = [Field('time').value, Mask, typeof OriginalActive === 'number' ? Number(Active) : Active];
-    }
-    Entries.set(Row.dataset.id, {Id: Row.dataset.id, Device: Row.dataset.device, Type: Row.dataset.type, Kind: Row.dataset.kind, Data});
+    if (Existing.Kind === 'FeedTime') Data = [Field('time').value, Mask, Number(Field('portion').value), ...Existing.Data.slice(3)];
+    else if (Existing.Kind === 'Interval') Data = [Field('time').value, Field('period').value, Field('onTime').value, Mask, Channel ?? Existing.Data[4] ?? '', ...Existing.Data.slice(5)];
+    else Data = {...Existing.Data,Time:Field('time').value,Days:Mask,Ch:Channel || Existing.Data.Ch,State:Field('active').checked};
+    Entries.set(Row.dataset.id, {Id: Row.dataset.id, Dev: Row.dataset.device, Type: Row.dataset.type, Kind: Row.dataset.kind, Data});
   }
   return CentralTimeStore.Times.map(Entry => Entries.get(Entry.Id)).filter(Boolean);
 }
@@ -1591,12 +1824,12 @@ async function SaveCentralTimes() {
     const Times = CollectCentralTimes();
     const Response = await fetch(new URL('api/times', window.location.href), {
       method: 'PUT', cache: 'no-store', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({Version: 1, Times}, null, 2)
+      body: JSON.stringify({Ver: 1, Times}, null, 2)
     });
     const Text = await Response.text();
     if (!Response.ok) throw new Error(Text || `HTTP ${Response.status}`);
     const Result = JSON.parse(Text);
-    if (Result.Ok !== true) throw new Error(Result.Error || 'Speichern fehlgeschlagen');
+    if (Result.Ok !== true) throw new Error(Result.Err || 'Speichern fehlgeschlagen');
     const Reloaded = await LoadCentralTimes();
     const Notice = Result.Changed === true
       ? 'Geänderte Zeit-/Intervallsätze gespeichert; Übertragung wurde angestoßen.'
@@ -1618,10 +1851,10 @@ async function SaveCentralTimes() {
 function RenderHeatProfileStatus(Store) {
   CentralHeatProfileStatus = Store;
   const Message = document.getElementById('HeatProfilesMessage');
-  Message.replaceChildren(CreateElement('span', '', `${Tr('Revision', 'Revision')}: ${Store.Revision || '?'}`));
+  Message.replaceChildren(CreateElement('span', '', `${Tr('Revision', 'Revision')}: ${Store.Rev || '?'}`));
   const Label = Participant => {
-    const Config = Devices.find(Device => Device.TechnicalName === Participant.Device)?.Configuration;
-    const Name = DeviceDisplayName(Participant.Device);
+    const Config = Devices.find(Device => Device.TechnicalName === Participant.Dev)?.Cfg;
+    const Name = DeviceDisplayName(Participant.Dev);
     const Groups = [...new Set((Config?.GroupViews || [{Group: Config?.Group}])
       .map(View => View.Group).filter(Group => /^Aq\d+$/.test(Group)))];
     return [Name, ...Groups.filter(Group => !new RegExp(`\\b${Group}\\b`).test(Name))].join(' ');
@@ -1632,7 +1865,7 @@ function RenderHeatProfileStatus(Store) {
     `${Tr('Synced', 'synchron')}: ${Synced.map(Label).join(', ')}`));
   if (Pending.length) Message.append(CreateElement('div', 'HeatSyncPending',
     `${Tr('NotSynced', 'nicht synchron')}: ${Pending.map(Set =>
-      `${Label(Set)}${Set.Error ? ': ' + Set.Error : ''}`).join(', ')}`));
+      `${Label(Set)}${Set.Err ? ': ' + Set.Err : ''}`).join(', ')}`));
   if (!Store.Sets.length) Message.append(' · ', Tr('NoParticipants', 'Noch keine Geräte synchronisiert'));
   Message.classList.remove('Success', 'Error');
   Message.classList.add('HeatSyncSummary');
@@ -1644,11 +1877,15 @@ async function LoadCentralHeatProfiles(PreserveChannelDrafts = false) {
   if (!PreserveChannelDrafts) CentralChannelDrafts.clear();
   try {
     const Store = await FetchDashboardJson('api/heatprofiles');
-    if (!Array.isArray(Store.Profiles) || !Array.isArray(Store.Sets)) throw new Error('Ungültiges Format');
-    CentralHeatProfiles = {Profiles: Store.Profiles};
+    if (!Array.isArray(Store.Profs) || !Array.isArray(Store.Sets)) throw new Error('Ungültiges Format');
+    CentralHeatProfilesSaved = {Profs: JSON.parse(JSON.stringify(Store.Profs)), TimeStamp: Store.TimeStamp};
+    CentralHeatProfiles = {Profs: JSON.parse(JSON.stringify(Store.Profs)), TimeStamp: Store.TimeStamp};
     const TimeResponse = await fetch(new URL('api/times', window.location.href), {cache: 'no-store'});
     if (!TimeResponse.ok) throw new Error(`Times HTTP ${TimeResponse.status}`);
     CentralChannelStore = await TimeResponse.json();
+    const AssignmentResponse = await fetch(new URL('api/device-assignments', window.location.href), {cache: 'no-store'});
+    if (!AssignmentResponse.ok) throw new Error(`Device assignments HTTP ${AssignmentResponse.status}`);
+    CentralProfileAssignmentView = await AssignmentResponse.json();
     RenderHeatProfiles();
     RenderChannelProfiles(PreserveChannelDrafts);
     RenderHeatProfileStatus(Store);
@@ -1667,17 +1904,22 @@ async function SaveCentralHeatProfiles() {
   const Message = document.getElementById('HeatProfilesNotice');
   const Button = document.getElementById('HeatProfilesSaveButton');
   if (Button.disabled) return;
+  CaptureChannelProfileDrafts();
+  if (HasUnsavedChannelProfileDrafts()) {
+    ShowSyncError(Message, Tr('SaveChannelsFirst', 'Bitte zuerst die Kanalzuordnungen speichern.'));
+    return;
+  }
   Button.disabled = true;
   try {
     const Profiles = CollectHeatProfiles();
     const Response = await fetch(new URL('api/heatprofiles', window.location.href), {
       method: 'PUT', cache: 'no-store', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({Profiles}, null, 2)
+      body: GnJson.Write('TJsonProfiles', {Profs: Profiles, ...(CentralHeatProfiles.TimeStamp ? {TimeStamp: CentralHeatProfiles.TimeStamp} : {})}, 2)
     });
     const Text = await Response.text();
     if (!Response.ok) throw new Error(Text || `HTTP ${Response.status}`);
     const Result = JSON.parse(Text);
-    if (Result.Ok !== true) throw new Error(Result.Error || 'Speichern fehlgeschlagen');
+    if (Result.Ok !== true) throw new Error(Result.Err || 'Speichern fehlgeschlagen');
     const Reloaded = await LoadCentralHeatProfiles(true);
     const Action = Result.Changed === true
       ? Tr('ProfilesSaved', 'Heizprofile gespeichert; Verteilung wurde angestoßen.')
@@ -1697,50 +1939,158 @@ async function SaveCentralHeatProfiles() {
 
 function ProfileReferences(ProfileId) {
   const References = [];
-  for (const [Device, State] of Object.entries(CentralChannelStore.Channels || {})) {
+  for (const [Device, State] of Object.entries(CentralChannelStore.Chs || {})) {
     const Rows = Array.isArray(State) ? State : State?.Rows;
     for (const Row of Rows || [])
-      if (Row.Profile === ProfileId) References.push(`${Device} / ${Row.Id || '?'}`);
+      if (Row.Prof === ProfileId) References.push(`${Device} / ${Row.Id || '?'}`);
   }
   return References;
 }
 
 function RenderHeatProfiles() {
-  const Editor = document.getElementById('HeatProfilesEditor');
-  const Cards = CentralHeatProfiles.Profiles.map((Profile, Index) => {
+  const Cards = CentralHeatProfiles.Profs.map((Profile, Index) => {
     const Card = CreateElement('fieldset', 'HeatProfileCard');
-    const Legend = CreateElement('legend', '', Profile.Id || `${Tr('Profile', 'Profil')} ${Index + 1}`);
+    const Legend = CreateElement('legend', '', Profile.ProfName || `${Tr('Profile', 'Profil')} ${Index + 1}`);
     Card.appendChild(Legend);
-    for (const [Key, Type] of [['Id', 'text'], ['TempId', 'text'], ['Measurement', 'text'], ['FloorOn', 'number'], ['FloorOff', 'number'], ['MainOn', 'number'], ['MainOff', 'number'], ['NoTempOn', 'checkbox']]) {
+    const AddField = (Parent, Schema, Key, Controller = false, LabelKey = null) => {
+      const Field = GnJson.Describe(Schema).Fields.find(Item => Item.Name === Key);
       const Label = CreateElement('label', 'HeatProfileField');
-      Label.appendChild(CreateElement('span', '', Tr(Key, Key)));
+      const TranslationKey = LabelKey || (Controller ? 'Pi.' : '') + Key;
+      const LabelText = CreateElement('span', '', Tr(TranslationKey, Field.Description || Key));
+      LabelText.dataset.tr = TranslationKey;
+      Label.appendChild(LabelText);
       const Input = document.createElement('input');
-      Input.dataset.key = Key;
-      Input.type = Type;
-      if (Type === 'checkbox') Input.checked = Profile[Key] === true;
-      else { Input.value = Profile[Key] ?? ''; if (Key === 'Measurement') Input.placeholder = 'Temperature'; if (Type === 'number') Input.step = 'any'; }
-      Input.addEventListener('input', () => { if (Key === 'Id') Legend.textContent = Input.value; });
-      Label.appendChild(Input);
-      if (Key === 'Measurement') {
-        const Choices = document.createElement('datalist');
-        Choices.id = `HeatProfileMeasurement${Index}`;
-        Input.setAttribute('list', Choices.id);
-        for (const Field of ['Temperature', 'BatteryPercent']) {
-          const Option = document.createElement('option');
-          Option.value = Field;
-          Choices.appendChild(Option);
-        }
-        Label.appendChild(Choices);
+      const Values = Controller ? Profile.Heat || {} : Profile;
+      Input.type = Field.Type === 'bool' ? 'checkbox' : /^(double|uint)/.test(Field.Type) ? 'number' : 'text';
+      Input.dataset[Controller ? 'piKey' : 'key'] = Key;
+      if (Input.type === 'checkbox') Input.checked = Values[Key] === true;
+      else Input.value = Values[Key] ?? '';
+      if (Input.type === 'number') Input.step = Field.Type === 'double' ? 'any' : '1';
+      Label.appendChild(Input); Parent.appendChild(Label);
+      return Input;
+    };
+    const Name = AddField(Card, 'TJsonProfile', 'ProfName');
+    Name.addEventListener('input', () => { Legend.textContent = Name.value; });
+    const AddSelect = (Parent, Key, LabelKey, Options, Value) => {
+      const Label = CreateElement('label', 'HeatProfileField');
+      const LabelText = CreateElement('span', '', Tr(LabelKey));
+      LabelText.dataset.tr = LabelKey;
+      Label.appendChild(LabelText);
+      const Select = document.createElement('select');
+      Select.dataset.key = Key;
+      for (const Item of Options) {
+        const Option = document.createElement('option');
+        Option.value = Item.Value;
+        Option.textContent = Item.Label;
+        if (Item.TrKey) Option.dataset.tr = Item.TrKey;
+        Select.appendChild(Option);
       }
-      Card.appendChild(Label);
+      Select.value = Value ?? '';
+      Label.appendChild(Select); Parent.appendChild(Label);
+      return Select;
+    };
+    const Measurement = AddSelect(Card, 'Meas', 'ProfileType', [
+      {Value: 'Temperature', Label: Tr('Temperature', 'Temperature'), TrKey: 'Temperature'},
+      {Value: 'BatteryPercent', Label: Tr('BatteryPercent', 'Battery percentage'), TrKey: 'BatteryPercent'}
+    ], Profile.Meas || 'Temperature');
+    const Source = AddSelect(Card, 'MeasSrc', 'MeasSrc', [], '');
+    if (Profile.MeasSrc) {
+      const CurrentSource = document.createElement('option');
+      CurrentSource.value = Profile.MeasSrc;
+      CurrentSource.textContent = Profile.MeasSrc;
+      Source.appendChild(CurrentSource);
+      Source.value = Profile.MeasSrc;
     }
-    const References = ProfileReferences(Profile.Id);
-    const Delete = CreateElement('button', 'SecondaryButton CompactButton', Tr('Delete', 'Löschen'));
-    Delete.type = 'button';
-    Delete.disabled = References.length > 0;
-    Delete.title = References.length ? `${Tr('ProfileInUse', 'Noch verwendet von')}: ${References.join(', ')}` : '';
-    Delete.onclick = () => { CentralHeatProfiles.Profiles.splice(Index, 1); RenderHeatProfiles(); };
-    Card.appendChild(Delete);
+    Source.dataset.profileSource = 'true';
+    const UpdateSources = (KeepSelection = true) => {
+      const Previous = KeepSelection ? Source.value : '';
+      const Options = [{Value: '', Label: Tr('SelectSource', 'Select source')}];
+      if (Measurement.value === 'BatteryPercent') {
+        for (const Device of Devices) {
+          if (!Device.Cfg?.ExternalSourceId) continue;
+          const Id = Device.Cfg.ExternalSourceId;
+          Options.push({Value: Id, Label: EndpointDirectory.IdToLabel(Id,
+            Tr('BatteryPercent', 'Battery percentage'), EditorDeviceLabel(Device.TechnicalName))});
+        }
+      } else {
+        for (const Device of CentralProfileAssignmentView.Devices || []) {
+          if (Number(Device.ServiceId) !== 3 || Number(Device.SensorCapabilityId) !== 2 || !Device.DevId) continue;
+          const Endpoint = (CentralProfileAssignmentView.Endpoints || []).find(Item =>
+            (Item.OutAddress || '').split('/')[0] === Device.DevId && Number(Item.Caps) === 2);
+          const Function = Endpoint?.Func || Device.Func || Device.HwName || Device.DevId;
+          const Label = AssignmentFunctionLabel(Function, Endpoint?.Groups || [], Endpoint?.UseHwName ? Endpoint.HwName : null);
+          Options.push({Value: Device.DevId, Label: EndpointDirectory.IdToLabel(Device.DevId,
+            Tr('Temperature', 'Temperature'), Label)});
+        }
+      }
+      Source.replaceChildren(...Options.map(Item => {
+        const Option = document.createElement('option');
+        Option.value = Item.Value;
+        Option.textContent = Item.Label;
+        return Option;
+      }));
+      Source.value = Options.some(Item => Item.Value === Previous) ? Previous : '';
+      if (Previous && !Source.value) {
+        const Existing = document.createElement('option');
+        Existing.value = Previous;
+        Existing.textContent = `${Tr('UnavailableSource', 'Unavailable source')} (${Previous})`;
+        Existing.disabled = true;
+        Source.appendChild(Existing);
+        Source.value = Previous;
+      }
+    };
+    Source.UpdateOptions = UpdateSources;
+    UpdateSources();
+    AddField(Card, 'TJsonProfile', 'OnIfNoMeas', false, 'OnWithoutValue');
+    const Charge = CreateElement('div', 'ChargeProfileFields'); Card.appendChild(Charge);
+    AddField(Charge, 'TJsonProfile', 'ChargeStartPct');
+    AddField(Charge, 'TJsonProfile', 'ChargeStopPct');
+    const RunOn = AddField(Charge, 'TJsonProfile', 'ChargeRunOn');
+    const Factor = AddField(Charge, 'TJsonProfile', 'ChargeSecPerPct');
+    Factor.min = '1'; Factor.max = '4294967295'; Factor.step = '1';
+    const Heat = CreateElement('div', 'HeatControllerFields'); Card.appendChild(Heat);
+    const Active = AddField(Heat, 'TJsonHeatConfig', 'Active', true);
+    const Parameters = CreateElement('div', 'HeatControllerParameters'); Heat.appendChild(Parameters);
+    AddField(Parameters, 'TJsonHeatConfig', 'Setpoint', true);
+    const Advanced = CreateElement('details', 'PiAdvanced');
+    Advanced.appendChild(CreateElement('summary', '', Tr('PiParameters', 'PI-Parameter und Gerätezuordnung')));
+    for (const Key of ['FloorW', 'MainMaxW', 'CapacityWhPerK', 'LossWPerK', 'Kp', 'TiSec', 'WindowSec', 'DelaySec'])
+      AddField(Advanced, 'TJsonHeatConfig', Key, true);
+    const AddEndpoint = Key => {
+      const Label = CreateElement('label', 'HeatProfileField');
+      const LabelText = CreateElement('span', '', Tr(`Pi.${Key}`));
+      LabelText.dataset.tr = `Pi.${Key}`;
+      Label.appendChild(LabelText);
+      const Value = document.createElement('input');
+      Value.type = 'text'; Value.readOnly = true;
+      Value.dataset.endpointId = Profile.Heat?.[Key] || '';
+      Value.value = EndpointDirectory.IdToLabel(Value.dataset.endpointId);
+      Value.setAttribute('aria-readonly', 'true');
+      Value.dataset.derivedEndpoint = Key;
+      Value.dataset.piKey = Key;
+      Label.appendChild(Value); Advanced.appendChild(Label);
+    };
+    AddEndpoint('MainEndpoint');
+    AddEndpoint('FloorEndpoint');
+    Parameters.appendChild(Advanced);
+    const Refresh = () => {
+      const Battery = Measurement.value.trim() === 'BatteryPercent';
+      Charge.hidden = !Battery; Heat.hidden = Battery; Parameters.hidden = !Active.checked;
+      Factor.parentElement.hidden = !RunOn.checked; Factor.disabled = !Battery || !RunOn.checked;
+    };
+    Measurement.addEventListener('change', () => { UpdateSources(false); Refresh(); });
+    for (const Input of [RunOn, Active]) Input.addEventListener('input', Refresh);
+    Refresh();
+    const References = ProfileReferences(Profile.ProfName);
+    const Delete = CreateElement('button', 'SecondaryButton CompactButton TrashButton HeatProfileDelete');
+    Delete.innerHTML = ActionIcon('Trash');
+    Delete.type = 'button'; Delete.disabled = References.length > 0;
+    Delete.dataset.trTitle = 'Delete'; Delete.title = References.join(', ') || Tr('Delete');
+    Delete.setAttribute('aria-label', Tr('Delete'));
+    Delete.onclick = () => { CentralHeatProfiles.Profs.splice(Index, 1); RenderHeatProfiles(); };
+    const Actions = CreateElement('div', 'HeatProfileActions');
+    Actions.appendChild(Delete);
+    Card.appendChild(Actions);
     return Card;
   });
   document.getElementById('HeatProfilesEditor').replaceChildren(...Cards);
@@ -1754,23 +2104,79 @@ function CaptureChannelProfileDrafts() {
   for (const Row of document.querySelectorAll('.ChannelProfileRow'))
     CentralChannelDrafts.set(ChannelDraftKey(Row.dataset.device, Row.dataset.index), {
       Role: Row.querySelector('[data-field="role"]').value,
-      Profile: Row.querySelector('[data-field="profile"]').value
+      Prof: Row.querySelector('[data-field="profile"]').value
     });
+}
+
+function HasUnsavedChannelProfileDrafts() {
+  for (const [Device, State] of Object.entries(CentralChannelStore.Chs || {})) {
+    const Channels = Array.isArray(State) ? State : State?.Rows || [];
+    for (const [Index, Channel] of Channels.entries()) {
+      const Draft = CentralChannelDrafts.get(ChannelDraftKey(Device, Index));
+      if (!Draft) continue;
+      if (Draft.Deleted) return true;
+      const SavedRole = Channel.Role === 'HeaterMain' ? 'MainSw' : Channel.Role || '';
+      const DraftRole = Draft.Role === 'HeaterMain' ? 'MainSw' : Draft.Role || '';
+      const SavedProfile = ['MainSw', 'HeaterMain', 'HeaterFloor'].includes(SavedRole) ? Channel.Prof || '' : '';
+      const DraftProfile = ['MainSw', 'HeaterMain', 'HeaterFloor'].includes(DraftRole) ? Draft.Prof || '' : '';
+      if (SavedRole !== DraftRole || SavedProfile !== DraftProfile) return true;
+    }
+  }
+  return false;
+}
+
+function UpdateDerivedProfileEndpoints() {
+  CaptureChannelProfileDrafts();
+  const Assignments = new Map();
+  for (const [Device, State] of Object.entries(CentralChannelStore.Chs || {})) {
+    const Channels = Array.isArray(State) ? State : State?.Rows || [];
+    Channels.forEach((Channel, Index) => {
+      const Draft = CentralChannelDrafts.get(ChannelDraftKey(Device, Index));
+      if (Draft?.Deleted) return;
+      const Role = Draft?.Role ?? Channel.Role ?? '';
+      const ProfileName = Draft?.Prof ?? Channel.Prof ?? '';
+      if (!ProfileName || !['MainSw', 'HeaterMain', 'HeaterFloor'].includes(Role)) return;
+      const Endpoint = (CentralProfileAssignmentView.Endpoints || []).find(Item =>
+        Item.DevName === Device && Number(Item.Index) === Index && Number(Item.Caps) === 1);
+      if (!Endpoint?.OutAddress) return;
+      const ProfileAssignments = Assignments.get(ProfileName) || {Main: [], Floor: []};
+      ProfileAssignments[Role === 'HeaterFloor' ? 'Floor' : 'Main'].push(Endpoint.OutAddress);
+      Assignments.set(ProfileName, ProfileAssignments);
+    });
+  }
+
+  CentralHeatProfiles.Profs.forEach((Profile, Index) => {
+    if (Profile.Meas === 'BatteryPercent' || !Profile.Heat) return;
+    const ProfileAssignments = Assignments.get(Profile.ProfName) || {Main: [], Floor: []};
+    const MainEndpoint = ProfileAssignments.Main.length === 1 ? ProfileAssignments.Main[0] : '';
+    const FloorEndpoint = ProfileAssignments.Floor.length === 1 ? ProfileAssignments.Floor[0] : '';
+    Profile.Heat.MainEndpoint = MainEndpoint;
+    Profile.Heat.FloorEndpoint = FloorEndpoint;
+    const Card = document.querySelectorAll('.HeatProfileCard')[Index];
+    for (const [Key, Value] of [['MainEndpoint', MainEndpoint], ['FloorEndpoint', FloorEndpoint]]) {
+      const Field = Card?.querySelector(`[data-derived-endpoint="${Key}"]`);
+      if (Field) {
+        Field.dataset.endpointId = Value;
+        Field.value = EndpointDirectory.IdToLabel(Value);
+      }
+    }
+  });
 }
 
 function UpdateChannelAssignmentOptions() {
   const Selector = document.getElementById('ChannelAssignmentSelector');
   if (!Selector) return;
   const Options = [{Value: '', Label: Tr('SelectChannel', 'Kanal auswählen')}];
-  for (const [Device, State] of Object.entries(CentralChannelStore.Channels || {})) {
+  for (const [Device, State] of Object.entries(CentralChannelStore.Chs || {})) {
     const ChannelRows = Array.isArray(State) ? State : State?.Rows || [];
     ChannelRows.forEach((Channel, Index) => {
       const Draft = CentralChannelDrafts.get(ChannelDraftKey(Device, Index));
       const Role = Draft?.Deleted ? '' : (Draft?.Role || Channel.Role || '');
-      if (['HeaterMain', 'HeaterFloor'].includes(Role)) return;
+      if (['MainSw', 'HeaterMain', 'HeaterFloor'].includes(Role)) return;
       Options.push({
         Value: ChannelDraftKey(Device, Index),
-        Label: `${DeviceDisplayName(Device)} · ${ChannelDisplayName(Channel, Device)}`
+        Label: EditorDeviceLabel(Device) === EditorChannelLabel(Channel, Device)
+          ? EditorDeviceLabel(Device) : `${EditorDeviceLabel(Device)} · ${EditorChannelLabel(Channel, Device)}`
       });
     });
   }
@@ -1788,47 +2194,59 @@ function RenderChannelProfiles(PreserveDrafts = false) {
   const Rows = [];
   if (PreserveDrafts) CaptureChannelProfileDrafts();
   const Header = CreateElement('div', 'ChannelProfilesHeader');
-  for (const Label of ['Device', 'Channel', 'Role', 'HeatProfile'])
+  for (const Label of ['Dev', 'Channel', 'Role', 'HeatProfile'])
     Header.appendChild(CreateElement('strong', '', Tr(Label, Label)));
   Header.appendChild(CreateElement('span', '', ''));
   Rows.push(Header);
-  for (const [Device, State] of Object.entries(CentralChannelStore.Channels || {})) {
+  for (const [Device, State] of Object.entries(CentralChannelStore.Chs || {})) {
     const ChannelRows = Array.isArray(State) ? State : State?.Rows || [];
     ChannelRows.forEach((Channel, Index) => {
       const Key = ChannelDraftKey(Device, Index);
       const Draft = CentralChannelDrafts.get(Key);
       if (Draft?.Deleted) return;
       const Role = Draft?.Role || Channel.Role;
-      if (!['HeaterMain', 'HeaterFloor'].includes(Role)) return;
+      if (!['MainSw', 'HeaterMain', 'HeaterFloor'].includes(Role)) return;
       const Row = document.createElement('div');
       Row.className = 'ChannelProfileRow';
       Row.dataset.device = Device;
       Row.dataset.index = String(Index);
       Row.append(
-        CreateElement('span', 'ChannelProfileDevice', DeviceDisplayName(Device)),
-        CreateElement('span', 'ChannelProfileName', ChannelRows.length > 1 ? ChannelDisplayName(Channel, Device) : '-')
+        Object.assign(CreateElement('span', 'ChannelProfileDevice', EditorDeviceLabel(Device)), {title: Tr('Device', 'Device')}),
+        CreateElement('span', 'ChannelProfileName', EditorChannelLabel(Channel, Device))
       );
-      const RoleOptions = ['HeaterMain', 'HeaterFloor'].map(Item => ({Value: Item, Label: Tr(`Role.${Item}`, Item)}));
-      const RoleSelect = AddTimeSelect(Row, 'role', Tr('Role', 'Funktion'), RoleOptions, Role);
+      const RoleOptions = ['MainSw', 'HeaterFloor'].map(Item => ({Value: Item, Label: Tr(`Role.${Item}`, Item)}));
+      const RoleSelect = AddTimeSelect(Row, 'role', Tr('Role', 'Funktion'), RoleOptions, Role === 'HeaterMain' ? 'MainSw' : Role);
       RoleSelect.setAttribute('aria-label', Tr('Role', 'Funktion'));
       const Options = [{Value: '', Label: Tr('SelectProfile', 'Profil auswählen')}];
-      for (const Profile of CentralHeatProfiles.Profiles)
-        Options.push({Value: Profile.Id, Label: Profile.Id});
-      const ProfileSelect = AddTimeSelect(Row, 'profile', Tr('HeatProfile', 'Heizprofil'), Options, Draft?.Profile ?? Channel.Profile ?? '');
+      for (const Profile of CentralHeatProfiles.Profs)
+        Options.push({Value: Profile.ProfName, Label: Profile.ProfName});
+      const ProfileSelect = AddTimeSelect(Row, 'profile', Tr('HeatProfile', 'Heizprofil'), Options, Draft?.Prof ?? Channel.Prof ?? '');
       ProfileSelect.setAttribute('aria-label', Tr('HeatProfile', 'Heizprofil'));
-      const Delete = CreateElement('button', 'SecondaryButton CompactButton ChannelProfileDelete', Tr('Delete', 'Löschen'));
-      Delete.type = 'button';
+      const UpdateDraft = () => {
+        CaptureChannelProfileDrafts();
+        UpdateDerivedProfileEndpoints();
+        document.getElementById('HeatProfilesSaveButton').disabled = HasUnsavedChannelProfileDrafts();
+      };
+      RoleSelect.addEventListener('change', UpdateDraft);
+      ProfileSelect.addEventListener('change', UpdateDraft);
+      const Delete = CreateElement('button', 'SecondaryButton CompactButton TrashButton ChannelProfileDelete');
+      Delete.type = 'button'; Delete.innerHTML = ActionIcon('Trash');
+      Delete.dataset.trTitle = 'Delete'; Delete.title = Tr('Delete'); Delete.setAttribute('aria-label', Tr('Delete'));
       Delete.addEventListener('click', () => {
         CaptureChannelProfileDrafts();
         CentralChannelDrafts.set(Key, {Deleted: true});
         RenderChannelProfiles();
       });
+      Row.children[0].dataset.label = Tr('Device', 'Device');
+      Row.children[1].dataset.label = Tr('Channel', 'Channel');
       Row.appendChild(Delete);
       Rows.push(Row);
     });
   }
   Editor.replaceChildren(...Rows);
   UpdateChannelAssignmentOptions();
+  UpdateDerivedProfileEndpoints();
+  document.getElementById('HeatProfilesSaveButton').disabled = HasUnsavedChannelProfileDrafts();
 }
 
 function AddChannelProfileAssignment() {
@@ -1838,8 +2256,8 @@ function AddChannelProfileAssignment() {
   const [Device, IndexText] = Selector.value.split('\n');
   const Index = Number(IndexText);
   CentralChannelDrafts.set(ChannelDraftKey(Device, Index), {
-    Role: 'HeaterMain',
-    Profile: CentralHeatProfiles.Profiles[0]?.Id || ''
+    Role: 'MainSw',
+    Prof: CentralHeatProfiles.Profs[0]?.ProfName || ''
   });
   RenderChannelProfiles();
 }
@@ -1851,34 +2269,39 @@ async function SaveChannelProfiles() {
   Button.disabled = true;
   try {
     CaptureChannelProfileDrafts();
-    const Channels = JSON.parse(JSON.stringify(CentralChannelStore.Channels || {}));
+    const Channels = JSON.parse(JSON.stringify(CentralChannelStore.Chs || {}));
     for (const [Device, State] of Object.entries(Channels)) {
       const ChannelRows = Array.isArray(State) ? State : State.Rows;
       ChannelRows.forEach((Channel, Index) => {
         const Draft = CentralChannelDrafts.get(ChannelDraftKey(Device, Index));
         if (!Draft || Draft.Deleted) return;
         Channel.Role = Draft.Role;
-        if (['HeaterMain', 'HeaterFloor'].includes(Draft.Role)) {
-          if (!Draft.Profile) throw new Error(`${DeviceDisplayName(Device)} / ${ChannelDisplayName(Channel, Device)}: ${Tr('ProfileRequired', 'Heizprofil erforderlich')}`);
-          Channel.Profile = Draft.Profile;
-        } else delete Channel.Profile;
+        if (['MainSw', 'HeaterMain', 'HeaterFloor'].includes(Draft.Role)) {
+          if (!Draft.Prof) throw new Error(`${DeviceDisplayName(Device)} / ${ChannelDisplayName(Channel, Device)}: ${Tr('ProfileRequired', 'Heizprofil erforderlich')}`);
+          Channel.Prof = Draft.Prof;
+        } else delete Channel.Prof;
       });
       State.Rows = ChannelRows.filter((Channel, Index) => !CentralChannelDrafts.get(ChannelDraftKey(Device, Index))?.Deleted);
     }
+    UpdateDerivedProfileEndpoints();
     const Response = await fetch(new URL('api/times', window.location.href), {
       method: 'PUT', cache: 'no-store', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({Version: 1, Times: CollectCentralTimes(), Channels}, null, 2)
+      body: JSON.stringify({Ver: 1, Times: CollectCentralTimes(), Chs: Channels,
+        Profs: ChannelSaveProfiles(), ProfileTimeStamp: CentralHeatProfilesSaved.TimeStamp}, null, 2)
     });
     const Text = await Response.text();
     if (!Response.ok) throw new Error(Text || `HTTP ${Response.status}`);
     const Result = JSON.parse(Text);
-    if (Result.Ok !== true) throw new Error(Result.Error || Tr('SaveFailed', 'Speichern fehlgeschlagen'));
+    if (Result.Ok !== true) throw new Error(Result.Err || Tr('SaveFailed', 'Speichern fehlgeschlagen'));
     CentralChannelDrafts.clear();
     const TimesReloaded = await LoadCentralTimes();
     CentralChannelStore = CentralTimeStore;
-    RenderChannelProfiles();
     const ProfileStore = await FetchDashboardJson('api/heatprofiles');
-    if (!Array.isArray(ProfileStore.Sets)) throw new Error('Ungültiges Profil-Synchronisationsformat');
+    if (!Array.isArray(ProfileStore.Profs) || !Array.isArray(ProfileStore.Sets)) throw new Error('Ungültiges Profil-Synchronisationsformat');
+    CentralHeatProfilesSaved = {Profs: JSON.parse(JSON.stringify(ProfileStore.Profs)), TimeStamp: ProfileStore.TimeStamp};
+    CentralHeatProfiles = {Profs: JSON.parse(JSON.stringify(ProfileStore.Profs)), TimeStamp: ProfileStore.TimeStamp};
+    RenderHeatProfiles();
+    RenderChannelProfiles();
     RenderHeatProfileStatus(ProfileStore);
     const Action = Result.Changed === true
       ? Tr('ChannelsSaved', 'Kanalzuordnungen gespeichert; Verteilung wurde angestoßen.')
@@ -1892,40 +2315,60 @@ async function SaveChannelProfiles() {
   }
 }
 
+function ChannelSaveProfiles() {
+  const Profiles = JSON.parse(JSON.stringify(CentralHeatProfilesSaved.Profs));
+  const Drafts = new Map(CentralHeatProfiles.Profs.map(Profile => [Profile.ProfName, Profile]));
+  for (const Profile of Profiles) {
+    const Draft = Drafts.get(Profile.ProfName);
+    if (!Profile.Heat || !Draft?.Heat || Profile.Meas === 'BatteryPercent') continue;
+    for (const Key of ['MainEndpoint', 'FloorEndpoint']) {
+      if (Draft.Heat[Key] === undefined) delete Profile.Heat[Key];
+      else Profile.Heat[Key] = Draft.Heat[Key];
+    }
+  }
+  return Profiles;
+}
+
 function AddHeatProfile() {
-  CentralHeatProfiles.Profiles.push({Id: '', TempId: '', FloorOn: 0, FloorOff: 1, MainOn: 0, MainOff: 1, NoTempOn: false});
+  CentralHeatProfiles.Profs.push({ProfName: '', MeasSrc: '', Meas: 'Temperature', OnIfNoMeas: false, Heat: {Active: false}});
   RenderHeatProfiles();
   RenderChannelProfiles(true);
 }
 
 function CollectHeatProfiles() {
-  const Profiles = [];
-  const Ids = new Set();
+  const Profiles = [], Names = new Set();
   for (const [Index, Card] of [...document.querySelectorAll('.HeatProfileCard')].entries()) {
-    const Profile = {};
+    const Profile = {...CentralHeatProfiles.Profs[Index]};
+    const ReadInput = Input => {
+      if (Input.type === 'checkbox') return Input.checked;
+      if (Input.type !== 'number') return Input.value.trim();
+      if (!Input.value.trim()) return undefined;
+      if (!Number.isFinite(Number(Input.value))) throw new Error(Tr('InvalidNumber', 'ungültige Zahl'));
+      return Number(Input.value);
+    };
     for (const Input of Card.querySelectorAll('[data-key]')) {
-      if (Input.type === 'checkbox') Profile[Input.dataset.key] = Input.checked;
-      else if (Input.type === 'number') {
-        if (Input.value.trim() === '' || !Number.isFinite(Number(Input.value))) throw new Error(`${Input.dataset.key}: ${Tr('InvalidNumber', 'ungültige Zahl')}`);
-        Profile[Input.dataset.key] = Number(Input.value);
-      } else Profile[Input.dataset.key] = Input.value.trim();
+      const Value = ReadInput(Input), Key = Input.dataset.key;
+      if (Value === undefined) delete Profile[Key]; else Profile[Key] = Value;
     }
-    if (!Profile.Measurement) delete Profile.Measurement;
-    else if (!/^[A-Za-z0-9_]{1,64}$/.test(Profile.Measurement) || Profile.Measurement === 'Kind') throw new Error('Measurement: ' + Tr('Invalid', 'ungültig'));
-    if (!Profile.Id || !Profile.TempId) throw new Error(`${Tr('Profile', 'Profil')} ${Index + 1}: Id/TempId ${Tr('Required', 'erforderlich')}`);
-    if (Ids.has(Profile.Id)) throw new Error(`${Tr('Profile', 'Profil')}: ${Profile.Id} ${Tr('Duplicate', 'doppelt')}`);
-    if (!(Profile.FloorOn < Profile.FloorOff) || !(Profile.MainOn < Profile.MainOff))
-      throw new Error(`${Profile.Id}: ${Tr('ThresholdsInvalid', 'Ein-Temperatur muss unter Aus-Temperatur liegen')}`);
-    Ids.add(Profile.Id);
-    Profiles.push(Profile);
-  }
-  const NewIds = new Set(Profiles.map(Profile => Profile.Id));
-  for (const Profile of CentralHeatProfiles.Profiles) {
-    if (!NewIds.has(Profile.Id)) {
-      const References = ProfileReferences(Profile.Id);
-      if (References.length) throw new Error(`${Profile.Id} ${Tr('ProfileInUse', 'Noch verwendet von')}: ${References.join(', ')}`);
+    if (Profile.Meas === 'BatteryPercent') delete Profile.Heat;
+    else {
+      Profile.Heat = {...Profile.Heat};
+      for (const Input of Card.querySelectorAll('[data-pi-key]')) {
+        const Value = Input.dataset.endpointId !== undefined
+          ? (EndpointDirectory.NameToId(Input.value) || Input.dataset.endpointId)
+          : ReadInput(Input);
+        const Key = Input.dataset.piKey;
+        if (Value === undefined) delete Profile.Heat[Key]; else Profile.Heat[Key] = Value;
+      }
+      for (const Key of ['ChargeStartPct', 'ChargeStopPct', 'ChargeRunOn', 'ChargeSecPerPct']) delete Profile[Key];
     }
+    if (!GnJson.Valid('TJsonProfile', Profile)) throw new Error(`${Tr('Profile', 'Profil')} ${Index + 1}: ${Tr('Invalid', 'ungültig')}`);
+    if (Names.has(Profile.ProfName)) throw new Error(`${Profile.ProfName}: ${Tr('Duplicate', 'doppelt')}`);
+    Names.add(Profile.ProfName); Profiles.push(Profile);
   }
+  for (const Previous of CentralHeatProfiles.Profs)
+    if (!Names.has(Previous.ProfName) && ProfileReferences(Previous.ProfName).length)
+      throw new Error(`${Previous.ProfName}: ${Tr('ProfileInUse', 'Noch verwendet')}`);
   return Profiles;
 }
 
@@ -1957,7 +2400,7 @@ function ActivateTab(TabId, Persist = true) {
   document.getElementById('FrameScaleLabel').textContent = 'Auto';
   document.getElementById('FrameReloadButton').disabled = ActiveConfigDevice.ConfigFrame === null;
   LoadConfigurationFrame(ActiveConfigDevice);
-  ActiveConfigDevice.ConfigFrame?.contentWindow?.postMessage({Source: 'GnDashboard', Type: 'ConfigurationActivated'}, '*');
+  ActiveConfigDevice.ConfigFrame?.contentWindow?.postMessage({Src: 'GnDashboard', Type: 'ConfigurationActivated'}, '*');
   requestAnimationFrame(() => FitFrame(ActiveConfigDevice));
 }
 
@@ -1980,8 +2423,13 @@ function SetDashboardStatus(Text) {
   document.getElementById('LastDashboardUpdate').textContent = Text;
 }
 
+function RenderDashboardTimestamp() {
+  SetDashboardStatus(LastDashboardUpdateAt ? `${Tr('Updated', 'Aktualisiert')} ${FormatShortTime(LastDashboardUpdateAt)}` : Tr('NoDataYet', 'Noch keine Daten'));
+}
+
 function UpdateDashboardTimestamp() {
-  SetDashboardStatus(`${Tr('Updated', 'Aktualisiert')} ${FormatShortTime(new Date())}`);
+  LastDashboardUpdateAt = new Date();
+  RenderDashboardTimestamp();
 }
 
 function CheckOfflineDevices() {
@@ -2030,7 +2478,7 @@ async function FetchDashboardServerVersion() {
     const VersionInfo = await Response.json();
     return {
       Server: VersionInfo.ServerVersion || '?',
-      Data: VersionInfo.DataVersion || '?'
+      Data: VersionInfo.DataVer || '?'
     };
   } catch (Error) {
     if (Error.name === 'AbortError')
@@ -2081,7 +2529,7 @@ async function CheckDashboardHealth() {
   if (DashboardHealthRequestRunning) return;
 
   if (!navigator.onLine) {
-    MarkDashboardUnavailable('WLAN oder Netzwerkverbindung ist unterbrochen. Automatische Wiederverbindung läuft.');
+    MarkDashboardUnavailable(Tr('NetworkInterrupted'));
     return;
   }
 
@@ -2091,7 +2539,7 @@ async function CheckDashboardHealth() {
     DashboardHealthDelay = DashboardHealthInitialMilliseconds;
 
     if (DashboardWasUnavailable) {
-      SetDashboardConnectionState('Recovering', 'Verbindung wiederhergestellt. Dashboard wird neu geladen …');
+      SetDashboardConnectionState('Recovering', Tr('DashboardRecovering'));
       setTimeout(() => window.location.reload(), DashboardRecoveryReloadMilliseconds);
       return;
     }
@@ -2100,7 +2548,7 @@ async function CheckDashboardHealth() {
     ScheduleDashboardHealthCheck(DashboardHealthNormalMilliseconds);
   } catch (Error) {
     console.error('Dashboard health check failed', Error);
-    MarkDashboardUnavailable(`Dashboard-Server nicht erreichbar: ${Error.message}. Neuer Versuch läuft automatisch.`);
+    MarkDashboardUnavailable(`${Tr('DashboardUnavailable')}: ${Error.message}. ${Tr('RetryAutomatic')}`);
   } finally {
     DashboardHealthRequestRunning = false;
   }
@@ -2109,7 +2557,7 @@ async function CheckDashboardHealth() {
 function HandleBrowserOffline() {
   for (const Device of Devices)
     SetConnectionState(Device, 'Offline');
-  MarkDashboardUnavailable('WLAN oder Netzwerkverbindung ist unterbrochen. Automatische Wiederverbindung läuft.');
+  MarkDashboardUnavailable(Tr('NetworkInterrupted'));
 }
 
 function HandleBrowserOnline() {
@@ -2130,8 +2578,8 @@ async function StartDashboard() {
     const Configuration = await LoadDashboardConfiguration();
     Message.hidden = true;
     const DeviceConfigurations = (Configuration.Devices || []).filter(Device => Device.Enabled !== false);
-    for (const [Name, Id] of Object.entries(Configuration.ExternalSources || {}))
-      DeviceConfigurations.push({Name, Function: Name, BaseUrl: '/', Group: 'System',
+    for (const [Name, Id] of Object.entries(Configuration.ExternalSrcs || {}))
+      DeviceConfigurations.push({Name, Func: Name, BaseUrl: '/', Group: 'System',
         StatusOnly: true, ExternalSourceId: Id});
     if (DeviceConfigurations.length === 0) {
       Message.textContent = 'In Devices.json sind keine aktiven Geräte eingetragen.';
@@ -2152,7 +2600,7 @@ async function StartDashboard() {
     console.error('Cannot start dashboard', Error);
     Message.textContent = `Dashboard-Konfiguration konnte nicht geladen werden: ${Error.message}`;
     Message.hidden = false;
-    MarkDashboardUnavailable(`Dashboard-Server nicht erreichbar: ${Error.message}. Neuer Versuch läuft automatisch.`);
+    MarkDashboardUnavailable(`${Tr('DashboardUnavailable')}: ${Error.message}. ${Tr('RetryAutomatic')}`);
   }
 }
 
@@ -2167,6 +2615,16 @@ function CheckDashboardNow() {
 
 document.getElementById('PageSelector').addEventListener('change', Event => ActivateTab(Event.target.value));
 document.getElementById('TimeSetSelector').addEventListener('change', UpdateTimeKindSelector);
+document.getElementById('TimesData').addEventListener('input', () => { CentralTimesDirty = true; });
+document.getElementById('TimesData').addEventListener('change', () => { CentralTimesDirty = true; });
+document.getElementById('TimesData').addEventListener('click', Event => {
+  if (Event.target.closest('.TimeOrderButtons')) CentralTimesDirty = true;
+});
+window.addEventListener('dashboard-times-changed', () => {
+  ScheduleDashboardSyncStatusRefresh();
+  if (!CentralTimesDirty && document.getElementById('Times').classList.contains('Active'))
+    LoadCentralTimes();
+});
 document.getElementById('TimeAddButton').addEventListener('click', AddCentralTime);
 document.getElementById('TimeSaveButton').addEventListener('click', SaveCentralTimes);
 document.getElementById('TimeReloadButton').addEventListener('click', LoadCentralTimes);
@@ -2225,10 +2683,10 @@ function AssignmentFunctionLabel(Function, Groups = [], HardwareName = null) {
 }
 
 function AssignmentChoices(View) {
-  return [...(View?.Endpoints || []).filter(Endpoint => Endpoint.Capabilities !== 0).slice().sort((First, Second) => First.HardwareName.localeCompare(Second.HardwareName, undefined, {numeric: true})).map(Endpoint => ({
-    ...Endpoint, Supported: Endpoint.Available !== false && (Endpoint.Capabilities === 2 || View.Devices.find(Device => Device.DeviceId === Endpoint.DeviceId)?.EndpointAssignments === 1), Value: Endpoint.EndpointId, Label: `${Endpoint.HardwareName} · ${AssignmentFunctionLabel(Endpoint.Function, Endpoint.Groups, Endpoint.UseHardwareName ? Endpoint.HardwareName : null)}`, Kind: 'Endpoint'
+  return [...(View?.Endpoints || []).filter(Endpoint => Endpoint.Caps !== 0).slice().sort((First, Second) => First.HwName.localeCompare(Second.HwName, undefined, {numeric: true})).map(Endpoint => ({
+    ...Endpoint, Supported: Endpoint.Available !== false && (Endpoint.Caps === 2 || View.Devices.find(Device => Device.DevId === Endpoint.OutAddress?.split('/')[0])?.EndpointAssignments === 1), Value: Endpoint.OutAddress, Label: `${Endpoint.HwName} · ${AssignmentFunctionLabel(Endpoint.Func, Endpoint.Groups, Endpoint.UseHwName ? Endpoint.HwName : null)}`, Kind: 'Endpoint'
   })), ...(View?.Devices || []).filter(Device => Device.ServiceId === 3).map(Device => ({
-    ...Device, Supported: Number.isInteger(Device.SensorCapabilityId) && Device.SensorCapabilityId >= 0, Value: `Device:${Device.Function}`, Label: `${Device.HardwareName || Device.Function} · ${Tr('FeederDeviceSwap', 'Feeder (whole device)')}`, Kind: 'Device'
+    ...Device, Supported: Number.isInteger(Device.SensorCapabilityId) && Device.SensorCapabilityId >= 0, Value: `Device:${Device.Func}`, Label: `${Device.HwName || Device.Func} · ${Tr('FeederDeviceSwap', 'Feeder (whole device)')}`, Kind: 'Device'
   }))];
 }
 
@@ -2240,16 +2698,16 @@ function AssignmentButtons() {
   for (const Option of document.getElementById('AssignmentSecond').options) {
     const Candidate = Choices.find(Item => Item.Value === Option.value);
     Option.disabled = !First || !Candidate || First.Value === Candidate.Value || First.Kind !== Candidate.Kind ||
-      (First.Kind === 'Endpoint' ? First.Capabilities !== Candidate.Capabilities || !Candidate.Supported : First.CapabilityId !== Candidate.CapabilityId || !Candidate.Supported);
+      (First.Kind === 'Endpoint' ? First.Caps !== Candidate.Caps || !Candidate.Supported : First.CapabilityId !== Candidate.CapabilityId || !Candidate.Supported);
   }
   const SafetyLabel = document.querySelector('#AssignmentDetached + span');
-  SafetyLabel.dataset.tr = First?.Kind === 'Endpoint' && First.Capabilities === 2 ? 'SensorAssignmentsChecked' : 'ConsumersDetached';
+  SafetyLabel.dataset.tr = First?.Kind === 'Endpoint' && First.Caps === 2 ? 'SensorAssignmentsChecked' : 'ConsumersDetached';
   SafetyLabel.textContent = Tr(SafetyLabel.dataset.tr);
   document.getElementById('AssignmentResume').hidden = !View?.Pending;
   document.getElementById('AssignmentResume').disabled = AssignmentLoading;
   document.getElementById('AssignmentSwap').disabled = !View || !View.AllApplied || View.Pending || AssignmentLoading ||
     !First || !Second || First === Second || First.Kind !== Second.Kind ||
-    (First.Kind === 'Endpoint' ? First.Capabilities !== Second.Capabilities || !First.Capabilities || !First.Supported || !Second.Supported : First.ServiceId !== Second.ServiceId || First.CapabilityId !== Second.CapabilityId || !First.Supported || !Second.Supported) ||
+    (First.Kind === 'Endpoint' ? First.Caps !== Second.Caps || !First.Caps || !First.Supported || !Second.Supported : First.ServiceId !== Second.ServiceId || First.CapabilityId !== Second.CapabilityId || !First.Supported || !Second.Supported) ||
     !document.getElementById('AssignmentDetached').checked;
 }
 
@@ -2266,19 +2724,26 @@ async function LoadAssignments() {
     AssignmentView = View;
     document.getElementById('AssignmentMode').textContent = 'MAC';
     const Rows = [...View.Devices.filter(Device => Device.ServiceId === 2 || Device.ServiceId === 3),
-      ...(View.Endpoints || []).filter(Endpoint => Endpoint.Capabilities !== 0).slice().sort((First, Second) => First.HardwareName.localeCompare(Second.HardwareName, undefined, {numeric: true})).map(Endpoint => ({...View.Devices.find(Device => Device.DeviceId === Endpoint.DeviceId),
-        Function: Endpoint.Function, HardwareName: Endpoint.HardwareName, EndpointId: Endpoint.EndpointId, CapabilityId: Endpoint.Capabilities, EndpointGroups: Endpoint.Groups, UseHardwareName: Endpoint.UseHardwareName, EndpointAvailable: Endpoint.Available}))];
+      ...(View.Endpoints || []).filter(Endpoint => Endpoint.Caps !== 0).slice().sort((First, Second) => First.HwName.localeCompare(Second.HwName, undefined, {numeric: true})).map(Endpoint => ({...View.Devices.find(Device => Device.DevId === Endpoint.OutAddress?.split('/')[0]),
+        Func: Endpoint.Func, HwName: Endpoint.HwName, OutAddress: Endpoint.OutAddress, CapabilityId: Endpoint.Caps, EndpointGroups: Endpoint.Groups, UseHwName: Endpoint.UseHwName, EndpointAvailable: Endpoint.Available}))];
     document.getElementById('AssignmentRows').replaceChildren(...Rows.map(Device => {
       const Row = document.createElement('tr');
-      const FirmwareReady = !Device.EndpointId || Device.CapabilityId !== 1 || Device.EndpointAssignments === 1;
+      const FirmwareReady = !Device.OutAddress || Device.CapabilityId !== 1 || Device.EndpointAssignments === 1;
       const Ready = FirmwareReady && Device.EndpointAvailable !== false && (Device.ServiceId === 2 || Device.Applied);
-      const Address = Device.HttpPort && Device.HttpPort !== 80 ? `${Device.IP}:${Device.HttpPort}` : Device.IP;
-      const FunctionLabel = Device.EndpointId
-        ? `${AssignmentFunctionLabel(Device.Function, Device.EndpointGroups, Device.UseHardwareName ? Device.HardwareName : null)}${Device.CapabilityId === 2 ? ` · ${Tr('TemperatureSource', 'Temperature source')}` : ''}`
-        : `${DeviceDisplayName(Device.Function)}${Device.ServiceId === 3 ? ` · ${Tr('FeedingFunction', 'Feeding')}` : ''}`;
-      const CapabilityLabel = Device.EndpointId ? `${Device.CapabilityId}: ${Device.CapabilityId === 2 ? Tr('TemperatureSource', 'Temperature source') : Tr('SwitchCapability', 'Switching')}` : Device.ServiceId === 3 ? Tr('FeedingFunction', 'Feeding') : '—';
-      for (const Text of [FunctionLabel, Address, Device.HardwareName ? `${Device.HardwareName} · ${Device.EndpointId || Device.DeviceId}` : Device.DeviceId, CapabilityLabel, Ready ? Tr('AssignmentReady') : Device.EndpointId && Device.EndpointAvailable === false ? Tr('SensorStateUnknown', 'Sensor state unknown') : !Device.Online ? Tr('Offline') : !FirmwareReady ? Tr('EndpointFirmwareUpdateRequired') : Tr('AssignmentNotReady')]) {
-        const Cell = document.createElement('td'); Cell.textContent = Text; Row.appendChild(Cell);
+      const Address = Device.Url
+        ? new URL(Device.Url, window.location.href).host
+        : Device.BaseUrl
+        ? new URL(Device.BaseUrl, window.location.href).host
+        : Device.HttpPort && Device.HttpPort !== 80 ? `${Device.IP}:${Device.HttpPort}` : Device.IP;
+      const FunctionLabel = Device.OutAddress
+        ? `${AssignmentFunctionLabel(Device.Func, Device.EndpointGroups, Device.UseHwName ? Device.HwName : null)}${Device.CapabilityId === 2 ? ` · ${Tr('TemperatureSource', 'Temperature source')}` : ''}`
+        : `${DeviceDisplayName(Device.Func)}${Device.ServiceId === 3 ? ` · ${Tr('FeedingFunction', 'Feeding')}` : ''}`;
+      const CapabilityLabel = Device.OutAddress ? `${Device.CapabilityId}: ${Device.CapabilityId === 2 ? Tr('TemperatureSource', 'Temperature source') : Tr('SwitchCapability', 'Switching')}` : Device.ServiceId === 3 ? Tr('FeedingFunction', 'Feeding') : '—';
+      for (const Text of [FunctionLabel, Address, Device.HwName ? `${Device.HwName} · ${Device.OutAddress || Device.DevId}` : Device.DevId, CapabilityLabel, Ready ? Tr('AssignmentReady') : Device.OutAddress && Device.EndpointAvailable === false ? Tr('SensorStateUnknown', 'Sensor state unknown') : !Device.Online ? Tr('Offline') : !FirmwareReady ? Tr('EndpointFirmwareUpdateRequired') : Tr('AssignmentNotReady')]) {
+        const Cell = document.createElement('td');
+        const Captions = [Tr('Function'), 'IP / Port', Tr('PhysicalDevice'), Tr('CapabilityId'), Tr('Status')];
+        Cell.dataset.label = Captions[Row.children.length];
+        Cell.textContent = Text; Row.appendChild(Cell);
       }
       return Row;
     }));
@@ -2290,8 +2755,8 @@ async function LoadAssignments() {
       }));
       if ([...Selector.options].some(Option => Option.value === Previous)) Selector.value = Previous;
     }
-    Message.classList.toggle('Success', !View.Error && !View.Pending && View.AllApplied);
-    Message.textContent = View.Error || (View.Pending ? Tr('AssignmentPending') : View.AllApplied ? Tr('AssignmentComplete') : '');
+    Message.classList.toggle('Success', !View.Err && !View.Pending && View.AllApplied);
+    Message.textContent = View.Err || (View.Pending ? Tr('AssignmentPending') : View.AllApplied ? Tr('AssignmentComplete') : '');
     Message.hidden = !Message.textContent;
     if (View.Pending && document.getElementById('Assignments').classList.contains('Active'))
       AssignmentTimer = setTimeout(LoadAssignments, 3000);
@@ -2315,12 +2780,12 @@ async function ChangeAssignment(Operation) {
   try {
     const Response = await fetch('api/device-assignments', {
       method: 'POST', headers: {'Content-Type': 'application/json'}, signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({Operation, ExpectedRevision: AssignmentView.Revision,
+      body: JSON.stringify({Operation, ExpectedRevision: AssignmentView.Rev,
         First: ChoiceValue('AssignmentFirst'), Second: ChoiceValue('AssignmentSecond'),
         ConsumersDetached: document.getElementById('AssignmentDetached').checked})
     });
     const Result = await Response.json();
-    if (!Response.ok || !Result.Ok) throw new Error(Result.Error || `HTTP ${Response.status}`);
+    if (!Response.ok || !Result.Ok) throw new Error(Result.Err || `HTTP ${Response.status}`);
     document.getElementById('AssignmentDetached').checked = false;
     Message.textContent = Tr('AssignmentPending'); Message.hidden = false;
     // Rebuild all device clients from the newly committed function/IP mapping.
@@ -2416,7 +2881,7 @@ async function LoadDeviceEditor() {
     const Response = await fetch('api/device-editor', {cache: 'no-store', signal: AbortSignal.timeout(10000)});
     const Data = await Response.json();
     if (!Response.ok) throw new Error(`HTTP ${Response.status}`);
-    DeviceEditorRevision = Data.Revision;
+    DeviceEditorRevision = Data.Rev;
     document.getElementById('DeviceEditorText').value = FormatEditorJson({Devices: Data.Devices}) + '\n';
     DeviceEditorDirty = false; Message.textContent = '';
   } catch (Error) { Message.textContent = Tr('AssignmentError') + Error.message; }
@@ -2437,7 +2902,7 @@ async function SaveDeviceEditor() {
       body: JSON.stringify({Operation: 'EditDevices', ExpectedRevision: DeviceEditorRevision, Devices: Data.Devices})
     });
     const Result = await Response.json();
-    if (!Response.ok || !Result.Ok) throw new Error(Result.Error || `HTTP ${Response.status}`);
+    if (!Response.ok || !Result.Ok) throw new Error(Result.Err || `HTTP ${Response.status}`);
     window.location.reload();
   } catch (Error) { Message.textContent = Tr('AssignmentError') + Error.message; await LoadAssignments(); }
   finally { DeviceEditorLoading = false; DeviceEditorButtons(); }
@@ -2531,7 +2996,7 @@ function EnableColumnSizing(Table, Key) {
       Handles[Index].title = Tr('ResizeColumnHint', 'Drag to resize; double-click to fit content');
     });
     QueueFit();
-  }).observe(Table.tHead, {childList: true, subtree: true});
+  }).observe(Table.querySelector('thead'), {childList: true, subtree: true});
   Table.classList.add('ResizableColumns');
   new MutationObserver(QueueFit).observe(Table.tBodies[0] || Table, {childList: true, subtree: true, characterData: true});
   window.addEventListener('resize', QueueFit);
@@ -2578,9 +3043,9 @@ let FeedbackEditorPrevious = null;
 async function LoadFeedbackEditor() {
   const Response = await fetch('api/feedback-monitors', {cache: 'no-store', signal: AbortSignal.timeout(6000)});
   if (!Response.ok) throw new Error(`HTTP ${Response.status}`);
-  const Data = await Response.json();
-  FeedbackEditorPrevious = Data.Configuration;
-  document.getElementById('FeedbackEditorText').value = FormatEditorJson(Data.Configuration) + '\n';
+  const Data = GnJson.Read('THttpFeedbackDocument', await Response.text());
+  FeedbackEditorPrevious = Data.Cfg;
+  document.getElementById('FeedbackEditorText').value = FormatEditorJson(Data.Cfg) + '\n';
   document.getElementById('FeedbackEditorMessage').textContent = '';
 }
 async function FeedbackEditorAction(Action) {
@@ -2598,9 +3063,9 @@ document.getElementById('FeedbackEditorToggle').addEventListener('click', () => 
 });
 document.getElementById('FeedbackEditorReload').addEventListener('click', () => FeedbackEditorAction(LoadFeedbackEditor));
 document.getElementById('FeedbackEditorSave').addEventListener('click', () => FeedbackEditorAction(async () => {
-  const Configuration = JSON.parse(document.getElementById('FeedbackEditorText').value);
+  const Configuration = GnJson.Read('TJsonFeedbackConfiguration', document.getElementById('FeedbackEditorText').value);
   const Response = await fetch('api/feedback-monitors', {method: 'PUT', headers: {'Content-Type': 'application/json'},
-    signal: AbortSignal.timeout(6000), body: JSON.stringify({Configuration, Previous: FeedbackEditorPrevious})});
+    signal: AbortSignal.timeout(6000), body: GnJson.Write('THttpFeedbackWrite', {Cfg: Configuration, Previous: FeedbackEditorPrevious})});
   if (!Response.ok) throw new Error(await Response.text());
   await LoadFeedbackEditor();
   document.getElementById('FeedbackEditorMessage').textContent = Tr('FeedbackSaved', 'Überwachung gespeichert.');

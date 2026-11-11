@@ -1,4 +1,4 @@
-// FeederServo.h, Version: 2.43
+// FeederServo.h, Version: 2.45
 //****************************************************************
 
 #ifndef FeederServoH  // sentry
@@ -9,7 +9,8 @@
 //****************************************************************
 
 #include <GnBasics.h>
-#include "Libs/Common/Feeder/FeederDriveBase.h"
+#include <vector>
+#include "Common/Feeder/FeederDriveBase.h"
 #ifdef ESP32
   #include <WiFi.h>
   #include <WiFiType.h>
@@ -117,7 +118,7 @@ class TFeederServo : public TSingleton<TFeederServo>, public TFeederDrive
   bool                Feed( uint8_t Repeats = 1 ) override;
   bool                Stop(void) override;
   bool                PinUsed( int Pin ) const override;
-  char const *        CapabilitiesJson(void) const override       { return ",\"ServoSteps\""; }
+  std::vector<TGNString> Capabilities(void) const override       { return { "ServoSteps" }; }
   void                TimeSynchronized(void) override;
 
  private:

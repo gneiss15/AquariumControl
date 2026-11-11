@@ -1,9 +1,11 @@
-// ConfigurationTransaction.h, Version: 1.00
+// ConfigurationTransaction.h, Version: 1.04
 #pragma once
 #include <GnBasics.h>
 #if !defined( SYSTEM_ESP )
 #include <filesystem>
-#include <json-c/json.h>
+#include <GnConfigurationJournal.h>
+#include <fstream>
+#include <sstream>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cerrno>
@@ -39,27 +41,15 @@ inline bool Recover( std::filesystem::path const & Directory, TGNString & Error 
  {
   const auto Journal = Directory / "Configuration.transaction.json";
   if( !std::filesystem::exists( Journal ) ) return true;
-  json_object * Root = json_object_from_file( Journal.c_str() ), * Files = nullptr;
-  if( !Root || !json_object_object_get_ex( Root, "Files", &Files ) || !json_object_is_type( Files, json_type_object ) )
-   { if( Root ) json_object_put( Root ); Error = "Invalid configuration transaction"; return false; }
-  json_object * ChannelFile = nullptr, * ScheduleFile = nullptr;
-  bool Ok = json_object_object_length( Files ) == 2 &&
-    json_object_object_get_ex( Files, "Channels.json", &ChannelFile ) &&
-    json_object_object_get_ex( Files, "SwitchTimes.json", &ScheduleFile );
-  if( !Ok ) Error = "Incomplete configuration transaction";
-  json_object_object_foreach( Files, Name, Value )
-   {
-    const TGNString Key = Name;
-    if( ( Key != "Channels.json" && Key != "SwitchTimes.json" ) || !json_object_is_type( Value, json_type_string ) )
-      { Ok = false; Error = "Invalid transaction file"; break; }
-   }
-  if( Ok )
-   {
-    json_object_object_foreach( Files, Name, Value )
-     { if( !Write( Directory / Name, json_object_get_string( Value ), Error ) ) { Ok = false; break; } }
-   }
-  json_object_put( Root );
-  if( !Ok ) return false; // Keep the journal for deterministic retry/restart recovery.
+  std::ifstream Input(Journal);
+  std::ostringstream Buffer;Buffer<<Input.rdbuf();
+  TJsonConfigurationFiles Transaction;
+  if(!Input || !GnReadConfigurationJournal(Buffer.str(),false,Transaction))
+   {Error="Invalid configuration transaction";return false;}
+  if(!Write(Directory/"Channels.json",Transaction.Chs.Value,Error) ||
+     !Write(Directory/"SwitchTimes.json",Transaction.Schedule.Value,Error))
+    return false; // Keep the journal for retry/restart recovery.
+  bool Ok;
   if( unlink( Journal.c_str() ) != 0 ) { Error = "Cannot retire configuration transaction"; return false; }
   const int File = open( Directory.c_str(), O_RDONLY | O_DIRECTORY );
   Ok = File >= 0 && fsync( File ) == 0;
@@ -71,13 +61,12 @@ inline bool Commit( std::filesystem::path const & Directory, TGNString const & C
                     TGNString const & Schedule, TGNString & Error )
  {
   if( !Recover( Directory, Error ) ) return false;
-  auto Root = json_object_new_object(), Files = json_object_new_object();
-  json_object_object_add( Files, "Channels.json", json_object_new_string( Channels.c_str() ) );
-  json_object_object_add( Files, "SwitchTimes.json", json_object_new_string( Schedule.c_str() ) );
-  json_object_object_add( Root, "Files", Files );
-  const TGNString Text = json_object_to_json_string_ext( Root, JSON_C_TO_STRING_PLAIN );
-  const bool Saved = Write( Directory / "Configuration.transaction.json", Text, Error );
-  json_object_put( Root );
+  TJsonConfigurationFiles Transaction;
+  Transaction.Chs=Channels;
+  Transaction.Schedule=Schedule;
+  const TGNString Text=GnWriteJson(Transaction);
+  if(Text.empty()) {Error="Invalid configuration transaction";return false;}
+  const bool Saved=Write(Directory/"Configuration.transaction.json",Text,Error);
   return Saved && Recover( Directory, Error );
  }
  }

@@ -1,4 +1,4 @@
-/* Index.css, Version: 1.20 */
+/* Index.css, Version: 1.21 */
 body {
   margin: 0;
   font-family: sans-serif;
@@ -313,3 +313,18 @@ button {
 .SourcesConfig button { margin-top: 0.5rem; }
 
 #SourcesToggleBtn { margin-top: 1rem; }
+
+.BrowserClock {
+ flex:0 0 auto;
+ font-size:.8rem;
+ font-variant-numeric:tabular-nums;
+ white-space:nowrap;
+ text-align:left;
+}
+@media (max-width:600px) {
+ .TopBar {display:grid;grid-template-columns:minmax(0,1fr) auto;}
+ .TopBar .BrowserClock {grid-column:1;grid-row:1;}
+ .TopBar .LanguageMenu {grid-column:2;grid-row:1;justify-self:end;}
+ .TopBar .PageSelector {grid-column:1 / -1;grid-row:2;}
+ .TopBar .PageInfo {grid-column:1 / -1;grid-row:3;flex-direction:row;flex-wrap:wrap;gap:.5em;min-height:0;}
+}

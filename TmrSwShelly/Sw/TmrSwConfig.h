@@ -1,5 +1,5 @@
-// TmrSwConfig.h, Version: 3.02
+// TmrSwConfig.h, Version: 3.03
 #pragma once
 
 #define LongButtonPressMillis 5000
-#include "Libs/Common/TmrSw/TmrSwConfig.h"
+#include "Common/TmrSw/TmrSwConfig.h"

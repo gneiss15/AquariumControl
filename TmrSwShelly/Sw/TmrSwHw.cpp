@@ -1,4 +1,4 @@
-// TmrSwHw.cpp, Version: 3.07
+// TmrSwHw.cpp, Version: 3.08
 #include <GnBasics.h>
 #include "TmrSwHw.h"
 #include "SwitchTimes.h"
@@ -161,3 +161,5 @@ bool TTmrSwHw::PowerMeterLoadEnabled(void) const { return FRelayStatus; }
 float TTmrSwHw::Voltage(void) const { return ShellyPowerMeter.Voltage(); }
 float TTmrSwHw::Current(void) const { return ShellyPowerMeter.Current(); }
 float TTmrSwHw::ActivePower(void) const { return ShellyPowerMeter.Power(); }
+
+uint32_t TTmrSwHw::PowerMeterAgeMs(void) const { return ShellyPowerMeter.AgeMs(); }

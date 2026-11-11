@@ -1,9 +1,10 @@
-// DirectMotorDrive.h, Version: 1.13
+// DirectMotorDrive.h, Version: 1.15
 #pragma once
 
 #include <GnBasics.h>
+#include <vector>
 #include <GnCoopTimer.h>
-#include "Libs/Common/Feeder/FeederDriveBase.h"
+#include "Common/Feeder/FeederDriveBase.h"
 #include "DebouncedInput.h"
 #include "HwConfig.FeederSimple.h"
 
@@ -57,7 +58,7 @@ class TDirectMotorDrive : public TSingleton<TDirectMotorDrive>, public TFeederDr
   bool              Stop(void) override;
   bool              Running(void) const override;
   bool              PinUsed( int Pin ) const override;
-  char const *      CapabilitiesJson(void) const override;
+  std::vector<TGNString> Capabilities(void) const override;
   bool              HasInput(void) const override                  { return true; }
   bool              InputState(void) const override;
   char const *      Error(void) const override;

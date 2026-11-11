@@ -1,4 +1,6 @@
-// StatusClient.js, Version: 1.05
+// StatusClient.js, Version: 1.09
+import './Messages.js';
+
 const RequestTimeoutMilliseconds = 6000;
 const PollIntervalMilliseconds = 1000;
 
@@ -20,8 +22,7 @@ function SubscribeStatus(Client) {
   Events.onmessage = Event => {
     if (StatusEvents !== Events) return;
     try {
-      const Batch = JSON.parse(Event.data);
-      if (!Array.isArray(Batch)) throw new Error('Invalid status stream');
+      const Batch = GnJson.Read('TSseStatusBatch', Event.data);
       LastEventAt = Date.now();
       PushConnected = true;
       for (const Subscriber of Subscribers) Subscriber.UsePush(true);
@@ -30,6 +31,11 @@ function SubscribeStatus(Client) {
           if (Data.ID === Subscriber.ID) Subscriber.AcceptStatus(Data);
     } catch (Error) { console.error('Dashboard push failed', Error); }
   };
+  Events.addEventListener('times', Event => {
+    if (StatusEvents !== Events) return;
+    LastEventAt = Date.now();
+    window.dispatchEvent(new CustomEvent('dashboard-times-changed', {detail: Event.data}));
+  });
   Events.onerror = () => {
     if (StatusEvents !== Events) return;
     PushConnected = false;
@@ -63,7 +69,7 @@ export class TDeviceStatusClient {
     this.BaseUrl = new URL(BaseUrl, window.location.href);
     this.OnStatus = OnStatus;
     this.OnConnectionChanged = OnConnectionChanged;
-    this.Device = null;
+    this.Dev = null;
     this.ID = null;
     this.CachedId = CachedId;
     this.LastRevision = null;
@@ -79,9 +85,9 @@ export class TDeviceStatusClient {
     if (this.Running) return;
     this.Running = true;
     try {
-      this.Device = this.CachedId ? {DeviceId: this.CachedId}
+      this.Dev = this.CachedId ? {DevId: this.CachedId}
         : await this.GetJson('/api/v1/device', this.BaseUrl);
-      this.ID = String(this.Device?.DeviceId || this.BaseUrl.hostname);
+      this.ID = String(this.Dev?.DevId || this.BaseUrl.hostname);
       await this.PollStatus();
       if (!this.Running) return;
       this.UsePush(false);
@@ -118,7 +124,7 @@ export class TDeviceStatusClient {
         signal: Controller.signal
       });
       if (!Response.ok) throw new Error(`HTTP ${Response.status}`);
-      return Response.json();
+      return Response.text().then(Text => GnJson.Read(Path === '/api/v1/device' ? 'THttpDevice' : 'TJsonCachedStatus', Text));
     } catch (Error) {
       if (Error.name === 'AbortError')
         throw new Error(`Zeitüberschreitung nach ${RequestTimeoutMilliseconds / 1000} Sekunden`);
@@ -146,8 +152,8 @@ export class TDeviceStatusClient {
       this.LastRevision = null;
       return;
     }
-    if (Data.Status !== null && Data.Revision !== this.LastRevision) {
-      this.LastRevision = Data.Revision;
+    if (Data.Status !== null && Data.Rev !== this.LastRevision) {
+      this.LastRevision = Data.Rev;
       this.OnStatus(Data.Status, null);
     }
   }

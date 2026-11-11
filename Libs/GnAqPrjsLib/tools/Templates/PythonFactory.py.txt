@@ -1,0 +1,5 @@
+
+def New{Factory}(**Fields):
+  Packet={Constants}
+  Packet.update(Fields)
+  return Packet

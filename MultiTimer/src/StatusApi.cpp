@@ -1,9 +1,22 @@
-// StatusApi.cpp, Version: 2.47
+// StatusApi.cpp, Version: 2.57
+#define Do_THttpButtonAction
+#define Do_THttpDevice
+#define Do_TUdpChannel
+#define Do_TUdpLastError
+#define Do_TUdpMeasurement
+#define Do_TUdpNextChange
+#define Do_TUdpStatusData
+#define Do_TWsEventEndpoint
+#define Do_TWsStatusEvent
 #include <GnBasics.h>
+#include <GnJsonSchema.h>
+#include <DeviceUrl.h>
 #include "BuildConfig.h"
 #include "Logger.h"
 #include "StatusApi.h"
 #include <GnDeviceIdentity.h>
+#include <GnUdpStatusWriter.h>
+#include <GnUdpStatus.h>
 #include "TimeSync.h"
 #include <cstdio>
 #include <utility>
@@ -32,8 +45,9 @@ void TChannelApiStatus::Init( bool inputValid, bool inputState, TGNString error 
 
 TStatusApi::TStatusApi( TIHardware & hardware, TScheduler & scheduler,
                         const TChannelConfigs & channels, TGNString deviceId, TGNString name,
-                        unsigned webSocketPort, std::vector<TGNString> configErrors )
-: FHardware( hardware )
+                        unsigned webSocketPort, std::vector<TGNString> configErrors, TRoomTemperature * RoomTemperature )
+: FRoomTemperature( RoomTemperature )
+, FHardware( hardware )
 , FScheduler( scheduler )
 , FChannels( channels )
 , FDeviceId( std::move( deviceId ) )
@@ -61,77 +75,30 @@ const char * TStatusApi::Platform(void)
   #endif
  }
 
-void TStatusApi::AppendJsonString( TGNString & json, const TGNString & value )
- {
-  json += '"';
-  for( const char character : value )
-   {
-    switch( character )
-     {
-      case '"':
-        json += "\\\"";
-        break;
-      case '\\':
-        json += "\\\\";
-        break;
-      case '\b':
-        json += "\\b";
-        break;
-      case '\f':
-        json += "\\f";
-        break;
-      case '\n':
-        json += "\\n";
-        break;
-      case '\r':
-        json += "\\r";
-        break;
-      case '\t':
-        json += "\\t";
-        break;
-      default:
-        if( static_cast<unsigned char>( character ) < 0x20 )
-         {
-          char escape[ 7 ];
-          std::snprintf( escape, sizeof( escape ), "\\u%04x", static_cast<unsigned char>( character ) );
-          json += escape;
-         }
-        else
-          json += character;
-        break;
-     }
-   }
-  json += '"';
- }
-
-void TStatusApi::AppendInteger( TGNString & json, long long value )
- {
-  char text[ 32 ];
-  std::snprintf( text, sizeof( text ), "%lld", value );
-  json += text;
- }
-
 TGNString TStatusApi::DeviceJson(void) const
  {
-  TGNString json = "{\"ApiVersion\":";
-  AppendInteger( json, FApiVersion );
-  json += ",\"DeviceType\":";
-  AppendJsonString( json, FDeviceType );
-  json += ",\"Platform\":";
-  AppendJsonString( json, Platform() );
-  json += ",\"DeviceId\":";
-  AppendJsonString( json, GnDeviceIdentity.WireId() );
-  json += ",\"Identity\":" + GnDeviceIdentity.ReportJson();
-  json += ",\"Name\":";
-  AppendJsonString( json, FName );
-  json += ",\"FirmwareVersion\":";
-  AppendJsonString( json, MultiTimerVersion );
-  json += ",\"EndpointAssignments\":1,\"Capabilities\":[\"Status\",\"OverrideStatus\",\"NextChange\",\"ErrorStatus\",\"WebSocket\",\"PollingFallback\",\"ConfigPage\",\"ButtonActions\"],\"ConfigUrl\":\"/\",\"Actions\":{\"ButtonPress\":{\"Path\":\"/api/v1/button/{ChannelId}/{Press}\",\"Presses\":[\"Short\",\"Long\"]}},\"Events\":{\"Protocol\":\"ws\",\"Port\":";
-  AppendInteger( json, FWebSocketPort );
-  json += ",\"Path\":\"/api/v1/events\",\"PollingFallbackSeconds\":";
-  AppendInteger( json, FPollingFallbackSeconds );
-  json += "},\"StatusClientUrl\":\"/StatusClient.js\"}";
-  return json;
+  THttpDevice Device;
+  Device.DevId = GnDeviceIdentity.WireId();
+  Device.Identity.Present = true;
+  GnDeviceIdentity.ReportIdentity( Device.Identity.Value );
+  Device.ApiVer = FApiVersion;
+  Device.DevType = FDeviceType;
+  Device.Platform = Platform();
+  Device.Name = FName;
+  Device.FirmwareVer = MultiTimerVersion;
+  Device.CfgUrl = DeviceUrl("http",FWebSocketPort-1,"/");
+  Device.StatusClientUrl = DeviceUrl("http",FWebSocketPort-1,"/StatusClient.js");
+  TWsEventEndpoint Events;
+  Events.Url=DeviceUrl("ws",FWebSocketPort,"/api/v1/events");
+  Events.PollingFallbackSec = FPollingFallbackSeconds;
+  Device.EndpointAssignments = uint32_t( 1 );
+  Device.Caps = { "Status", "OverrideStatus", "NextChange", "ErrorStatus", "WebSocket", "PollingFallback", "ConfigPage", "ButtonActions" };
+  THttpButtonAction Button;
+  Button.Url = DeviceUrl("http",FWebSocketPort-1,"/api/v1/button/{ChannelId}/{Press}");
+  Button.Presses = { "Short", "Long" };
+  Device.ButtonPress = Button;
+  Device.Events=Events;
+  return GnWriteJson( Device );
  }
 
 void TStatusApi::UpdateTimeSyncStatus(void)
@@ -146,7 +113,10 @@ void TStatusApi::UpdateTimeSyncStatus(void)
 
 TGNString TStatusApi::StatusJson(void)
  {
-  return BuildStatusJson( nullptr );
+  std::unique_ptr<TUdpStatusData> Status( new(std::nothrow) TUdpStatusData{} );
+  if( !Status )return {};
+  FillStatus( *Status );
+  return GnWriteJson( *Status );
  }
 
 uint64_t TStatusApi::StatusSignature( TGNString const & json )
@@ -165,12 +135,42 @@ uint64_t TStatusApi::StatusSignature( TGNString const & json )
   return GnHash64( json.data() + numberEnd, json.length() - numberEnd, signature );
  }
 
-TGNString TStatusApi::StatusJson( uint64_t & signature )
+TGNString TStatusApi::StatusJson( uint64_t & Signature )
  {
-  return BuildStatusJson( &signature );
+  auto Json = StatusJson();
+  if( !Json.empty() )Signature = StatusSignature( Json );
+  return Json;
  }
 
-TGNString TStatusApi::BuildStatusJson( uint64_t * signature )
+bool TStatusApi::CompactStatus( uint64_t & Signature, TGnUdpInfoParts * Parts,
+                                TGNString & Packet )
+ {
+  TUdpStatusData Status{};
+  FillStatus( Status );
+  if( FRoomTemperature )
+   {
+    const auto Temperature = FRoomTemperature->UdpTemperature();
+    if( Temperature.Available )
+     {
+      if( Temperature.Valid )Status.Temp = double( Temperature.Celsius );
+      else Status.Temp = nullptr;
+     }
+   }
+  return GnBuildCompactStatus( Status, GnDeviceIdentity.WireId(), Signature, Parts, Packet );
+ }
+
+TGNString TStatusApi::StatusEventJson( uint64_t Sequence )
+ {
+  std::unique_ptr<TWsStatusEvent> Event( new(std::nothrow) TWsStatusEvent{} );
+  if( !Event )return {};
+  Event->Seq = Sequence;
+  Event->Status.Present = true;
+  FillStatus( Event->Status.Value );
+  Event->Timestamp = Event->Status.Value.CurrentTime.Value;
+  return GnWriteJson( *Event );
+ }
+
+void TStatusApi::FillStatus( TUdpStatusData & Status )
  {
   std::lock_guard<std::mutex> lock( FStatusMutex );
   UpdateTimeSyncStatus();
@@ -199,123 +199,90 @@ TGNString TStatusApi::BuildStatusJson( uint64_t * signature )
       errors.push_back( channel.Id + ": " + status.Error() );
    }
 
+  const bool HasRoomTemperature = FRoomTemperature && FRoomTemperature->Enabled();
+  const auto RoomTemperature = HasRoomTemperature ? FRoomTemperature->Sample() : TRoomTemperature::TSample{};
+  if( HasRoomTemperature && !RoomTemperature.Valid ) errors.push_back("Room temperature: " + RoomTemperature.Error);
+
   TGNString lastErrorMessage;
   std::time_t lastErrorTime = 0;
   const bool hasLastError = Logger.GetLastError( lastErrorMessage, lastErrorTime );
 
-  TGNString json = "{\"DeviceId\":";
-  AppendJsonString( json, GnDeviceIdentity.WireId() );
-  json += ",\"Identity\":" + GnDeviceIdentity.ReportJson();
-  json += ",\"OnlineSince\":";
-  AppendInteger( json, static_cast<long long>( FOnlineSince ) );
-  json += ",\"CurrentTime\":";
-  AppendInteger( json, static_cast<long long>( std::time( nullptr ) ) );
-  json += ",\"TimeSynchronized\":";
-  json += timeSynchronized ? "true" : "false";
-  json += ",\"TimeSyncError\":";
-  if( timeSynchronized )
-    json += "null";
-  else
-    AppendJsonString( json, TTimeSync::Error( FCachedTimeSyncState ) );
-  json += ",\"Healthy\":";
-  json += errors.empty() ? "true" : "false";
-  json += ",\"LastError\":";
+  Status.DevId = GnDeviceIdentity.WireId();
+  Status.Identity.Present = true;
+  GnDeviceIdentity.ReportIdentity( Status.Identity.Value );
+  Status.Identity.Value.BootCnt = nullptr;
+  Status.BootCnt = GnDeviceIdentity.BootCounter();
+  Status.OnlineSince = static_cast<uint64_t>( FOnlineSince );
+  Status.CurrentTime = static_cast<uint64_t>( std::time( nullptr ) );
+  Status.TimeSynchronized = timeSynchronized;
+  if( timeSynchronized )Status.TimeSyncErr = nullptr;
+  else Status.TimeSyncErr = TTimeSync::Error( FCachedTimeSyncState );
+  Status.Healthy = errors.empty();
+  Status.Errs = errors;
   if( hasLastError )
    {
-    json += "{\"Time\":";
-    AppendInteger( json, static_cast<long long>( lastErrorTime ) );
-    json += ",\"Message\":";
-    AppendJsonString( json, lastErrorMessage );
-    json += '}';
+    TUdpLastError Error;
+    Error.Time = static_cast<uint64_t>( lastErrorTime );
+    Error.Message = lastErrorMessage;
+    Status.LastErr = Error;
    }
-  else
-    json += "null";
-
-  json += ",\"Errors\":[";
-  for( unsigned errorNr = 0;  errorNr < errors.size();  ++errorNr )
+  else Status.LastErr = nullptr;
+  Status.Meas = std::vector<TUdpMeasurement>{};
+  if( HasRoomTemperature )
    {
-    if( errorNr != 0 )
-      json += ',';
-    AppendJsonString( json, errors[ errorNr ] );
+    TUdpMeasurement Measurement;
+    Measurement.Kind = "RoomTemperature";
+    Measurement.Name = "RoomTemperature";
+    if( RoomTemperature.Valid )Measurement.Value = double( RoomTemperature.Celsius );
+    else Measurement.Value = nullptr;
+    Measurement.Unit = "°C";
+    Measurement.Decimals = uint8_t( 1 );
+    Measurement.Valid = RoomTemperature.Valid;
+    if( RoomTemperature.UpdatedAt > 0 )Measurement.UpdatedAt = uint64_t( RoomTemperature.UpdatedAt );
+    else Measurement.UpdatedAt = nullptr;
+    if( RoomTemperature.Error.empty() )Measurement.Err = nullptr;
+    else Measurement.Err = RoomTemperature.Error;
+    Status.Meas.Value.push_back( Measurement );
    }
-  json += "],\"Channels\":[";
-
-  for( unsigned channelNr = 0;  channelNr < FChannels.size();  ++channelNr )
+  Status.Chs = std::vector<TUdpChannel>{};
+  for( unsigned ChannelNr = 0; ChannelNr < FChannels.size(); ++ChannelNr )
    {
-    if( channelNr != 0 )
-      json += ',';
-
-    const TChannelConfig & channel = FChannels[ channelNr ];
-    const TChannelApiStatus & apiStatus = channelStati[ channelNr ];
-    TSchedulerChannelStatus schedulerStatus;
-    if( channelNr < schedulerStati.size() )
-      schedulerStatus = schedulerStati[ channelNr ];
-
-    json += "{\"Id\":";
-    AppendInteger( json, channelNr );
-    json += ",\"Name\":";
-    AppendJsonString( json, channel.Id );
+    const auto & Config = FChannels[ChannelNr];
+    const auto & ApiStatus = channelStati[ChannelNr];
+    TSchedulerChannelStatus Schedule;
+    if( ChannelNr < schedulerStati.size() )Schedule = schedulerStati[ChannelNr];
+    TUdpChannel Channel;
+    Channel.Id.Present = true;
+    Channel.Id=GnDeviceIdentity.WireId()+"/"+std::to_string(Config.PhysicalNumber());
+    Channel.Name = Config.Id;
     int HardwareChannel = 0;
-    if( std::sscanf( channel.PhysPos.c_str(), "Main %d", &HardwareChannel ) != 1 ) HardwareChannel = 0;
-    json += ",\"HardwareChannel\":"; AppendInteger( json, HardwareChannel );
-    json += ",\"CapabilityId\":"; AppendInteger( json, channel.HasOutput() ? 1 : 0 );
-    json += ",\"HasInput\":";
-    json += channel.InputPin ? "true" : "false";
-    json += ",\"HasOutput\":";
-    json += channel.HasOutput() ? "true" : "false";
-    json += ",\"InputState\":";
-    if( channel.InputPin && apiStatus.InputValid() )
-      json += apiStatus.InputState() ? "true" : "false";
-    else
-      json += "null";
-
-    json += ",\"State\":";
-    if( channel.HasOutput() )
-      json += schedulerStatus.State() ? "true" : "false";
-    else
-      json += "null";
-
-    json += ",\"AutomaticState\":";
-    if( channel.HasOutput() )
-      json += schedulerStatus.AutomaticState() ? "true" : "false";
-    else
-      json += "null";
-
-    json += ",\"OverrideActive\":";
-    json += schedulerStatus.OverrideActive() ? "true" : "false";
-    json += ",\"OverrideState\":";
-    if( schedulerStatus.OverrideActive() )
-      json += schedulerStatus.OverrideState() ? "true" : "false";
-    else
-      json += "null";
-    json += ",\"OverrideUntil\":";
-    if( schedulerStatus.OverrideActive() && schedulerStatus.OverrideUntilKnown() )
-      AppendInteger( json, static_cast<long long>( schedulerStatus.OverrideUntil() ) );
-    else
-      json += "null";
-
-    json += ",\"NextChange\":";
-    if( channel.HasOutput() && schedulerStatus.NextChangeValid() )
+    if( std::sscanf( Config.PhysPos.c_str(), "Main %d", &HardwareChannel ) != 1 )HardwareChannel = 0;
+    Channel.HwCh = uint32_t( HardwareChannel );
+    Channel.HasIn = bool( Config.InputPin );
+    Channel.HasOut = Config.HasOutput();
+    if( Config.InputPin && ApiStatus.InputValid() )Channel.InState = ApiStatus.InputState();
+    else Channel.InState = nullptr;
+    if( Config.HasOutput() )
      {
-      json += "{\"Time\":";
-      AppendInteger( json, static_cast<long long>( schedulerStatus.NextChangeTime() ) );
-      json += ",\"State\":";
-      json += schedulerStatus.NextChangeState() ? "true" : "false";
-      json += '}';
+      Channel.State = Schedule.State();
+      Channel.AutomaticState = Schedule.AutomaticState();
      }
-    else
-      json += "null";
-
-    json += ",\"Error\":";
-    if( apiStatus.Error().empty() )
-      json += "null";
-    else
-      AppendJsonString( json, apiStatus.Error() );
-    json += '}';
+    else { Channel.State = nullptr;Channel.AutomaticState = nullptr; }
+    Channel.OvrActive = Schedule.OverrideActive();
+    if( Schedule.OverrideActive() )Channel.OvrState = Schedule.OverrideState();
+    else Channel.OvrState = nullptr;
+    if( Schedule.OverrideActive() && Schedule.OverrideUntilKnown() )Channel.OvrUntil = uint64_t( Schedule.OverrideUntil() );
+    else Channel.OvrUntil = nullptr;
+    if( Config.HasOutput() && Schedule.NextChangeValid() )
+     {
+      TUdpNextChange Next;
+      Next.Time = uint64_t( Schedule.NextChangeTime() );
+      Next.State = Schedule.NextChangeState();
+      Channel.NextChange = Next;
+     }
+    else Channel.NextChange = nullptr;
+    if( ApiStatus.Error().empty() )Channel.Err = nullptr;
+    else Channel.Err = ApiStatus.Error();
+    Status.Chs.Value.push_back( Channel );
    }
-
-  json += "]}";
-  if( signature != nullptr )
-    *signature = StatusSignature( json );
-  return json;
  }

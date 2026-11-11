@@ -1,4 +1,4 @@
-// TmrSwHw.cpp, Version: 3.03
+// TmrSwHw.cpp, Version: 3.04
 #include <GnBasics.h>
 #include "TmrSwHw.h"
 #include "SwitchTimes.h"
@@ -178,3 +178,5 @@ float TTmrSwHw::ActivePower(void) const
  {
   return TmrSwA8TPowerMeter.ActivePower();
  }
+
+uint32_t TTmrSwHw::PowerMeterAgeMs(void) const { return TmrSwA8TPowerMeter.AgeMs(); }

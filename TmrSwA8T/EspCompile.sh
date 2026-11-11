@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# EspCompile.sh, Version: 1.07
+# EspCompile.sh, Version: 1.11
 set -euo pipefail
 
 COMPILE_VERBOSE=
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
+bash "$PrjsDir/Common/TmrSw/GenerateJs.sh"
 DirPushed=0
 RestoreDir(){ if (( DirPushed )); then popd >/dev/null 2>&1 || true; DirPushed=0; fi; }
 trap RestoreDir EXIT
@@ -14,6 +15,7 @@ DirPushed=1
 ProjectName="TmrSwA8T"
 Platform="esp32"
 CompileBackend="idf"
+IdfBuildActions=( partition-table bootloader gen_project_binary )
 # shellcheck source=EspBoardConfig.sh
 source "$ProjectDir/EspBoardConfig.sh"
 PRJS_BUILD_ROOT="$ProjectDir/generated/build/main"
@@ -37,13 +39,14 @@ PreBuildSuccessMessage="Pre-build: A8T web/config files and revision updated"
 
 ArduinoLibraries=(
   "$PrjsDir/Libs/GnBasicLib"
+  "$PrjsDir/Libs/GnAqPrjsLib"
   "$PrjsDir/Libs/GnFtpServer"
 )
 ExtraBuildProperties=(
   "compiler.cpp.extra_flags=-I@SKETCH_DIR@"
   "upload.maximum_size=$MaxApplicationSize"
 )
-CommonSourceDirs=( Libs/Common/EspUpdate Libs/Common/TmrSw )
+CommonSourceDirs=( Common/EspUpdate Common/TmrSw )
 
 # shellcheck source=../tools/EspCompileCommon.sh
 source "$PrjsDir/tools/EspCompileCommon.sh"

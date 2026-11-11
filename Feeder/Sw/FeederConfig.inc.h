@@ -1,4 +1,4 @@
-// FeederConfig.inc.h, Version: 2.41
+// FeederConfig.inc.h, Version: 2.42
 // CD: Config Definition
 // CD( htmlType, typ, name, defValue [, extraHtmlText] )
 // CD_Div( htmlType ) just for HTML to make an optical diversition betwwen parameters
@@ -68,4 +68,3 @@ CD( f, TTemperatureUnit, TemperatureUnit, "C" )
 
 #undef CD
 #undef CD_Div
-

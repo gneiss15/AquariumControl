@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# test_create_charts.py, Version: 1.04
+# test_create_charts.py, Version: 1.05
 
 import csv
 import sys
@@ -54,7 +54,7 @@ class HeatHistoryChartTests(unittest.TestCase):
     self.assertIn("domain: [0.18, 0.30]", document)
     self.assertIn("domain: [0, 0.12]", document)
     self.assertIn("shape: 'hv'", document)
-    self.assertIn("Zeit (UTC)", document)
+    self.assertIn("Time (UTC)", document)
     self.assertIn("2026-10-10 19:50:00 UTC", document)
     self.assertEqual(document.count("Plotly.newPlot(series, ["), 1)
     self.assertNotIn("<svg", document)
@@ -68,11 +68,11 @@ class HeatHistoryChartTests(unittest.TestCase):
         with urllib.request.urlopen(url) as response:
           first = response.read().decode()
           self.assertEqual(response.headers["Cache-Control"], "no-store")
-        self.assertIn("3 Messpunkte", first)
+        self.assertIn("3 samples", first)
         with self.csv_file.open("a", encoding="utf-8") as output:
           output.write("2026-10-10T20:05:00.000Z;28.3;0;0\n")
         with urllib.request.urlopen(url + "/HeatHistoryCharts.html") as response:
-          self.assertIn("4 Messpunkte", response.read().decode())
+          self.assertIn("4 samples", response.read().decode())
         self.assertFalse((self.root / "HeatHistoryCharts.html").exists())
         with urllib.request.urlopen(urllib.request.Request(url, method="HEAD")) as response:
           self.assertEqual(response.read(), b"")

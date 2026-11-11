@@ -1,2 +1,2 @@
-// TmrSwA8T.ino, Version: 1.02
-#include "Libs/Common/TmrSw/TmrSwMain.inc.h"
+// TmrSwA8T.ino, Version: 1.03
+#include "Common/TmrSw/TmrSwCommonMain.cpp"

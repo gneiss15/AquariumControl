@@ -1,0 +1,156 @@
+// MessageDefinition.inc.h, Version: 1.00
+// Shared Aquarium message contract. No include guard.
+#include "GnJsonMacroDefaults.inc.h"
+#include "MessageSelection.inc.h"
+#include "Definitions/Contract/SharedTypes.inc.h"
+
+#include "Definitions/Contract/TUdpRequestMessage.inc.h"
+#include "Definitions/Contract/TUdpLastError.inc.h"
+#include "Definitions/Contract/TUdpNextChange.inc.h"
+#include "Definitions/Contract/TUdpStateLabels.inc.h"
+#include "Definitions/Contract/TUdpMeasurement.inc.h"
+#include "Definitions/Contract/TJsonPowerDiagnostics.inc.h"
+#include "Definitions/Contract/TJsonIdentity.inc.h"
+#include "Definitions/Contract/TJsonHeatConfig.inc.h"
+#include "Definitions/Contract/TUdpHeatControl.inc.h"
+#include "Definitions/Contract/TUdpChargeLearning.inc.h"
+#include "Definitions/Contract/TUdpInfoRequestMessage.inc.h"
+#include "Definitions/Contract/TUdpInfoMessage.inc.h"
+#include "Definitions/Contract/TUdpSourceRequestMessage.inc.h"
+#include "Definitions/Contract/TUdpSourceInfoMessage.inc.h"
+#include "Definitions/Contract/TJsonChannel.inc.h"
+#include "Definitions/Contract/TJsonSources.inc.h"
+#include "Definitions/Contract/TJsonFunctionConfig.inc.h"
+#include "Definitions/Contract/TJsonFeedTime.inc.h"
+#include "Definitions/Contract/TJsonSwitchTime.inc.h"
+#include "Definitions/Contract/TJsonInterval.inc.h"
+#include "Definitions/Contract/TWsEventEndpoint.inc.h"
+#include "Definitions/Contract/THttpButtonAction.inc.h"
+#include "Definitions/Contract/THttpResult.inc.h"
+#include "Definitions/Contract/TJsonSyncMeta.inc.h"
+#include "Definitions/Contract/TJsonConfigurationFiles.inc.h"
+#include "Definitions/Contract/TJsonBatteryLearningState.inc.h"
+#include "Definitions/Contract/TJsonRegistryDevice.inc.h"
+#include "Definitions/Contract/TJsonRegistryEndpoint.inc.h"
+#include "Definitions/Contract/TJsonFeedbackRule.inc.h"
+#include "Definitions/Contract/TJsonFeedbackState.inc.h"
+#include "Definitions/Contract/TJsonHeatHistoryConfig.inc.h"
+#include "Definitions/Contract/TJsonHistorySample.inc.h"
+#include "Definitions/Contract/TJsonHistoryEndpoint.inc.h"
+#include "Definitions/Contract/TJsonHistoryFile.inc.h"
+#include "Definitions/Contract/TJsonHistoryTemperatureRow.inc.h"
+#include "Definitions/Contract/TJsonHistoryEnergyRow.inc.h"
+#include "Definitions/Contract/TJsonHistoryHeatRow.inc.h"
+#include "Definitions/Contract/TUdpChannel.inc.h"
+#include "Definitions/Contract/TUdpPowerMeter.inc.h"
+#include "Definitions/Contract/TUdpHeatDiagnostics.inc.h"
+#include "Definitions/Contract/TJsonProfile.inc.h"
+#include "Definitions/Contract/TJsonIdentityEnvelope.inc.h"
+#include "Definitions/Contract/TJsonFunctionEnvelope.inc.h"
+#include "Definitions/Contract/TJsonFeedTimes.inc.h"
+#include "Definitions/Contract/TJsonSwitchTimes.inc.h"
+#include "Definitions/Contract/TJsonIntervals.inc.h"
+#include "Definitions/Contract/THttpDevice.inc.h"
+#include "Definitions/Contract/TJsonRegistryView.inc.h"
+#include "Definitions/Contract/TJsonChannelGroup.inc.h"
+#include "Definitions/Contract/TJsonFeedbackConfiguration.inc.h"
+#include "Definitions/Contract/TJsonFeedbackStates.inc.h"
+#include "Definitions/Contract/TJsonHistoryState.inc.h"
+#include "Definitions/Contract/THttpHistoryManifest.inc.h"
+#include "Definitions/Contract/TJsonHistorySeries.inc.h"
+#include "Definitions/Contract/TUdpStatusData.inc.h"
+#include "Definitions/Contract/TJsonProfiles.inc.h"
+#include "Definitions/Contract/TJsonChannels.inc.h"
+#include "Definitions/Contract/TJsonRecordingChannels.inc.h"
+#include "Definitions/Contract/TSseRecordingEvent.inc.h"
+#include "Definitions/Contract/THttpFeedbackDocument.inc.h"
+#include "Definitions/Contract/THttpFeedbackWrite.inc.h"
+#include "Definitions/Contract/TJsonEnergyAssignment.inc.h"
+#include "Definitions/Contract/THttpHistoryReply.inc.h"
+#include "Definitions/Contract/TUdpStatusMessage.inc.h"
+#include "Definitions/Contract/TJsonSchedule.inc.h"
+#include "Definitions/Contract/TWsStatusEvent.inc.h"
+#include "Definitions/Contract/TJsonCachedStatus.inc.h"
+#include "Definitions/Contract/TJsonHistoryMetadata.inc.h"
+#include "Definitions/Contract/TSseStatusBatch.inc.h"
+#include "Definitions/Contract/THttpTimePayload.inc.h"
+#include "Definitions/Contract/THttpTimeReply.inc.h"
+
+
+#ifndef GN_JSON_KEEP_SELECTION
+  #undef Do_ContractAll
+  #undef Do_THttpButtonAction
+  #undef Do_THttpDevice
+  #undef Do_TJsonSchedule
+  #undef Do_THttpTimePayload
+  #undef Do_THttpTimeReply
+  #undef Do_TUdpPowerMeter
+  #undef Do_TUdpStatusData
+  #undef Do_TUdpStatusMessage
+  #undef Do_TWsStatusEvent
+  #undef Do_TJsonCachedStatus
+  #undef Do_TSseStatusBatch
+  #undef Do_TJsonHistoryEnergyRow
+  #undef Do_TJsonHistorySeries
+  #undef Do_THttpHistoryReply
+  #undef Do_TJsonRegistryView
+  #undef Do_TSseRecordingEvent
+  #undef Do_TJsonFeedTime
+  #undef Do_TJsonFeedTimes
+  #undef Do_TUdpLastError
+  #undef Do_TUdpStateLabels
+  #undef Do_TUdpChannel
+  #undef Do_TJsonRegistryDevice
+  #undef Do_TJsonFeedbackState
+  #undef Do_TJsonFeedbackStates
+  #undef Do_TWsEventEndpoint
+  #undef Do_TJsonEnergyAssignment
+  #undef Do_TJsonHistoryMetadata
+  #undef Do_TJsonFunctionConfig
+  #undef Do_TJsonFunctionEnvelope
+  #undef Do_TJsonSources
+  #undef Do_TJsonInterval
+  #undef Do_TJsonIntervals
+  #undef Do_THttpResult
+  #undef Do_THttpFeedbackWrite
+  #undef Do_TUdpNextChange
+  #undef Do_TUdpChargeLearning
+  #undef Do_TUdpHeatControl
+  #undef Do_TJsonProfiles
+  #undef Do_TJsonHistoryFile
+  #undef Do_THttpHistoryManifest
+  #undef Do_TJsonIdentity
+  #undef Do_TJsonIdentityEnvelope
+  #undef Do_TJsonRecordingChannels
+  #undef Do_TJsonChannel
+  #undef Do_TJsonChannels
+  #undef Do_TJsonChannelGroup
+  #undef Do_TJsonHistorySample
+  #undef Do_TJsonHistoryState
+  #undef Do_TUdpHeatDiagnostics
+  #undef Do_TJsonHeatHistoryConfig
+  #undef Do_TJsonHistoryHeatRow
+  #undef Do_TJsonSwitchTimes
+  #undef Do_TJsonSwitchTime
+  #undef Do_TUdpRequestMessage
+  #undef Do_THttpFeedbackDocument
+  #undef Do_TJsonConfigurationFiles
+  #undef Do_TJsonFeedbackRule
+  #undef Do_TJsonFeedbackConfiguration
+  #undef Do_TJsonHeatConfig
+  #undef Do_TJsonProfile
+  #undef Do_TJsonBatteryLearningState
+  #undef Do_TUdpSourceInfoMessage
+  #undef Do_TJsonHistoryTemperatureRow
+  #undef Do_TUdpSourceRequestMessage
+  #undef Do_TUdpMeasurement
+  #undef Do_TUdpInfoMessage
+  #undef Do_TUdpInfoRequestMessage
+  #undef Do_TJsonHistoryEndpoint
+  #undef Do_TJsonSyncMeta
+  #undef Do_TJsonRegistryEndpoint
+  #undef Do_TJsonPowerDiagnostics
+#endif
+#ifndef GN_JSON_KEEP_HOOKS
+  #include "GnJsonMacroCleanup.inc.h"
+#endif

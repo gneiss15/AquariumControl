@@ -1,4 +1,4 @@
-// DirectMotorDrive.cpp, Version: 1.15
+// DirectMotorDrive.cpp, Version: 1.16
 #include "DirectMotorDrive.h"
 
 #include "FeederConfig.h"
@@ -179,9 +179,9 @@ bool TDirectMotorDrive::PinUsed( int Pin ) const
       || Pin == StatusLedPin;
  }
 
-char const * TDirectMotorDrive::CapabilitiesJson(void) const
+std::vector<TGNString> TDirectMotorDrive::Capabilities(void) const
  {
-  return ",\"DirectMotor\",\"HomeSensor\",\"LocalButton\",\"StatusLed\",\"Homing\"";
+  return { "DirectMotor", "HomeSensor", "LocalButton", "StatusLed", "Homing" };
  }
 
 bool TDirectMotorDrive::InputState(void) const

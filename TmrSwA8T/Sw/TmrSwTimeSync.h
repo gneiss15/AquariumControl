@@ -1,3 +1,3 @@
-// TmrSwTimeSync.h, Version: 1.02
+// TmrSwTimeSync.h, Version: 1.03
 #pragma once
-#include "Libs/Common/TmrSw/TmrSwTimeSync.h"
+#include "Common/TmrSw/TmrSwTimeSync.h"

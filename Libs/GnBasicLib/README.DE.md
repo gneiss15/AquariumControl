@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 1.00 -->
+<!-- README.DE.md, Version: 1.02 -->
 # GnBasicLib
 
 [English](README.md)
@@ -22,3 +22,8 @@ Pinmodi sind unter anderem `PinMode_Output`, `PinMode_OutputOpenDrain`, `PinMode
 ## CPU-spezifische Funktionen
 
 `GetCycleCount` liefert den CPU-Zykluszähler.
+
+## Bibliotheksgrenze
+
+Aquarium-spezifische Protokolle, Gerätezuordnung und Regelung stehen in
+[GnAqPrjsLib](../GnAqPrjsLib/README.DE.md). GnBasicLib enthält universelle Grundlagen.

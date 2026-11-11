@@ -1,4 +1,5 @@
-// FeederMenu.cpp, Version: 2.31
+// FeederMenu.cpp, Version: 2.32
+#if !defined( FEEDER_NO_OLED )
 //****************************************************************
 // Includes
 //****************************************************************
@@ -316,3 +317,4 @@ void TFeederMenu::PrevMenu(void)
   while( !MenuAvailable( idx ) && idx != FMenuIdx );
   SelectMenu( idx );
  }
+#endif

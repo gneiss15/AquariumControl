@@ -1,4 +1,4 @@
-# _PruneDeviceFsArtifacts.sh, Version: 1.02
+# _PruneDeviceFsArtifacts.sh, Version: 1.03
 # Remove retired function images only after a successful filesystem build.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   echo "_PruneDeviceFsArtifacts.sh must be sourced." >&2
@@ -18,9 +18,9 @@ PruneDeviceFsArtifacts()
   local -A ActiveNames=()
   [ -d "$StateDir" ] || { echo "Missing DevState directory; no artifacts removed." >&2; return 1; }
   [ -d "$ArtifactDir" ] || return 0
+  python3 "$DeviceFsArtifactToolsDir/DeviceFsArtifactName.py" --check-directory "$StateDir" || return $?
   while IFS= read -r -d '' Directory; do
-    Hostname="$(FsArtifactName "$Directory/Config.json")" || return $?
-    [ -z "${ActiveNames[$Hostname]+present}" ] || { echo "Duplicate filesystem Hostname: $Hostname" >&2; return 1; }
+    Hostname="${Directory##*/}"
     ActiveNames[$Hostname]=1
   done < <(find "$StateDir" -mindepth 1 -maxdepth 1 -type d -print0)
   [ "${#ActiveNames[@]}" -gt 0 ] || { echo "No active FS hostnames; no artifacts removed." >&2; return 1; }

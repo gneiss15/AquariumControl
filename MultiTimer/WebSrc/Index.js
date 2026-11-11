@@ -1,8 +1,31 @@
-// Index.js, Version: 1.24
+// Index.js, Version: 1.27
+
+// Use browser-local time; clock ticks never request device or server data.
+function UpdateBrowserClock() {
+  const Clock = document.getElementById('BrowserClock');
+  if (!Clock) return;
+  const German = document.getElementById('MLang')?.textContent.trim() === 'DE';
+  const Now = new Date();
+  Clock.textContent = Now.toLocaleString(German ? 'de-DE' : 'en-GB', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  });
+  Clock.dateTime = Now.toISOString();
+  Clock.title = German ? 'Datum und Uhrzeit (Browserzeit)' : 'Date and time (browser clock)';
+}
+function StartBrowserClock() {
+  UpdateBrowserClock();
+  setInterval(UpdateBrowserClock, 1000);
+}
+if (document.readyState === 'loading')
+  document.addEventListener('DOMContentLoaded', StartBrowserClock, {once: true});
+else StartBrowserClock();
+// End browser clock.
 const ViewportFitMargin = 8;
 const DashboardSettingTimeoutMilliseconds = 500;
 
 let Channels = [];
+let DeviceAddress = "";
 let ChannelConfigs = [];
 let AllocationSort = {Key: 'PhysPos', Direction: 1};
 let Translations = {};
@@ -32,7 +55,7 @@ function StoreLocalNumber(Name, Value) {
 
 function NotifyDashboard(Type, Values = {}) {
   if (window.parent === window) return;
-  window.parent.postMessage({Source: 'GnConfigPage', Type, ...Values}, '*');
+  window.parent.postMessage({Src: 'GnConfigPage', Type, ...Values}, '*');
 }
 
 function ReadLocalLanguageIndex() {
@@ -192,7 +215,7 @@ function ScheduleViewportFit() {
 }
 
 function HandleDashboardMessage(Event) {
-  if (Event.source !== window.parent || Event.data?.Source !== 'GnDashboard') return;
+  if (Event.source !== window.parent || Event.data?.Src !== 'GnDashboard') return;
   if (Event.data.Type === 'ConfigurationActivated') { CheckConfigurationRevision(); return; }
   if (Event.data.Type !== 'SettingValue') return;
   if (Event.data.Found === false) {
@@ -229,7 +252,7 @@ function RenderAllocation() {
   const Rows = ChannelConfigs.filter(Channel => typeof Channel?.PhysPos === 'string' && Channel.PhysPos.length > 0).map(Channel => ({
     Name: Channel.Id || '',
     PhysPos: Channel.PhysPos,
-    GPIO: Number.isInteger(Channel.OutputPin) ? Channel.OutputPin : ''
+    GPIO: Number.isInteger(Channel.OutPin) ? Channel.OutPin : ''
   }));
   Rows.sort((First, Second) => {
     const Result = AllocationSort.Key === 'GPIO'
@@ -265,7 +288,7 @@ async function GetJson(Path) {
 const Checkbox = Value => `<input type="checkbox" ${Value ? 'checked' : ''}>`;
 
 function ChannelSelect(Value) {
-  return `<select class="ChannelSelect">${Channels.map(Name => `<option ${Name === Value ? 'selected' : ''}>${Name}</option>`).join('')}</select>`;
+  return `<select class="ChannelSelect">${Channels.map(Channel => `<option value="${Channel.Address}" ${Channel.Address === Value ? 'selected' : ''}>${Channel.Name}</option>`).join('')}</select>`;
 }
 
 const Icon = Name => `<svg class="Icon" aria-hidden="true"><use href="#Icon${Name}"></use></svg>`;
@@ -294,21 +317,21 @@ function Renumber(BodyId) {
   document.querySelectorAll(`#${BodyId} .Nr`).forEach((Cell, Index) => Cell.textContent = Index + 1);
 }
 
-function AddSwitchRow(Value = ['00:00', 255, Channels[0] || '', false]) {
+function AddSwitchRow(Value = {Time:'00:00',Days:255,Ch:Channels[0]?.Address || '',State:false}) {
   const Body = document.getElementById('SwitchData');
   const Row = Body.insertRow();
-  Row.dataset.id = RowUuid(Value, 4);
-  Row.innerHTML = `${RowNumberCell()}<td>${Checkbox(Value[1] & 128)}</td><td>${ChannelSelect(Value[2])}</td><td><input type="time" value="${Value[0]}"></td>${[0,1,2,3,4,5,6].map(Bit => `<td>${Checkbox(Value[1] & (1 << Bit))}</td>`).join('')}<td>${Checkbox(Value[3])}</td><td>${DeleteButton()}</td>`;
+  Row.Model = {...Value};
+  Row.innerHTML = `${RowNumberCell()}<td>${Checkbox(Value.Days & 128)}</td><td>${ChannelSelect(Value.Ch)}</td><td><input type="time" value="${Value.Time}"></td>${[0,1,2,3,4,5,6].map(Bit => `<td>${Checkbox(Value.Days & (1 << Bit))}</td>`).join('')}<td>${Checkbox(Value.State)}</td><td>${DeleteButton()}</td>`;
   Row.querySelector('.Delete').onclick = () => { Row.remove(); Renumber('SwitchData'); };
   EnableDrag(Row, () => Renumber('SwitchData'));
   ApplyTranslations();
   Renumber('SwitchData');
 }
 
-function AddIntervalRow(Value = ['00:00', '01:00', '00:15', 255, Channels[0] || '']) {
+function AddIntervalRow(Value = ['00:00', '01:00', '00:15', 255, Channels[0]?.Address || '']) {
   const Body = document.getElementById('IntervalData');
   const Row = Body.insertRow();
-  Row.dataset.id = RowUuid(Value, 5);
+  Row.Model = [...Value];
   Row.innerHTML = `${RowNumberCell()}<td>${Checkbox(Value[3] & 128)}</td><td>${ChannelSelect(Value[4])}</td><td><input type="time" value="${Value[0]}"></td><td><input type="time" value="${Value[1]}"></td><td><input type="time" value="${Value[2]}"></td>${[0,1,2,3,4,5,6].map(Bit => `<td>${Checkbox(Value[3] & (1 << Bit))}</td>`).join('')}<td>${DeleteButton()}</td>`;
   Row.querySelector('.Delete').onclick = () => { Row.remove(); Renumber('IntervalData'); };
   EnableDrag(Row, () => Renumber('IntervalData'));
@@ -353,9 +376,18 @@ async function LoadChannels() {
   if (!Response.ok) throw new Error(`/Channels.json: HTTP ${Response.status}`);
   const Text = await Response.text();
   const Config = JSON.parse(Text);
-  if (!Array.isArray(Config.Channels)) throw new Error('Channels.json: Channels is not an array');
-  ChannelConfigs = Config.Channels;
-  Channels = ChannelConfigs.map(Channel => Channel?.Id).filter(Id => typeof Id === 'string' && Id.length > 0);
+  if (!Array.isArray(Config.Chs)) throw new Error('Channels.json: Channels is not an array');
+  if (!DeviceAddress) {
+    const Device = await GetJson('/api/v1/device');
+    DeviceAddress = Device.DevId;
+    if (!/^[0-9A-Fa-f:]{17}@[1-4]$/.test(DeviceAddress || '')) throw new Error('Invalid device service address');
+  }
+  ChannelConfigs = Config.Chs;
+  // PhysPos identifies the fixed socket; array order and function names do not.
+  Channels = ChannelConfigs.map(Channel => {
+    const Position = /^Main ([1-8])$/.exec(Channel?.PhysPos || '');
+    return Position ? {Address:`${DeviceAddress}/${Position[1]}`,Name:Channel.Id || Channel.PhysPos} : null;
+  }).filter(Boolean);
   RenderAllocation();
   document.getElementById('ChannelsText').value = FormatEditorJson(Config) + '\n';
   SetUpdatedTime();
@@ -440,9 +472,9 @@ async function SaveSwitchTimes() {
   const Data = [...document.getElementById('SwitchData').rows].map(Row => {
     let Mask = Row.cells[1].firstChild.checked ? 128 : 0;
     for (let Bit = 0; Bit < 7; ++Bit) if (Row.cells[4 + Bit].firstChild.checked) Mask |= 1 << Bit;
-    return [Row.cells[3].firstChild.value, Mask, Row.cells[2].firstChild.value, Row.cells[11].firstChild.checked, Row.dataset.id || NewUuid()];
+    return {...Row.Model,Time:Row.cells[3].firstChild.value,Days:Mask,Ch:Row.cells[2].firstChild.value,State:Row.cells[11].firstChild.checked};
   });
-  const Conflict = FindActiveTimeConflict(Data, 0, 1, 2);
+  const Conflict = FindActiveTimeConflict(Data, 'Time', 'Days', 'Ch');
   if (Conflict) {
     alert(`${Tr('DuplicateActiveTimeRows', 'Active rows with the same time, channel and overlapping weekdays:')} ${Conflict[0] + 1} / ${Conflict[1] + 1}`);
     return;
@@ -479,7 +511,7 @@ async function SaveIntervals() {
     }
     let Mask = Row.cells[1].firstChild.checked ? 128 : 0;
     for (let Bit = 0; Bit < 7; ++Bit) if (Row.cells[6 + Bit].firstChild.checked) Mask |= 1 << Bit;
-    Data.push([Start, Period, OnTime, Mask, Row.cells[2].firstChild.value, Row.dataset.id || NewUuid()]);
+    Data.push([Start, Period, OnTime, Mask, Row.cells[2].firstChild.value, ...Row.Model.slice(5)]);
   }
   const Conflict = FindActiveTimeConflict(Data, 0, 3, 4);
   if (Conflict) {
@@ -496,12 +528,12 @@ async function LoadVersionInfo() {
 
   try {
     const Device = await GetJson('/api/v1/device');
-    FirmwareVersion = Device.FirmwareVersion || '?';
+    FirmwareVersion = Device.FirmwareVer || '?';
     Platform = Device.Platform || '';
     CurrentPlatform = Platform;
     document.getElementById('RestartMultiTimer').hidden = Platform !== 'RasPi';
-    document.getElementById('DeviceName').textContent = Device.Name || Device.DeviceId || '?';
-    document.title = Device.Name || Device.DeviceId || document.title;
+    document.getElementById('DeviceName').textContent = Device.Name || Device.DevId || '?';
+    document.title = Device.Name || Device.DevId || document.title;
   } catch (Error) {
     console.warn('Could not load firmware version', Error);
   }
@@ -567,7 +599,7 @@ async function LoadSources() {
     Text.readOnly = !Editable;
     Save.disabled = !Editable;
     if (!Editable || !SourcesDirty) {
-      Text.value = FormatEditorJson(Data.Sources) + '\n';
+      Text.value = FormatEditorJson(Data.Srcs) + '\n';
       SourcesDirty = false;
     }
     Message.textContent = Tr(Editable ? 'SourcesLocal' : 'SourcesLocked');
@@ -682,7 +714,7 @@ function ConfigurationFormState() {
 async function RememberConfigurationRevision() {
   try {
     const Response = await fetch('/api/v1/config-revision', {cache: 'no-store'});
-    if (Response.ok) ConfigurationRevision = (await Response.json()).Revision;
+    if (Response.ok) ConfigurationRevision = (await Response.json()).Rev;
     ConfigurationSnapshot = ConfigurationFormState();
   } catch (Error) { console.warn('Configuration revision unavailable', Error); }
 }
@@ -694,7 +726,7 @@ async function CheckConfigurationRevision() {
     try {
       const Response = await fetch('/api/v1/config-revision', {cache: 'no-store'});
       if (!Response.ok) return;
-      const Revision = (await Response.json()).Revision;
+      const Revision = (await Response.json()).Rev;
       if (Revision === ConfigurationRevision) return;
       if (ConfigurationSnapshot !== ConfigurationFormState()) {
         let Notice = document.getElementById('ConfigurationChangeNotice');

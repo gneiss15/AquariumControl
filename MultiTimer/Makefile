@@ -1,4 +1,4 @@
-# Makefile, Version: 1.18
+# Makefile, Version: 1.27
 
 CXX ?= g++
 
@@ -18,11 +18,13 @@ VERSION_HEADER := Version.inc.h
 
 GnLibRoot ?= ../Libs
 GnBasicLibDir := $(GnLibRoot)/GnBasicLib
+GnAqPrjsLibDir := $(GnLibRoot)/GnAqPrjsLib
 
 INCLUDE_DIRS ?= include
-INCLUDE_DIRS += $(GnBasicLibDir)
+INCLUDE_DIRS += $(GnBasicLibDir) $(GnAqPrjsLibDir)
 
-CPPFLAGS := $(addprefix -I,$(INCLUDE_DIRS))
+GN_DEBUG_FILE_LOG ?= 0
+CPPFLAGS := $(addprefix -I,$(INCLUDE_DIRS)) -DGN_DEBUG_FILE_LOG=$(GN_DEBUG_FILE_LOG)
 
 ifeq ($(DetectedSystem),raspi)
   CPPFLAGS += -DGNTargetRasPi -Wno-psabi
@@ -33,10 +35,13 @@ LDLIBS := -ljson-c -lpthread
 GN_BASIC_SOURCES := \
   $(GnBasicLibDir)/GnBasics.cpp \
   $(GnBasicLibDir)/GnTime.cpp \
-  $(GnBasicLibDir)/GnCoopTimer.cpp \
-  $(GnBasicLibDir)/GnUdpStatus.cpp \
-  $(GnBasicLibDir)/GnHeaterControl.cpp \
-  $(GnBasicLibDir)/GnDeviceIdentity.cpp
+  $(GnBasicLibDir)/GnCoopTimer.cpp
+
+GN_AQ_SOURCES := \
+  $(GnAqPrjsLibDir)/GnUdpStatus.cpp \
+  $(GnAqPrjsLibDir)/GnUdpStatusWriter.cpp \
+  $(GnAqPrjsLibDir)/GnHeaterControl.cpp \
+  $(GnAqPrjsLibDir)/GnDeviceIdentity.cpp
 
 COMMON_SOURCES := \
   src/Main.cpp \
@@ -48,6 +53,7 @@ COMMON_SOURCES := \
   src/ButtonController.cpp \
   src/WebApplication.cpp \
   src/StatusApi.cpp \
+  src/RoomTemperature.cpp \
   src/WebServerNative.cpp \
   src/WebSocketServerNative.cpp
 
@@ -64,7 +70,8 @@ endif
 
 SOURCES := $(COMMON_SOURCES) $(PLATFORM_SOURCE)
 GN_BASIC_OBJECTS := $(patsubst $(GnBasicLibDir)/%.cpp,$(BUILD_DIR)/GnBasicLib/%.o,$(GN_BASIC_SOURCES))
-OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES)) $(GN_BASIC_OBJECTS)
+GN_AQ_OBJECTS := $(patsubst $(GnAqPrjsLibDir)/%.cpp,$(BUILD_DIR)/GnAqPrjsLib/%.o,$(GN_AQ_SOURCES))
+OBJECTS := $(patsubst src/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES)) $(GN_BASIC_OBJECTS) $(GN_AQ_OBJECTS)
 DEPENDS := $(OBJECTS:.o=.d)
 
 .PHONY: all dummy raspi build clean full-clean
@@ -90,6 +97,10 @@ $(BUILD_DIR)/%.o: src/%.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 $(BUILD_DIR)/GnBasicLib/%.o: $(GnBasicLibDir)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+$(BUILD_DIR)/GnAqPrjsLib/%.o: $(GnAqPrjsLibDir)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
 

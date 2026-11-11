@@ -1,8 +1,7 @@
-// OtaHandler.cpp, Version: 1.00
+// OtaHandler.cpp, Version: 1.01
 #include "GnOtaHandler.h"
 
 #include <WiFi.h>
-#include <ESPmDNS.h>
 #include <ArduinoOTA.h>
 #include <LittleFS.h>
 #include <esp_task_wdt.h>
@@ -109,6 +108,7 @@ void TGnOtaHandler::Begin( const char * hostName, const char * password )
      }
    );
 
+  ArduinoOTA.setMdnsEnabled( false );
   ArduinoOTA.begin();
   //Serial.printf( "[OTA] Ready — Hostname: %s, Port: 3232\n", hostName );
  }

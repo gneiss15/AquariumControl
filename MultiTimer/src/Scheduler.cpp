@@ -1,4 +1,4 @@
-// Scheduler.cpp, Version: 2.43
+// Scheduler.cpp, Version: 2.48
 #include <GnBasics.h>
 #include "Scheduler.h"
 #include <algorithm>
@@ -14,14 +14,14 @@ class TEvent
   uint16_t   FMinuteOfWeek : 14;
   uint16_t   FOn : 1;
   uint16_t   FOneTime : 1;
-  TChannelId FChannel;
+  TChannelIndex FChannel;
 
  public:
              TEvent(void)                                       : FMinuteOfWeek( 0 ), FOn( false ), FOneTime( false ), FChannel( InvalidChannelId ) {}
-             TEvent( uint16_t minuteOfWeek, TChannelId channel,
+             TEvent( uint16_t minuteOfWeek, TChannelIndex channel,
                      bool on, bool oneTime )                    : FMinuteOfWeek( minuteOfWeek ), FOn( on ), FOneTime( oneTime ), FChannel( channel ) {}
   uint16_t   MinuteOfWeek(void) const                           { return FMinuteOfWeek; }
-  TChannelId Channel(void) const                                { return FChannel; }
+  TChannelIndex Channel(void) const                                { return FChannel; }
   bool       On(void) const                                     { return FOn != 0; }
   bool       OneTime(void) const                                { return FOneTime != 0; }
  };
@@ -38,13 +38,13 @@ class TSwitchDef
   TSwitchRecord FSwitchRecord{};
 
  public:
-  void          Init( uint16_t minuteOfDay, TChannelId channel,
+  void          Init( uint16_t minuteOfDay, TChannelIndex channel,
                       bool on, uint8_t wdayMask );
   size_t        EventCount(void) const;
   void          AddSwitchTimes( TEvents & events ) const;
  };
 
-void TSwitchDef::Init( uint16_t minuteOfDay, TChannelId channel, bool on, uint8_t wdayMask )
+void TSwitchDef::Init( uint16_t minuteOfDay, TChannelIndex channel, bool on, uint8_t wdayMask )
  {
   FSwitchRecord.MinuteOfDay = minuteOfDay;
   FSwitchRecord.Channel = channel;
@@ -89,18 +89,18 @@ class TSwitchIntervalDef
   uint16_t   FStartMinuteOfDay = 0;
   uint16_t   FPeriodMinutes = 0;
   uint16_t   FOnMinutes = 0;
-  TChannelId FChannel = InvalidChannelId;
+  TChannelIndex FChannel = InvalidChannelId;
   TWdayUnion FWday{};
 
  public:
   void       Init( uint16_t startMinuteOfDay, uint16_t periodMinutes, uint16_t onMinutes,
-                   TChannelId channel, uint8_t wdayMask );
+                   TChannelIndex channel, uint8_t wdayMask );
   size_t     EventCount(void) const;
   void       AddSwitchTimes( TEvents & events ) const;
  };
 
 void TSwitchIntervalDef::Init( uint16_t startMinuteOfDay, uint16_t periodMinutes, uint16_t onMinutes,
-                               TChannelId channel, uint8_t wdayMask )
+                               TChannelIndex channel, uint8_t wdayMask )
  {
   FStartMinuteOfDay = startMinuteOfDay;
   FPeriodMinutes = periodMinutes;
@@ -281,6 +281,7 @@ void TScheduler::CalculateStates( uint16_t minuteOfWeek )
  {
   for( TSchedulerChannelStatus & status : FChannelStati )
    {
+    status.FChargeRunOn.Reset();
     status.FTimeState = false;
     status.FTimeSchedulePresent = false;
     status.FAutomaticState = false;
@@ -314,7 +315,7 @@ void TScheduler::CalculateStates( uint16_t minuteOfWeek )
     const bool automaticState = FHeaterControl.AutomaticState( channel.Role, channel.Profile,
                                                                 status.FTimeSchedulePresent != 0,
                                                                 status.FTimeState != 0,
-                                                                hysteresisStateKnown, hysteresisState );
+                                                                hysteresisStateKnown, hysteresisState, nullptr, false, true, std::to_string(channel.PhysicalNumber()) );
     status.FHysteresisStateKnown = hysteresisStateKnown;
     status.FHysteresisState = hysteresisState;
     status.FAutomaticState = automaticState;
@@ -322,7 +323,7 @@ void TScheduler::CalculateStates( uint16_t minuteOfWeek )
    }
  }
 
-bool TScheduler::UpdateAutomaticState( TChannelId channel, bool writeLog, TGNString & error )
+bool TScheduler::UpdateAutomaticState( TChannelIndex channel, bool writeLog, TGNString & error )
  {
   if( channel >= FChannelStati.size() )
    {
@@ -337,7 +338,12 @@ bool TScheduler::UpdateAutomaticState( TChannelId channel, bool writeLog, TGNStr
   const bool automaticState = FHeaterControl.AutomaticState( channelConfig.Role, channelConfig.Profile,
                                                               status.FTimeSchedulePresent != 0,
                                                               status.FTimeState != 0,
-                                                              hysteresisStateKnown, hysteresisState );
+                                                              hysteresisStateKnown, hysteresisState,
+                                                              &status.FChargeRunOn, status.FState != 0,
+                                                              !status.FOverrideActive, std::to_string(channelConfig.PhysicalNumber()) );
+  uint32_t LearnedFactor;
+  if( status.FChargeRunOn.TakeLearned( LearnedFactor ) && SaveLearnedChargeFactor )
+    SaveLearnedChargeFactor( channelConfig.Profile, LearnedFactor );
   status.FHysteresisStateKnown = hysteresisStateKnown;
   status.FHysteresisState = hysteresisState;
   status.FAutomaticState = automaticState;
@@ -354,12 +360,12 @@ void TScheduler::UpdateHeaters( bool writeLog )
     if( FChannels[ channelNr ].Role == TChannelRole::Timer )
       continue;
     TGNString error;
-    if( !UpdateAutomaticState( static_cast<TChannelId>( channelNr ), writeLog, error ) )
+    if( !UpdateAutomaticState( static_cast<TChannelIndex>( channelNr ), writeLog, error ) )
       Logger.Write( TLogLevel::Error, error );
    }
  }
 
-bool TScheduler::SetOutput( TChannelId channel, bool on, bool writeLog, TGNString & error )
+bool TScheduler::SetOutput( TChannelIndex channel, bool on, bool writeLog, TGNString & error )
  {
   if( channel >= FChannels.size() )
    {
@@ -382,14 +388,14 @@ bool TScheduler::SetAllOutputs( bool firstTime, TGNString & error )
  {
   for( size_t channelNr = 0;  channelNr < FChannels.size();  ++channelNr )
     if( FChannels[ channelNr ].HasOutput() &&
-        !FHardware.SetPin( static_cast<TChannelId>( channelNr ), FChannelStati[ channelNr ].FState != 0,
+        !FHardware.SetPin( static_cast<TChannelIndex>( channelNr ), FChannelStati[ channelNr ].FState != 0,
                            error, firstTime ) )
       return false;
   error.clear();
   return true;
  }
 
-void TScheduler::RemoveOneTimeEvent( TChannelId channel )
+void TScheduler::RemoveOneTimeEvent( TChannelIndex channel )
  {
   std::erase_if( FEvents, [channel]( const TEvent & event )
    {
@@ -397,7 +403,7 @@ void TScheduler::RemoveOneTimeEvent( TChannelId channel )
    } );
  }
 
-const TEvent * TScheduler::FindOneTimeEvent( TChannelId channel ) const
+const TEvent * TScheduler::FindOneTimeEvent( TChannelIndex channel ) const
  {
   const auto event = std::find_if( FEvents.begin(), FEvents.end(), [channel]( const TEvent & item )
    {
@@ -462,7 +468,7 @@ void TScheduler::ApplyEvents( uint16_t minuteOfWeek, bool writeLog )
    } );
  }
 
-bool TScheduler::ValidateOutputChannel( TChannelId channel, TGNString & error ) const
+bool TScheduler::ValidateOutputChannel( TChannelIndex channel, TGNString & error ) const
  {
   if( channel >= FChannels.size() || !FChannels[ channel ].HasOutput() )
    {
@@ -473,11 +479,12 @@ bool TScheduler::ValidateOutputChannel( TChannelId channel, TGNString & error ) 
   return true;
  }
 
-bool TScheduler::ToggleChannel( TChannelId channel, TGNString & error )
+bool TScheduler::ToggleChannel( TChannelIndex channel, TGNString & error )
  {
   std::lock_guard<std::mutex> lock( FStateMutex );
   if( !ValidateOutputChannel( channel, error ) )
     return false;
+  FChannelStati[ channel ].FChargeRunOn.Reset();
   const bool current = FChannelStati[ channel ].FState != 0;
   const bool newState = !current;
   if( !SetOutput( channel, newState, false, error ) )
@@ -491,7 +498,7 @@ bool TScheduler::ToggleChannel( TChannelId channel, TGNString & error )
   return true;
  }
 
-bool TScheduler::ToggleChannel( TChannelId channel, std::chrono::minutes duration, TGNString & error )
+bool TScheduler::ToggleChannel( TChannelIndex channel, std::chrono::minutes duration, TGNString & error )
  {
   std::lock_guard<std::mutex> lock( FStateMutex );
   if( !ValidateOutputChannel( channel, error ) )
@@ -501,6 +508,7 @@ bool TScheduler::ToggleChannel( TChannelId channel, std::chrono::minutes duratio
     error = "Temporary toggle duration must be greater than zero";
     return false;
    }
+  FChannelStati[ channel ].FChargeRunOn.Reset();
   const bool current = FChannelStati[ channel ].FState != 0;
   if( !SetOutput( channel, !current, false, error ) )
     return false;
@@ -526,7 +534,7 @@ bool TScheduler::ToggleChannel( TChannelId channel, std::chrono::minutes duratio
   return true;
  }
 
-bool TScheduler::FindNextEvent( TChannelId channel, std::time_t currentTime, bool initialState,
+bool TScheduler::FindNextEvent( TChannelIndex channel, std::time_t currentTime, bool initialState,
                                 bool onlyStateChanges, bool includeOneTime, TEvent & nextEvent,
                                 std::time_t & nextTime ) const
  {
@@ -575,7 +583,7 @@ bool TScheduler::FindNextEvent( TChannelId channel, std::time_t currentTime, boo
   return false;
  }
 
-void TScheduler::ResetFunctionState( TChannelId Channel )
+void TScheduler::ResetFunctionState( TChannelIndex Channel )
  {
   std::lock_guard<std::mutex> Lock( FStateMutex );
   if( Channel < FChannelStati.size() ) FChannelStati[Channel] = TSchedulerChannelStatus{};
@@ -604,7 +612,7 @@ TSchedulerChannelStati TScheduler::ChannelStati(void) const
   const std::time_t currentTime = std::time( nullptr );
   for( size_t channelNr = 0; channelNr < FChannels.size(); ++channelNr )
    {
-    const TChannelId channel = static_cast<TChannelId>( channelNr );
+    const TChannelIndex channel = static_cast<TChannelIndex>( channelNr );
     TSchedulerChannelStatus & status = stati[ channelNr ];
     status.ResetCalculatedValues();
     if( !FChannels[ channelNr ].HasOutput() )

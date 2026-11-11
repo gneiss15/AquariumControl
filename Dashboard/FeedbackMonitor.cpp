@@ -1,6 +1,12 @@
-// FeedbackMonitor.cpp, Version: 1.01
+// FeedbackMonitor.cpp, Version: 1.07
+#define Do_TJsonFeedbackConfiguration
+#define Do_TJsonFeedbackState
+#define Do_TJsonFeedbackStates
+#define Do_TJsonRegistryView
 #include <GnBasics.h>
+#include <AddressResolver.h>
 #include "FeedbackMonitor.h"
+#include <GnJsonSchema.h>
 #include <set>
 #include <stdexcept>
 
@@ -17,58 +23,54 @@ TGNString Text( json_object * Object, char const * Key )
   auto Value = Get( Object, Key );
   return json_object_is_type( Value, json_type_string ) ? json_object_get_string( Value ) : "";
  }
-void Put( json_object * Object, char const * Key, TGNString const & Value )
- { json_object_object_add( Object, Key, json_object_new_string( Value.c_str() ) ); }
-void Put( json_object * Object, char const * Key, std::optional<bool> Value )
- { json_object_object_add( Object, Key, Value ? json_object_new_boolean( *Value ) : nullptr ); }
+
  }
 
 void TFeedbackMonitor::Configure( json_object * Configuration )
  {
   Monitors.clear();
   if( !Configuration ) return;
-  auto Rows = Get( Configuration, "Monitors" );
-  if( json_object_get_int( Get( Configuration, "Version" ) ) != 1 ||
-      !json_object_is_type( Rows, json_type_array ) || json_object_array_length( Rows ) > 32 )
-    throw std::runtime_error( "Invalid FeedbackMonitors.json" );
+  TJsonFeedbackConfiguration Settings;
+  TGNString Error;
+  if(!GnRead(TGnWireValue(Configuration),Settings,Error))
+    throw std::runtime_error("Invalid FeedbackMonitors.json");
   std::set<TGNString> Ids;
-  for( size_t I = 0; I < json_object_array_length( Rows ); ++I )
+  for(auto const & Row:Settings.Monitors)
    {
-    auto Row = json_object_array_get_idx( Rows, I ); TMonitor Monitor;
-    Monitor.Id = Text( Row, "Id" ); Monitor.SwitchFunction = Text( Row, "SwitchFunction" );
-    Monitor.Source = Text( Row, "Source" ); Monitor.Kind = Text( Row, "StatusKind" );
-    Monitor.Field = Text( Row, "FeedbackField" ); auto Grace = Get( Row, "GraceSeconds" );
-    if( Monitor.Id.empty() || Monitor.SwitchFunction.empty() || Monitor.Source.empty() ||
-        Monitor.Kind.empty() || Monitor.Field.empty() || !Ids.insert( Monitor.Id ).second ||
-        !json_object_is_type( Grace, json_type_int ) || json_object_get_int( Grace ) < 1 || json_object_get_int( Grace ) > 3600 )
-      throw std::runtime_error( "Invalid feedback monitor rule" );
-    Monitor.GraceMs = uint64_t( json_object_get_int( Grace ) ) * 1000;
-    Monitors.push_back( Monitor );
+    if(!Ids.insert(Row.Id).second)throw std::runtime_error("Duplicate feedback monitor identifier");
+    TMonitor Monitor;
+    Monitor.Id=Row.Id;
+    Monitor.SwitchFunction=Row.SwitchFunc;
+    Monitor.Source=Row.Src;
+    Monitor.Kind=Row.StatusKind;
+    Monitor.Field=Row.FeedbackField;
+    Monitor.GraceMs=uint64_t(Row.GraceSec)*1000;
+    Monitors.push_back(std::move(Monitor));
    }
  }
 
 void TFeedbackMonitor::Bind( json_object * Registry )
  {
-  for( auto & Monitor : Monitors )
+  TJsonRegistryView View;
+  TGNString Error;
+  if(!GnRead(TGnWireValue(Registry),View,Error))throw std::runtime_error("Invalid feedback registry bindings");
+  for(auto & Monitor:Monitors)
    {
-    Monitor.SwitchId.clear(); Monitor.SourceId.clear(); Monitor.ChannelIndex = -1;
-    Monitor.Switch = {}; Monitor.Feedback = {}; Monitor.MismatchSince.reset(); Monitor.MismatchDirection.reset();
-    auto External = Get( Registry, "ExternalSources" ); Monitor.SourceId = Text( External, Monitor.Source.c_str() );
-    auto Devices = Get( Registry, "Devices" );
-    for( size_t I = 0; I < json_object_array_length( Devices ); ++I )
+    Monitor.SwitchId.clear();Monitor.SwitchChannelId.clear();Monitor.SourceId.clear();
+    Monitor.Switch={};Monitor.Feedback={};Monitor.MismatchSince.reset();Monitor.MismatchDirection.reset();
+    auto Source=View.ExternalSrcs.Value.find(Monitor.Source);
+    if(Source!=View.ExternalSrcs.Value.end())Monitor.SourceId=Source->second;
+    for(auto const & Device:View.Devices.Value)
+      if(Device.Func==Monitor.Source && Monitor.SourceId.empty())Monitor.SourceId=Device.DevId;
+    for(auto const & Endpoint:View.Endpoints.Value)
      {
-      auto Row = json_object_array_get_idx( Devices, I );
-      if( Text( Row, "Function" ) == Monitor.Source && Monitor.SourceId.empty() ) Monitor.SourceId = Text( Row, "DeviceId" );
-     }
-    auto Endpoints = Get( Registry, "Endpoints" );
-    for( size_t I = 0; I < json_object_array_length( Endpoints ); ++I )
-     {
-      auto Row = json_object_array_get_idx( Endpoints, I );
-      if( Text( Row, "Function" ) == Monitor.Source && Monitor.SourceId.empty() ) Monitor.SourceId = Text( Row, "DeviceId" );
-      if( Text( Row, "Function" ) == Monitor.SwitchFunction && json_object_get_int( Get( Row, "Capabilities" ) ) == 1 )
+      if(Endpoint.Func==Monitor.Source && Monitor.SourceId.empty()){TChannelAddress Address;if(TChannelAddress::Parse(Endpoint.OutAddress.Value,Address))Monitor.SourceId=ServiceAddress(Address);};
+      if(Endpoint.Func==Monitor.SwitchFunction && (uint8_t(Endpoint.Caps.Value)&1)!=0)
        {
-        Monitor.SwitchId = Text( Row, "DeviceId" ); auto Index = Get( Row, "Index" );
-        if( json_object_is_type( Index, json_type_int ) ) Monitor.ChannelIndex = json_object_get_int( Index );
+        TChannelAddress Address;
+        if(!TChannelAddress::Parse(Endpoint.OutAddress.Value,Address))continue;
+        Monitor.SwitchId=ServiceAddress(Address);
+        Monitor.SwitchChannelId=Endpoint.OutAddress.Value;
        }
      }
    }
@@ -101,11 +103,11 @@ void TFeedbackMonitor::Receive( json_object * Packet, uint64_t Now )
     if( !Id.empty() && Id == Monitor.SwitchId )
      {
       Monitor.Switch.Received = Now; Monitor.Switch.Value.reset(); Monitor.Switch.Invalid = false;
-      auto Channels = Get( Status, "Channels" );
+      auto Channels = Get( Status, "Chs" );
       for( size_t I = 0; I < json_object_array_length( Channels ); ++I )
        {
-        auto Row = json_object_array_get_idx( Channels, I ); auto Index = Get( Row, "Id" ), State = Get( Row, "State" );
-        if( json_object_is_type( Index, json_type_int ) && json_object_get_int( Index ) == Monitor.ChannelIndex )
+        auto Row = json_object_array_get_idx( Channels, I ); auto State = Get( Row, "State" );
+        if( Text( Row, "Id" ) == Monitor.SwitchChannelId )
          {
           Monitor.Switch.Invalid = !json_object_is_type( State, json_type_boolean );
           if( !Monitor.Switch.Invalid ) Monitor.Switch.Value = bool( json_object_get_boolean( State ) );
@@ -120,7 +122,7 @@ void TFeedbackMonitor::Receive( json_object * Packet, uint64_t Now )
 
 json_object * TFeedbackMonitor::Status( uint64_t Now )
  {
-  auto Result = json_object_new_array();
+  TJsonFeedbackStates Result;
   for( auto & Monitor : Monitors )
    {
     auto Fresh = [Now]( TSignal const & Signal ) { return Signal.Received && Signal.Value.has_value() && Now >= *Signal.Received && Now - *Signal.Received <= 20000; };
@@ -141,12 +143,16 @@ json_object * TFeedbackMonitor::Status( uint64_t Now )
        }
      }
     if( State == "Unknown" || State == "OK" ) { Monitor.MismatchSince.reset(); Monitor.MismatchDirection.reset(); }
-    auto Row = json_object_new_object(); Put( Row, "Id", Monitor.Id ); Put( Row, "SwitchFunction", Monitor.SwitchFunction );
-    Put( Row, "Source", Monitor.Source ); Put( Row, "State", State ); Put( Row, "Reason", Reason );
-    Put( Row, "SwitchState", SwitchKnown ? Monitor.Switch.Value : std::nullopt );
-    Put( Row, "FeedbackState", FeedbackKnown ? Monitor.Feedback.Value : std::nullopt );
-    json_object_object_add( Row, "GraceSeconds", json_object_new_int64( Monitor.GraceMs / 1000 ) );
-    json_object_array_add( Result, Row );
+    TJsonFeedbackState Row;
+    Row.Id=Monitor.Id;
+    Row.SwitchFunc=Monitor.SwitchFunction;
+    Row.Src=Monitor.Source;
+    Row.State=State;
+    Row.Reason=Reason;
+    if(SwitchKnown)Row.SwitchState=*Monitor.Switch.Value;else Row.SwitchState=nullptr;
+    if(FeedbackKnown)Row.FeedbackState=*Monitor.Feedback.Value;else Row.FeedbackState=nullptr;
+    Row.GraceSec=static_cast<uint32_t>(Monitor.GraceMs/1000);
+    Result.Value.push_back(std::move(Row));
    }
-  return Result;
+  return json_tokener_parse(GnWriteJson(Result).c_str());
  }

@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 2.16 -->
+<!-- README.DE.md, Version: 2.24 -->
 # Aquarium Dashboard
 
 [English](README.md)
@@ -16,6 +16,8 @@ Die Programme Dashboard und MultiTimer laufen auf demselben Raspberry Pi. MultiT
 Gerätespezifische Konfigurationen, Zugangsdaten und Laufzeitdaten sind nicht im öffentlichen Repository enthalten. Eigene Konfigurationen und Signierdaten werden wie unter [Build und private Konfiguration](../BUILD-SECRETS.md) beschrieben bereitgestellt. **Coming soon:** eine vollständige Erstaufbau-Anleitung und allgemeine Konfigurationsbeispiele.
 
 ## Übersicht und Bedienung
+
+Datum und Uhrzeit stehen oben links und werden jede Sekunde aus der lokalen Browserzeit aktualisiert. Die Anzeige folgt der gewählten Sprache und benötigt keine Netzabfragen. Die Aktualisierungszeit der Messwerte bleibt davon getrennt.
 
 Die Bereichsauswahl öffnet die Übersicht, die Zeitpläne und die Konfigurationsseiten der Geräte. Der zuletzt gewählte Bereich wird im Browser gespeichert und nach dem Neuladen geöffnet. Ist er nicht verfügbar, erscheint die Übersicht. Die Sprache des Dashboards wird unabhängig von den eingebetteten Geräteseiten gewählt.
 
@@ -44,17 +46,28 @@ Auf der Seite **Zeiten** werden Schaltzeiten, Wochentage, Kanäle, Zustände und
 
 Die Seite **Heizprofile** verwaltet die zentralen Profile und deren Zuordnung zu Gerätekanälen. Ein Profil kann erst gelöscht werden, wenn kein Kanal darauf verweist. Rollen und Profile lassen sich ändern, ohne die Hardwarebelegung des Geräts zu verändern.
 
-Ein Profil enthält unter anderem:
+Im Profileditor steht zuerst der **Profiltyp** `Temperature` oder
+`BatteryPercent`. Danach enthält die Quellenliste nur passende Messquellen und
+zeigt Funktionsname, Messwertart und genaue Geräte-ID, zum Beispiel
+`FeederAq1 · Temperatur (02:11:22:33:44:55@3)`. Als gespeicherter Wert bleibt
+die ausgewählte ID erhalten. **Ein ohne Ist-Wert** legt den Rückfallzustand
+fest, wenn das Profil keinen verwendbaren aktuellen Messwert hat.
 
-- **Quelle:** der Geber des Messwerts, beispielsweise ein Temperaturgeber oder `LaptopBattery`.
-- **Messwertfeld:** das auszuwertende Feld, beispielsweise `Temperature` oder `BatteryPercent`. Ein leeres Feld bedeutet `Temperature`.
-- Die zum Profil gehörenden Schaltgrenzen und Einstellungen für fehlende Messwerte.
-
-Quelle und Messwertfeld sind unterschiedliche Angaben: `LaptopBattery` benennt den Sender, `BatteryPercent` dessen Akkustand. Das Messwertfeld gehört zum Profil, nicht zur Kanalzuordnung. Nach dem Bearbeiten **Speichern / verteilen** betätigen.
+Die PI-Haupt- und Bodenendpunkte werden als nicht editierbare IDs angezeigt.
+Sie werden aus den Rollen und Profilzuordnungen unter **Kanalzuordnungen**
+abgeleitet. Beim Speichern dieser Zuordnungen werden die Profilendpunkte
+aktualisiert und die zusammengeführte Konfiguration an die Schaltgeräte
+verteilt. Die PI-Parameter bleiben im Profileditor änderbar.
 
 Der Revisionszeitstempel bezeichnet die letzte Profiländerung. Er ist keine laufende Uhr und wird neutral dargestellt. Synchronisierte Teilnehmer sind grün; ausstehende Synchronisierungen und Fehler werden rot angezeigt. Hinweise zum Speichern und Verteilen verschwinden nach erfolgreichem Abschluss.
 
-Die zentrale Datenhaltung liegt auf dem Raspberry Pi. Jedes Gerät erhält seine eigenen Zeitpläne und Kanalzuordnungen zusammen mit den zentralen Profilen. Änderungen an einer Kanalzuordnung betreffen nur das zugehörige Gerät. Änderungen an zentralen Profilen werden an alle beteiligten Schaltgeräte verteilt. Unverändertes Speichern löst keine erneute Verteilung aus.
+Die zentrale Datenhaltung liegt auf dem Raspberry Pi. Jedes Gerät erhält seine eigenen Zeitpläne und Kanalzuordnungen zusammen mit den zentralen Profilen. Eine reine Kanaländerung betrifft nur das zugehörige Gerät. Ändert sie PI-Endpunkte, werden die dadurch geänderten zentralen Profile an alle beteiligten Schaltgeräte verteilt. Unverändertes Speichern löst keine erneute Verteilung aus.
+
+Wenn eine Kanalzuordnung die PI-Haupt- oder Bodenendpunkte ändert, aktualisiert
+das Dashboard diese Profilwerte bereits im Entwurf. Beim Speichern werden die
+Kanalzuordnungen und die daraus geänderten zentralen Profile gemeinsam
+übermittelt. Der Server vergleicht beides mit dem gespeicherten Stand und startet
+nur für tatsächliche Änderungen die betroffene Verteilung.
 
 ## Geräte konfigurieren
 
@@ -86,7 +99,7 @@ Jedes physische Gerät wird anhand seiner MAC-Adresse und Dienstkennung erkannt.
 
 Beim Tausch ganzer Geräte werden Funktionshostname und AP-/FTP-Zugangsdaten der Funktion zugeordnet. Hardwareeinstellungen bleiben am jeweiligen Gerät. Beide betroffenen ESPs starten neu. Der Vorgang ist abgeschlossen, wenn beide Geräte die Übernahme bestätigt haben. Unterbrochene Vorgänge werden nach einem Neustart fortgesetzt.
 
-Weitere Einzelheiten stehen in [Geräteidentität und Funktionstausch](../Libs/GnBasicLib/DeviceIdentity.md).
+Weitere Einzelheiten stehen in [Geräteidentität und Funktionstausch](../Libs/GnAqPrjsLib/DeviceIdentity.md).
 
 ### Hardware-Endpunkte und Kanaltausch
 
@@ -128,11 +141,27 @@ Die laufende Konfiguration wird in `data/DeviceAssignments.json` gespeichert und
 
 Zusätzliche Sender ohne Geräte-/Konfigurations-API werden unter `ExternalSources` in `data/DeviceAssignments.json` eingetragen. Der Eintrag ordnet einen Funktionsnamen einer Identität der Form `MAC@3` zu. Nur registrierte Sender werden ausgewertet.
 
-Änderungen an dieser Tabelle bei gestopptem Dashboard durchführen. Sie benötigen eine neue Zuordnungsrevision und Verteilung an die beteiligten Geräte; der Geräte-Editor bearbeitet diese Tabelle nicht. Einzelheiten zum Datenformat stehen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Änderungen an dieser Tabelle bei gestopptem Dashboard durchführen. Sie benötigen eine neue Zuordnungsrevision und Verteilung an die beteiligten Geräte; der Geräte-Editor bearbeitet diese Tabelle nicht. Einzelheiten zum Datenformat stehen in [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md).
 
 Der Laptop-Akku-Sender läuft auf dem Laptop und sendet den Akkustand als `Status.BatteryPercent` in Prozent. Zusätzlich meldet er mit `Status.AcOnline` die Netzversorgung und mit `Status.BatteryState` den Akkuzustand. Ein registrierter Sender `LaptopBattery` erscheint unter **System** als Laptop. Ungültige Prozentwerte werden als „—“ dargestellt. Nach 20 Sekunden ohne gültiges Statuspaket gilt der Sender als Offline; veraltete Messwerte werden ausgeblendet.
 
-Ein Ladeprofil kann beispielsweise die Quelle `LaptopBattery`, das Messwertfeld `BatteryPercent` und die Grenzen 40/80 verwenden. Bei `NoTempOn: false` bleibt der zugeordnete Ausgang ohne gültigen Messwert AUS. Der zugehörige Schaltausgang `LaptopSw` wird als eigene Funktion angezeigt.
+Ein Ladeprofil kann beispielsweise die Quelle `LaptopBattery`, den Profiltyp `BatteryPercent` und die Grenzen 40/80 verwenden. **Ein ohne Ist-Wert** legt den Ausgangszustand fest, wenn kein gültiger Akkustand vorliegt. Der zugehörige Schaltausgang `LaptopSw` wird als eigene Funktion angezeigt.
+
+### Ladenachlauf für Akku-Profile
+
+Im Dashboard-Profil **Ladenachlauf aktiv** einschalten und **Sekunden je Prozentpunkt** angeben. Dafür muss der Profiltyp `BatteryPercent` sein (`Meas` im gespeicherten JSON). Der Editor schlägt zunächst `15` Sekunden je Prozentpunkt vor; derselbe Faktor wird anschließend durch Lernen angepasst. Ohne aktivierten Ladenachlauf bleibt das bisherige Verhalten bei fehlenden Messwerten erhalten.
+
+Wenn der Sender ausbleibt und der Ausgang zuvor automatisch EIN war, berechnet das Schaltgerät die Restladezeit:
+
+`(Abschaltgrenze − letzter Akkustand) × Sekunden je Prozentpunkt`
+
+Die seit der letzten Meldung bereits geladene Zeit wird angerechnet. Ein zuvor ausgeschalteter Ausgang wird dadurch nicht eingeschaltet. Jeder manuelle Schaltbefehl verwirft den Lernzyklus sofort, auch beim Zurückschalten zur Automatik. Aus dem abgebrochenen Zyklus wird kein Faktor gelernt. Zeitplan AUS oder geänderte Profilparameter beenden den laufenden Zyklus ebenfalls. Es gibt keine zusätzliche maximale Nachlaufzeit.
+
+Bei der nächsten gültigen Akkumeldung wird aus tatsächlicher Einschaltzeit und Akkugewinn ein Faktor ermittelt. Ab einem Gewinn von einem Prozentpunkt wird er mit 25 % gewichtet; 75 % stammen vom bisherigen Faktor. Ohne messbaren Gewinn bleibt der Faktor unverändert. Der neue Faktor wird auf ganze Sekunden abgerundet. Änderungen unter 5 % gegenüber dem zuletzt gespeicherten Faktor bleiben im RAM und gehen in den nächsten Lernzyklus ein. Erst ab 5 % Unterschied wird der Faktor im Profil gespeichert und mit dem Dashboard synchronisiert. Der laufende Lernzyklus liegt ausschließlich im RAM; nach einem Neustart beginnt er erst mit frischen Akkumeldungen und automatisch eingeschaltetem Ausgang erneut.
+
+Der Laptop erteilt die Lernfreigabe mit `Status.ChargeLearningAllowed` (boolesch) und meldet `Status.ChargeBootCounter` als überlauffähigen `uint32`-Startzähler einschließlich Null. Die Lernmessung darf bei Rückkehr nur ausgewertet werden, wenn die Zählerdifferenz modulo `2^32` genau 1 beträgt. Zusätzliche Starts oder eine fehlende/ungültige Freigabe verwerfen die Messung; der normale Nachlauf bleibt erhalten. Der Lernschalter erhöht den Zähler nicht. Installation, Bedienung und Besonderheiten bei externem Laden stehen unter [LaptopBattery](../LaptopBattery/README.DE.md).
+
+Die JSON-Felder heißen `ChargeRunOn` und `ChargeSecondsPerPercent`. Zusätzliche Profilfelder sind erlaubt und bleiben beim Bearbeiten und Synchronisieren erhalten. Bei `ChargeRunOn: true` ist ein positiver ganzzahliger Faktor (`uint32_t`) Pflicht; ohne Aktivierung müssen diese Felder nicht vorhanden sein.
 
 ## Rückmeldeüberwachung und Warnton
 
@@ -156,9 +185,9 @@ Die Regeln werden in `data/FeedbackMonitors.json` gespeichert. Der Editor erkenn
 
 ### Warnton bedienen
 
-**Warnton aktivieren** gibt die Audioausgabe im Browser frei und spielt einen Testton. Bei einer bestätigten, unquittierten Abweichung erklingen drei kurze Töne alle 30 Sekunden. **Warnton quittieren** lässt die optische Meldung bestehen und unterdrückt den Ton bis zur Erholung oder einer neuen Störungsart. **Warnton ausschalten** deaktiviert die Tonfunktion in diesem Browser. Ohne aktuelle Dashboard-Daten wird der Ton nicht wiederholt.
+Das Lautsprechersymbol (**Warnton aktivieren**) gibt die Audioausgabe im Browser frei und spielt einen Testton. Bei einer bestätigten, unquittierten Abweichung erklingen drei kurze Töne alle 30 Sekunden. **Warnton quittieren** lässt die optische Meldung bestehen und unterdrückt den Ton bis zur Erholung oder einer neuen Störungsart. Das durchgestrichene Lautsprechersymbol schaltet die Tonfunktion in diesem Browser aus. Die Schaltfläche trägt den jeweiligen Bedienhinweis als Tooltip und zugängliche Beschriftung. Ohne aktuelle Dashboard-Daten wird der Ton nicht wiederholt.
 
-Die Ein-/Auswahl wird für ein Jahr im Browser gespeichert. Bei gespeichertem Ein versucht die Seite nach dem Laden, die Audioausgabe still wieder aufzunehmen. Blockiert der Browser dies, erscheint **Warnton freigeben**; einmal antippen. Aus bleibt nach dem Neuladen aus. Lautstärke und Audiofreigabe werden am Tablet bzw. im Browser eingestellt. Gelöschte Cookies oder private Sitzungen können die gespeicherte Auswahl verwerfen.
+Die Ein-/Auswahl wird für ein Jahr im Browser gespeichert. Bei gespeichertem Ein versucht die Seite nach dem Laden, die Audioausgabe still wieder aufzunehmen. Blockiert der Browser dies, trägt das Lautsprechersymbol den Hinweis **Warnton freigeben**; einmal antippen. Aus bleibt nach dem Neuladen aus. Lautstärke und Audiofreigabe werden am Tablet bzw. im Browser eingestellt. Gelöschte Cookies oder private Sitzungen können die gespeicherte Auswahl verwerfen.
 
 Die Cookie-Laufzeit wird beim Laden und täglich geprüft. Bei höchstens 30 Tagen Restlaufzeit wird die vorhandene Auswahl um ein Jahr verlängert. Eine automatische Wiederaufnahme spielt keinen Testton; ausdrückliches Aktivieren oder Freigeben spielt den Testton.
 
@@ -168,14 +197,14 @@ Die Cookie-Laufzeit wird beim Laden und täglich geprüft. Bei höchstens 30 Tag
 
 Der Datenweg ist **Gerät → UDP → DashboardServer → SSE → Browser**. SSE ist eine dauerhafte HTTP-Verbindung, über die der Server Änderungen direkt an die Browserseite sendet.
 
-Die Geräte veröffentlichen ihren Status spätestens alle fünf Sekunden und zusätzlich bei relevanten Änderungen auf UDP-Port 44444. Eine gemeinsame Verbindung über `/api/events` versorgt die Browserseite mit den Statusdaten aller Geräte und externen Messsender. Der Server fordert fehlende oder veraltete Gerätedaten gezielt an.
+Die Geräte veröffentlichen ihren Status regulär alle zehn Sekunden und zusätzlich bei relevanten Änderungen auf UDP-Port 44444. Eine gemeinsame Verbindung über `/api/events` versorgt die Browserseite mit den Statusdaten aller Geräte und externen Messsender. Der Server fordert fehlende oder veraltete Gerätedaten gezielt an.
 
 Bei einer unterbrochenen Push-Verbindung fragt der Browser den Statuscache des DashboardServers einmal pro Sekunde per HTTP ab. Die Push-Verbindung wird automatisch wiederhergestellt; eine 15 Sekunden lang stumme Verbindung wird neu aufgebaut. Nach Wiederverbindung erhält der Browser den aktuellen Datenbestand. Mehr als 20 Sekunden alte Gerätedaten werden als Offline behandelt.
 
 Bei WLAN- oder Serverausfall zeigt das Dashboard eine Statusleiste mit automatischem Wiederholungsversuch und einem Reload-Button.
 Beim Aufwachen oder erneuten Sichtbarwerden wird die Verbindung sofort geprüft. Geänderte Gerätekonfigurationen werden beim Neuladen berücksichtigt.
 
-Die Gerätekommunikation verwendet UDP-Version 2. Messwerte stehen als benannte Felder im Objekt `Status`, beispielsweise `Temperature` oder `BatteryPercent`. Die technischen Schnittstellen sind in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md) beschrieben.
+Die Gerätekommunikation verwendet UDP-Version 2. Messwerte stehen als benannte Felder im Objekt `Status`, beispielsweise `Temperature` oder `BatteryPercent`. Die technischen Schnittstellen sind in [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md) beschrieben.
 
 ### Raspberry-Pi-Systemstatus
 
@@ -275,3 +304,41 @@ sudo systemctl restart DashboardServer.service
 | `DashboardServer.cpp` und weitere C++-Dateien | Webserver, Datenhaltung, Zuordnungen und Überwachung. |
 | `CopyToRasPi.sh` | Abgleich, Rücklesekopie und Übertragung zum Pi. |
 | `Install.sh`, `DashboardServer.service` | Installation und Betrieb als systemd-Dienst. |
+
+## Raumtemperatur
+
+Bei aktiviertem optionalem MultiTimer-Raumtemperatursensor erscheint dessen Messwert unter **System**. Die Aquarium-Relaisansichten bleiben getrennt. Neue Werte werden nach jedem abgeschlossenen Zehn-Sekunden-Messzyklus gesendet; Sensorfehler werden als ungültige Messwerte angezeigt.
+
+[Kompakter UDP-Status und gezielte Quellenauflösung](../Libs/GnAqPrjsLib/UdpStatus.DE.md).
+
+Bei Profilen mit PI-Konfiguration wählt **Regelung** zwischen Hysterese (`Off`), PI-Beobachtung (`Shadow`) und PI aktiv (`Active`). Bei aktivem PI erscheinen Solltemperatur und ausklappbare PI-Parameter anstelle der Hystereseschwellen. Änderungen werden erst über **Speichern / verteilen** wirksam. Die ausgeblendeten Werte bleiben erhalten. Geräteauswahllisten enthalten die Aquariumzuordnung.
+
+**PWM-Periode (s)** bezeichnet die Periodendauer der zeitproportionalen Schaltung. **Integralzeit Ti (s), Ki = Kp / Ti** legt den Integrationsfaktor über `Ki = Kp / Ti` fest; bei der Berechnung wird `I += (Soll − Ist) × Ki × Δt` verwendet, ergänzt durch Begrenzung gegen Auflaufen. Ti ist kein Neuberechnungsintervall.
+
+## Temporäres Laptop-Lernprotokoll
+
+`GET /api/debug/charge-learning` liefert abgeschlossene Lernschritte mit altem/neuem Akkuwert, tatsächlich gezählter Ladezeit (`ChargeMilliseconds`), angewandtem und neuem ganzzahligem s/%-Faktor. `Persistence` unterscheidet `RamOnly`, `Saved` und `SaveFailed`. `Saved` bestätigt nur das Speichern im Switch; `Synchronization: NotObserved` behauptet keine abgeschlossene zentrale Verteilung. Bei `RamOnly` ist keine Synchronisierung erforderlich.
+
+Das Dashboard hält höchstens 1000 Schritte unter `generated/ChargeLearning/Steps.json`; wiederholte UDP-Meldungen werden anhand Geräte-ID, Switch-Bootzähler und Ereignisnummer dedupliziert, auch nach Dashboard-Neustart. Der Switch behält ausschließlich den letzten Schritt im RAM und meldet ihn wiederholt. Bei längerer Dashboard-Abwesenheit oder einem Switch-Neustart sind daher Lücken möglich. Die Zeit ist die gezählte EIN-Zeit seit der letzten Akku-Meldung einschließlich Meldungs-Timeout; der exakte physische Ausschaltzeitpunkt des Laptops ist nicht bekannt.
+
+Die Debug-Funktion kann über `GN_DEBUG_CHARGE_LEARNING=0` in `Libs/GnAqPrjsLib/GnTemporaryDiagnostics.h` für Switch und Dashboard entfernt werden. Dies verändert weder Lernen noch Faktor-Speicherung. Keine regelmäßige Codex-Überwachung erforderlich.
+
+## Schmale Ansichten und Kanalrolle
+
+Zeiten passen sich als beschriftete Karten an schmale Bildschirme an; die Sortierung bleibt darüber erreichbar. Kanalzuordnungen nutzen zwei kompakte Zeilen mit Papierkorbsymbol. Gerätezuordnungen bleiben eine horizontal scrollbare Tabelle. Aufklappbare Bereiche zeigen rechts einen Pfeil für ihren Zustand. Der Sprachwechsel beschriftet dynamische Profilfelder neu und erhält ungespeicherte Eingaben.
+
+`MainSw` bezeichnet den allgemeinen Hauptschalter eines messwertabhängigen Profils, auch für Laptop-Laden. `HeaterMain` bleibt als gleichbedeutende Eingabe zulässig. Geräte-/Funktions-IDs wie `HeaterMainAq1` und Profilnamen ändern sich dadurch nicht; Schaltverhalten und Schutzfunktionen bleiben identisch.
+
+## Konfigurationsereignisse für HeatHistory
+
+`GET /api/recording-events` öffnet eine SSE-Verbindung. Ein `configuration`-Ereignis
+mit `Snapshot: true` enthält den vollständigen Anfangsstand. Danach enthalten
+`Profiles` und `Channels` nur Änderungen, als Objekt nach Profil-ID bzw. Gerät;
+`null` entfernt einen Eintrag. `Registry` wird bei geänderter Gerätezuordnung
+vollständig mitgesendet. Nach Wiederverbindung kommt erneut ein Snapshot.
+Die Meldungen entstehen bei Änderungen über die APIs einschließlich Geräte-Sync;
+für direkte Dateiedits ist ein Serverneustart erforderlich. Keepalive-Kommentare
+halten die Verbindung offen. Die bestehende Status-SSE `/api/events` bleibt erhalten.
+Sie sendet außerdem nach erfolgreichem Speichern oder Gerätesync eines Zeitplans
+ein benanntes `times`-Ereignis. Der Browser lädt damit die offene Zeitansicht neu;
+ungespeicherte Änderungen im Zeit-Editor werden dabei nicht überschrieben.

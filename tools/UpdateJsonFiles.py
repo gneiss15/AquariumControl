@@ -1,8 +1,10 @@
-# UpdateJsonFiles.py, Version: 1.06
+# UpdateJsonFiles.py, Version: 1.08
 from __future__ import annotations
 
 import json
+import os
 import pathlib
+import re
 import sys
 
 import sys as _generated_sys
@@ -39,6 +41,19 @@ def collect_overrides(secrets: object, project_name: str) -> dict[str, object]:
       overrides.update(project_values)
 
   return overrides
+
+
+def resolve_initial_function(function: str, project_name: str) -> str:
+  """Keep real function names; expand only hardware placeholder names."""
+  if project_name == "TmrSwA8T":
+    match = re.fullmatch(r"Nous([0-9]+)", function)
+    if match:
+      return f"NousA8TSw{match.group(1)}"
+  elif project_name == "TmrSwShelly":
+    match = re.fullmatch(r"Shelly([0-9]+)", function)
+    if match:
+      return f"ShellySw{match.group(1)}"
+  return function
 
 
 def dumps_aligned_object(value: dict[str, object]) -> str:
@@ -89,8 +104,8 @@ def main() -> int:
       if key in config:
         config[key] = value
 
-  # Device state is the final authority. In particular, device-specific
-  # credentials must not be overwritten by project-wide secret defaults.
+  # Keep device-specific values ahead of project defaults. The initial
+  # function fields are applied separately below.
   if device_config_path is not None:
     device_config = load_json(device_config_path)
     if not isinstance(device_config, dict):
@@ -99,6 +114,20 @@ def main() -> int:
       if key not in config:
         raise ValueError(f"Unknown device Config key: {key}")
       config[key] = value
+
+  initial_function = os.environ.get("PRJS_INITIAL_FUNCTION")
+  if initial_function is not None:
+    initial_function = resolve_initial_function(initial_function, project_name)
+    if not 8 <= len(initial_function.encode("utf-8")) <= 32:
+      raise ValueError(
+        "Initial function/AP credentials must contain 8–32 UTF-8 bytes; "
+        "real function names are used unchanged and only NousX/ShellyX "
+        "placeholders are expanded"
+      )
+    config["Hostname"] = initial_function
+    config["ApSsid"] = initial_function
+    config["ApPw"] = initial_function
+    config["FtpPw"] = initial_function
 
   if style == "pretty":
     entries_text = json.dumps(entries, ensure_ascii=False, indent=2)

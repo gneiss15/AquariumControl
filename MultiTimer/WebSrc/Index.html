@@ -1,4 +1,4 @@
-<!-- Index.html, Version: 1.17 -->
+<!-- Index.html, Version: 1.19 -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,7 +6,8 @@
   <title>MultiTimer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="/Index.css">
-  <script defer src="/Index.js"></script>
+  <script src="/Messages.js"></script>
+<script defer src="/Index.js"></script>
 </head>
 <body>
   <svg class="IconSymbols" aria-hidden="true">
@@ -20,6 +21,7 @@
   <div id="MainDiv">
     <div id="DeviceName" class="DeviceName">?</div>
     <div class="TopBar">
+  <time id="BrowserClock" class="BrowserClock" aria-live="off"></time>
       <label class="VisuallyHidden" for="PageSelector">Page</label>
       <select id="PageSelector" class="PageSelector" onchange="MSelect(this.value)">
         <option value="SwitchTimes" data-tr="SwitchTimes">Switch Times</option>

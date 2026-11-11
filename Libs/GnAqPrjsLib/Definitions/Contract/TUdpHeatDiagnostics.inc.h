@@ -1,0 +1,38 @@
+// TUdpHeatDiagnostics.inc.h, Version: 1.02
+// Repeated definition expansion.
+#include "../../GnJsonMacroDefaults.inc.h"
+
+#if defined(Do_ContractAll) || defined(Do_TUdpHeatDiagnostics) || defined(Do_TUdpStatusData) || defined(Do_TUdpStatusMessage) || defined(Do_TWsStatusEvent) || defined(Do_TJsonCachedStatus) || defined(Do_TSseStatusBatch)
+JD_BEGIN( TUdpHeatDiagnostics, "PI controller diagnostics including demand, controller contributions and learning state." )
+  JD_CONST( uint32_t, Ver, 1 )
+  JD( bool, Active, Required, Any, "Whether PI control is enabled", Live )
+  JD( TGNString, Prof, Required, Any, "", Live )
+  JD( TJsonHeatConfig, Cfg, Optional, Any, "", Live )
+  JD( bool, Valid, Optional, Any, "", Live )
+  JD( bool, Learn, Optional, Any, "", Live )
+  JD( bool, FloorRequest, Optional, Any, "", Live )
+  JD( bool, MainRequest, Optional, Any, "", Live )
+  JD( bool, FloorAvailable, Optional, Any, "", Live )
+  JD( bool, ActualMainOn, Optional, Any, "", Omit )
+  JD( bool, ActualFloorOn, Optional, Any, "", Live )
+  JD( TGNString, Reason, Optional, Any, "Current controller state or reason for degraded operation, for example floor-offline", Live )
+  JD( TGNString, LearnReason, Optional, Any, "", Live )
+  JD( double, Temp, Optional, Any, "", Live )
+  JD( double, ErrK, Optional, Any, "Water setpoint minus the temperature used by the controller, in K", Live )
+  JD( double, ProportionalW, Optional, Any, "", Live )
+  JD( double, IntegralW, Optional, Any, "", Live )
+  JD( double, FeedForwardW, Optional, Any, "", Live )
+  JD( double, DemandW, Optional, Any, "", Live )
+  JD( double, FloorDemandW, Optional, Any, "", Live )
+  JD( double, MainDemandW, Optional, Any, "", Live )
+  JD( double, ActualW, Optional, Any, "", Live )
+  JD( double, CapacityWhPerK, Optional, Any, "", Live )
+  JD( double, LossWPerK, Optional, Any, "", Live )
+  JD( double, Kp, Optional, Any, "", Live )
+  JD( uint64_t, TiSec, Optional, Any, "", Live )
+  JD( uint64_t, Samples, Optional, Any, "Number of controller updates since initialization; identifies repeated snapshots", Live )
+  JD( uint64_t, LearnedWindows, Optional, Any, "Number of learning windows that produced an accepted model update", Live )
+  JD( uint64_t, WindowAgeSec, Optional, Any, "Elapsed time of the current learning window, in seconds", Live )
+JD_END( TUdpHeatDiagnostics )
+
+#endif

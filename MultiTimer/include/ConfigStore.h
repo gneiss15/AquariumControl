@@ -1,4 +1,4 @@
-// ConfigStore.h, Version: 2.37
+// ConfigStore.h, Version: 2.38
 #pragma once
 #include <GnBasics.h>
 #include <GnHeaterControl.h>
@@ -42,8 +42,8 @@ class TConfigStore : public TSingleton<TConfigStore>
                                               TSwitchIntervals & Intervals, TGNString & Error ) const;
 
  private:
-  static TChannelId        FindChannelId( const TChannelConfigs & Channels, const TGNString & Id );
-  static const TGNString & GetChannelConfigId( const TChannelConfigs & Channels, TChannelId Id );
+  static TChannelIndex        FindChannelId( const TChannelConfigs & Channels, const TGNString & Id );
+  static TGNString         GetChannelConfigId( const TChannelConfigs & Channels, TChannelIndex Id );
   TGNString                ScheduleToJson( const TChannelConfigs & Channels, const TSwitchTimes & SwitchTimes,
                                            const TSwitchIntervals & Intervals ) const;
  };

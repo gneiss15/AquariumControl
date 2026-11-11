@@ -1,4 +1,4 @@
-// FeederWifi.cpp, Version: 1.22
+// FeederWifi.cpp, Version: 1.27
 //****************************************************************
 // Includes
 //****************************************************************
@@ -11,14 +11,14 @@
 #include "FeederDrive.h"
 #include "FeederConfig.h"
 #include "FeederStatusApi.h"
+#include "FeederRestartLog.h"
 #include "FeederTemperature.h"
-#include "Libs/Common/Feeder/OneWireDiagnosticPage.h"
+#include "Common/Feeder/OneWireDiagnosticPage.h"
 
 #ifdef ESP32
   #include <WiFi.h>
  #else
   #include <ESP8266WiFi.h>
-  #include <ESP8266mDNS.h>
   #include <coredecls.h>                  // settimeofday_cb()
   #include "EspUpdateSigning.h"
 #endif
@@ -435,13 +435,6 @@ TFeederWifi::TFeederWifi(void)
 /*virtual*/ void TFeederWifi::Loop(void)
  {
   FHttpServer.handleClient();
-  if( FRecoveryMode )
-    return;
-
-  #if !defined( ESP32 )
-    MDNS.update();
-  #endif
-
  }
 
 bool TFeederWifi::Setup(void) 
@@ -504,8 +497,6 @@ bool TFeederWifi::SetupRecoveryNetwork( char const * ProjectName )
     &EspUpdateSigning::Hash, &EspUpdateSigning::Verifier, ProjectName );
   FHttpServer.begin();
 
-  MDNS.begin( FeederConfig.Hostname );
-  MDNS.addService( "http", "tcp", 80 );
   return true;
  }
 
@@ -527,8 +518,6 @@ bool TFeederWifi::SetupStartupError( char const * ProjectName, String const & Er
     &EspUpdateSigning::Hash, &EspUpdateSigning::Verifier, ProjectName, Error );
   FHttpServer.begin();
 
-  MDNS.begin( FeederConfig.Hostname );
-  MDNS.addService( "http", "tcp", 80 );
   return true;
  }
 #endif
@@ -746,11 +735,11 @@ void TFeederWifi::SHandleNotFound(void)
   HttpServer.send( 404, "text/plain", msg );
  }
 
-void TFeederWifi::SSendJson( TGNString const & Json )
+void TFeederWifi::SSendJson( TGNString const & Json, int Code )
  {
   HttpServer.sendHeader( "Access-Control-Allow-Origin", "*" );
   HttpServer.sendHeader( "Cache-Control", "no-store" );
-  HttpServer.send( 200, "application/json", Json.c_str() );
+  HttpServer.send( Code, "application/json", Json.c_str() );
  }
 
 void TFeederWifi::SHandleApiOptions(void)
@@ -768,7 +757,9 @@ void TFeederWifi::SHandleDeviceApi(void)
 
 void TFeederWifi::SHandleStatusApi(void)
  {
-  SSendJson( FeederStatusApi.StatusJson() );
+  int Code;
+  const auto Json = FeederStatusApi.HttpStatusJson( HttpServer.hasArg( "memory" ), Code );
+  SSendJson( Json, Code );
  }
 
 
@@ -938,15 +929,20 @@ void TFeederWifi::SHandleIndex(void)
  
 bool TFeederWifi::SetupHttpServer(void)
  {
-  if( ReadFile( F( "/Index.html" ) ).length() == 0 )
-    return false;
-
   FHttpServer.onNotFound( SHandleNotFound );
 
   // Dashboard API
   FHttpServer.on( "/api/v1/device", HTTP_GET, SHandleDeviceApi );
   FHttpServer.on( "/api/v1/device", HTTP_OPTIONS, SHandleApiOptions );
   FHttpServer.on( "/api/v1/status", HTTP_GET, SHandleStatusApi );
+  FHttpServer.on( "/api/v1/restarts", HTTP_GET, []()
+   {
+    char const * Path = HttpServer.hasArg("previous") ? FeederRestartLogPreviousPath : FeederRestartLogPath;
+    File Journal = LittleFS.open(Path,"r");
+    HttpServer.sendHeader("Cache-Control","no-store");
+    if( Journal )HttpServer.streamFile(Journal,"text/csv");
+    else HttpServer.send(404,"text/plain","No restart journal");
+   } );
   FHttpServer.on( "/api/v1/status", HTTP_OPTIONS, SHandleApiOptions );
   FHttpServer.on( "/api/v1/times", HTTP_POST, SHandleTimesApi );
   FHttpServer.on( "/api/v1/times", HTTP_OPTIONS, SHandleApiOptions );
@@ -1016,8 +1012,6 @@ bool TFeederWifi::SetupHttpServer(void)
 
   FHttpServer.begin();
 
-  MDNS.begin( FeederConfig.Hostname );
-  MDNS.addService( "http", "tcp", 80 );
 
   return true;
  }

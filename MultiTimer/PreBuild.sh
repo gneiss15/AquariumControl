@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# PreBuild.sh, Version: 1.10
+# PreBuild.sh, Version: 1.12
 
 set -Eeuo pipefail
 
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
+bash "$ProjectDir/GenerateJs.sh"
 # shellcheck source=../tools/_TrashPaths.sh
 source "$PrjsDir/tools/_TrashPaths.sh"
 

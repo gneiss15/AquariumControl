@@ -1,4 +1,4 @@
-# DownloadLittleFS.py, Version: 1.03
+# DownloadLittleFS.py, Version: 1.05
 from __future__ import annotations
 
 import ftplib
@@ -40,32 +40,47 @@ def download(host: str, user: str, password: str,
     ftp.connect(host, 21, timeout=15)
     ftp.login(user, password)
     ftp.set_pasv(passive)
-    remote_files: list[tuple[str, str]] = []
-    seen_local_names: set[str] = set()
-
-    for name in ftp.nlst():
-      normalized = name.rstrip("/")
-      local_name = pathlib.PurePosixPath(normalized).name
-      if local_name in ("", ".", ".."):
-        continue
-      if local_name in seen_local_names:
-        raise RuntimeError(f"Duplicate FTP basename: {local_name}")
-      seen_local_names.add(local_name)
-      remote_files.append((name, local_name))
-
-    if not remote_files:
-      raise RuntimeError("FTP root contains no downloadable files")
-
     downloaded: list[str] = []
-    for remote_name, local_name in remote_files:
-      local_path = target_dir / local_name
-      try:
-        with local_path.open("wb") as output:
-          ftp.retrbinary(f"RETR {remote_name}", output.write)
-      except Exception:
-        local_path.unlink(missing_ok=True)
-        raise
-      downloaded.append(local_name)
+
+    def download_current_directory(local_dir: pathlib.Path) -> None:
+      seen_names: set[str] = set()
+      for name, facts in ftp.mlsd():
+        if name in (".", "..") or facts.get("type", "").lower() in ("cdir", "pdir"):
+          continue
+        remote_path = pathlib.PurePosixPath(name.rstrip("/"))
+        entry_name = remote_path.name
+        if (not entry_name or entry_name in (".", "..") or ".." in remote_path.parts or
+            "\\" in name or any(ord(character) < 32 for character in name)):
+          raise RuntimeError(f"Invalid FTP entry name: {name!r}")
+        if entry_name in seen_names:
+          raise RuntimeError(f"Duplicate FTP entry: {entry_name}")
+        seen_names.add(entry_name)
+
+        entry_type = facts.get("type", "").lower()
+        if local_dir == target_dir and entry_name == "diagnostics" and entry_type == "dir":
+          continue
+        local_path = local_dir / entry_name
+        if entry_type == "dir":
+          local_path.mkdir()
+          ftp.cwd(entry_name)
+          try:
+            download_current_directory(local_path)
+          finally:
+            ftp.cwd("..")
+        elif entry_type == "file":
+          try:
+            with local_path.open("wb") as output:
+              ftp.retrbinary(f"RETR {entry_name}", output.write)
+          except Exception:
+            local_path.unlink(missing_ok=True)
+            raise
+          downloaded.append(local_path.relative_to(target_dir).as_posix())
+        else:
+          raise RuntimeError(f"Unknown FTP entry type for {name!r}: {entry_type!r}")
+
+    download_current_directory(target_dir)
+    if not downloaded:
+      raise RuntimeError("FTP root contains no downloadable files")
 
     try:
       ftp.quit()

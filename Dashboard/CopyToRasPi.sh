@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CopyToRasPi.sh, Version: 1.32
+# CopyToRasPi.sh, Version: 1.38
 
 set -euo pipefail
 
@@ -11,6 +11,8 @@ RemoteDir="$RemotePrjsDir/Dashboard"
 RemoteDataDir="$RemoteDir/data"
 CommonLibDir="$PrjsDir/Libs/GnBasicLib"
 RemoteCommonLibDir="$RemotePrjsDir/Libs/GnBasicLib"
+AqLibDir="$PrjsDir/Libs/GnAqPrjsLib"
+RemoteAqLibDir="$RemotePrjsDir/Libs/GnAqPrjsLib"
 ProjectDataDir="$ScriptDir/data"
 RasPiSnapshotDir="$ScriptDir/generated/raspi"
 RasPiReadableDir="$ScriptDir/generated/raspi-readable"
@@ -233,7 +235,7 @@ PY
 
 ValidateBuildReadable()
 {
-  python3 - "$BuildReadableDir" <<'PY'
+  python3 - "$BuildReadableDir" <<'PY' || return $?
 import json
 import pathlib
 import sys
@@ -248,15 +250,9 @@ if times_path.is_file():
         times = json.load(source)
     if not isinstance(times, dict) or not isinstance(times.get("Sets"), list) or not isinstance(times.get("Times"), list):
         raise ValueError("Times.json must contain Sets[] and Times[]")
-profiles_path = root / "HeatProfiles.json"
-if profiles_path.is_file():
-    with profiles_path.open("r", encoding="utf-8") as source:
-        profiles = json.load(source)
-    if not isinstance(profiles, dict) or not isinstance(profiles.get("Profiles"), list):
-        raise ValueError("HeatProfiles.json must contain Profiles[]")
 PY
   if [ -f "$BuildReadableDir/HeatProfiles.json" ]; then
-    python3 "$ScriptDir/tools/ValidateHeatProfiles.py" "$BuildReadableDir/HeatProfiles.json"
+    python3 "$ScriptDir/tools/ValidateHeatProfiles.py" "$BuildReadableDir/HeatProfiles.json" || return $?
   fi
 }
 
@@ -336,9 +332,13 @@ CheckAndMergeData()
     HasAutoTimestampUpdates=true
     echo "$AutoTimestampCount newer Pi timestamp(s) adopted automatically; corresponding records were otherwise identical."
   fi
-  ValidateBuildReadable || Fail "Build data is invalid"
+  local BuildDataValid=true
+  if ! ValidateBuildReadable; then
+    BuildDataValid=false
+    echo "Build data does not match the current contract; BCO will let you review it against the Raspberry Pi data."
+  fi
 
-  if CompareData; then
+  if [[ "$BuildDataValid" == true ]] && CompareData; then
     HasCentralDataDifferences=false
     if [[ "$HasAutoTimestampUpdates" == true ]]; then
       ApplyBuildEdits || Fail "Could not apply automatically adopted Pi timestamps to the build data"
@@ -352,6 +352,9 @@ CheckAndMergeData()
   HasCentralDataDifferences=true
   echo "BCO vergleicht ausschließlich Times.json und HeatProfiles.json."
   echo "Layouts.json und HeatProfiles.sync.json bleiben Pi-Laufzeitdaten und werden nicht in den Build übernommen."
+  if [[ "$BuildDataValid" == false ]]; then
+    echo "Die linke Build-Datei ist noch im alten Format. Übernimm in BCO nur die gewünschten Daten aus der rechten Pi-Seite; die Übernahme wird danach erneut validiert."
+  fi
   StartCompare
 
   if [ ! -t 0 ]; then
@@ -393,8 +396,11 @@ CopyToRasPi()
       ;;
   esac
 
+  bash "$ScriptDir/GenerateJs.sh" || \
+    Fail "Could not generate Dashboard browser codec"
+
   echo "Synchronisiere Dashboard nach $RemoteHost:$RemoteDir/ ..."
-  ssh "$RemoteHost" "mkdir -p '$RemoteDataDir' '$RemoteCommonLibDir' '$RemotePrjsDir/tools'" || return $?
+  ssh "$RemoteHost" "mkdir -p '$RemoteDataDir' '$RemoteCommonLibDir' '$RemoteAqLibDir' '$RemotePrjsDir/tools'" || return $?
 
   (
     cd "$ScriptDir"
@@ -404,6 +410,7 @@ CopyToRasPi()
       DashboardServer.cpp \
       FeedbackMonitor.cpp \
       FeedbackMonitor.h \
+      ChargeLearningDebug.h \
       FeedbackMonitors.json \
       DashboardServer.service \
       Devices.json \
@@ -419,6 +426,7 @@ CopyToRasPi()
       Index.css \
       Install.sh \
       Makefile \
+      Messages.js \
       StatusClient.js \
       TimeStore.cpp \
       TimeStore.h \
@@ -447,11 +455,24 @@ CopyToRasPi()
 
   echo "Synchronisiere benötigte GnBasicLib-Quellen ..."
   rsync -v -a \
+    --exclude='/tests/' \
+    --exclude='/generated/' \
     --include='*/' \
     --include='*.h' \
     --include='*.cpp' \
     --exclude='*' \
     "$CommonLibDir/" "$RemoteHost:$RemoteCommonLibDir/" || return $?
+
+  echo "Synchronisiere benötigte GnAqPrjsLib-Quellen ..."
+  rsync -v -a \
+    --exclude='/tests/' \
+    --exclude='/generated/' \
+    --include='*/' \
+    --include='*.h' \
+    --include='*.cpp' \
+    --include='*.py' \
+    --exclude='*' \
+    "$AqLibDir/" "$RemoteHost:$RemoteAqLibDir/" || return $?
 
   echo "Synchronisation abgeschlossen."
 }

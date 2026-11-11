@@ -1,3 +1,3 @@
-// SwitchTimes.h, Version: 1.02
+// SwitchTimes.h, Version: 1.03
 #pragma once
-#include "Libs/Common/TmrSw/SwitchTimes.h"
+#include "Common/TmrSw/SwitchTimes.h"

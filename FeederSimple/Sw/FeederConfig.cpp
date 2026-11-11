@@ -1,3 +1,3 @@
-// FeederConfig.cpp, Version: 1.02
+// FeederConfig.cpp, Version: 1.03
 #include <GnBasics.h>
-#include "Libs/Common/Feeder/FeederConfig.cpp"
+#include "Common/Feeder/FeederConfig.cpp"

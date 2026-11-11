@@ -1,6 +1,8 @@
-// Main.cpp, Version: 2.54
+// Main.cpp, Version: 2.58
+#define Do_TJsonConfigurationFiles
 #include <GnBasics.h>
 #include <GnUdpStatus.h>
+#include <GnWireJson.h>
 #include <GnDeviceIdentity.h>
 #include "BuildConfig.h"
 #include "ButtonController.h"
@@ -57,6 +59,7 @@ class TMultiTimerApplication : public TSingleton<TMultiTimerApplication>
   THeaterProfiles                    FHeaterProfiles;
   TSwitchTimes                       FSwitchTimes;
   TSwitchIntervals                   FIntervals;
+  std::unique_ptr<TRoomTemperature>  FRoomTemperature;
   std::unique_ptr<TScheduler>        FScheduler;
   std::unique_ptr<TButtonController> FButtons;
   std::unique_ptr<TStatusApi>        FStatusApi;
@@ -264,6 +267,10 @@ bool TMultiTimerApplication::Setup( int argc, char ** argv, TGNString & error )
      }
   #endif
 
+  FRoomTemperature = std::make_unique<TRoomTemperature>();
+  if( !FRoomTemperature->Setup(ExecutableDir(argv0) / "Config.json",error) )
+   { configErrors.push_back(error); Logger.Write(TLogLevel::Error,error); error.clear(); }
+
   FScheduler = std::make_unique<TScheduler>( IHardware, FChannels, FHeaterProfiles );
   FScheduler->SetSchedule( FSwitchTimes, FIntervals );
   if( !IHardware.Setup( FChannels, error ) )
@@ -294,7 +301,7 @@ bool TMultiTimerApplication::Setup( int argc, char ** argv, TGNString & error )
 
   FButtons = std::make_unique<TButtonController>( IHardware, *FScheduler, FChannels );
   FStatusApi = std::make_unique<TStatusApi>( IHardware, *FScheduler, FChannels, deviceId, deviceName,
-                                               webSocketPort, std::move( configErrors ) );
+                                               webSocketPort, std::move( configErrors ), FRoomTemperature.get() );
   FTimeConfigSync = std::make_unique<TTimeConfigSync>( deviceId, dataDir );
   FApplication = std::make_unique<TWebApplication>( *FScheduler, *FButtons, *FStatusApi, FChannels,
                                                     FSwitchTimes, FIntervals, dataDir, *FTimeConfigSync );
@@ -310,8 +317,10 @@ bool TMultiTimerApplication::Setup( int argc, char ** argv, TGNString & error )
     return false;
    }
 
-  if( !GnUdpStatus.Setup( deviceId,
-       [this]( uint64_t & Signature ) { return FStatusApi->StatusJson( Signature ); } ) )
+  if( !GnUdpStatus.SetupCompact( deviceId,
+       [this]( uint64_t & Signature, TGnUdpInfoParts * Parts, TGNString & Packet )
+        { return FStatusApi->CompactStatus( Signature, Parts, Packet ); },
+       [this]() { return FRoomTemperature->UdpTemperature(); } ) )
     Logger.Write( TLogLevel::Error, GnUdpStatus.Error() );
 
   FReady = true;

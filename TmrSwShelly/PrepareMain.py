@@ -1,4 +1,4 @@
-# PrepareMain.py, Version: 1.03
+# PrepareMain.py, Version: 1.04
 """Prepare source-only Arduino integration without touching unchanged inputs."""
 from pathlib import Path
 import argparse
@@ -30,9 +30,9 @@ copy_file_if_changed(args.core/'Kconfig.projbuild',component/'Kconfig.projbuild'
 text=(args.core/'CMakeLists.txt').read_text()
 needle='set(priv_requires fatfs nvs_flash app_update spiffs bootloader_support bt esp_hid esp_psram ${ARDUINO_LIBRARIES_REQUIRES})'
 assert text.count(needle)==1
-text=text.replace(needle,needle+'\nlist(APPEND requires espressif__mdns joltwallet__littlefs)')
+text=text.replace(needle,needle+'\nlist(APPEND requires joltwallet__littlefs)')
 write_text_if_changed(component/'CMakeLists.txt',text)
-write_text_if_changed(component/'idf_component.yml','dependencies:\n  idf: ">=5.3,<6.0"\n  espressif/mdns: "1.11.2"\n  joltwallet/littlefs: "1.22.1"\n')
+write_text_if_changed(component/'idf_component.yml','dependencies:\n  idf: ">=5.3,<6.0"\n  joltwallet/littlefs: "1.22.1"\n')
 libs=out/'libraries';libs.mkdir(exist_ok=True)
 for name in ['ArduinoJson','SimpleFTPServer']:
     source=args.libraries/name

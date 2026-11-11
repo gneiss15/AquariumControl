@@ -1,10 +1,16 @@
-// WebApplication.cpp, Version: 2.50
+// WebApplication.cpp, Version: 2.58
+#define Do_THttpResult
+#define Do_TJsonConfigurationFiles
+#define Do_TJsonSchedule
+#define Do_TUdpLastError
 #include <GnBasics.h>
 #include "BuildConfig.h"
 #if !defined( SYSTEM_ESP )
 #include "WebApplication.h"
 #include "ConfigurationTransaction.h"
 #include <GnDeviceIdentity.h>
+#include <GnUdpRxCounters.h>
+#include <GnJsonResponses.h>
 #include <cstdlib>
 #include <fstream>
 #include <json-c/json.h>
@@ -54,6 +60,32 @@ TWebApplication::TWebApplication( TScheduler & SchedulerRef, TButtonController &
 , DataDir( std::move( DataDir ) )
 , TimeConfigSync( TimeConfigSync )
  {
+  this->SchedulerRef.SaveLearnedChargeFactor = [this]( TGNString const & ProfileId, uint32_t Factor )
+   {
+    const TGNString FileName = this->DataDir + "/Channels.json";
+    json_object * Root = json_object_from_file( FileName.c_str() );
+    json_object * Profiles = nullptr;
+    if( !Root || !json_object_object_get_ex( Root, "Profs", &Profiles ) )
+     { if( Root ) json_object_put( Root ); return false; }
+    bool Found = false;
+    for( size_t I = 0; I < json_object_array_length( Profiles ); ++I )
+     {
+      json_object * Row = json_object_array_get_idx( Profiles, I ), * Id = nullptr;
+      if( json_object_object_get_ex( Row, "Id", &Id ) && ProfileId == json_object_get_string( Id ) )
+       { json_object_object_add( Row, "ChargeSecPerPct", json_object_new_int64( Factor ) ); Found = true; break; }
+     }
+    const TGNString Json = json_object_to_json_string_ext( Root, JSON_C_TO_STRING_PLAIN );
+    json_object_put( Root );
+    TChannelConfigs NewChannels; THeaterProfiles NewProfiles; TGNString Error;
+    if( !Found || !ConfigStore.ChannelsFromJson( Json, NewChannels, NewProfiles, Error ) ) return false;
+    const TGNString Schedule = "{\"SwitchTimes\":" + ConfigStore.SwitchTimesToJson( this->Channels, this->SwitchTimes ) +
+                              ",\"Intervals\":" + ConfigStore.IntervalsToJson( this->Channels, this->Intervals ) + "}";
+    if( !ConfigurationTransaction::Commit( this->DataDir, Json, Schedule, Error ) )
+     { Logger.Write( TLogLevel::Error, Error ); return false; }
+    this->SchedulerRef.SetHeaterProfiles( NewProfiles );
+    this->TimeConfigSync.LocalChanged();
+    return true;
+   };
  }
 
 THttpResponse TWebApplication::StaticFile( const TGNString & Path ) const
@@ -75,54 +107,33 @@ THttpResponse TWebApplication::StaticFile( const TGNString & Path ) const
 
 bool TWebApplication::ApplyRemoteTimes( const TGNString & Content, const TGNString & TimeStamp, TGNString & Error )
  {
-  json_object * Root = json_tokener_parse( Content.c_str() );
-  json_object * SwitchObject = nullptr;
-  json_object * IntervalObject = nullptr;
-  json_object * ChannelsObject = nullptr;
-  const bool HasChannels = Root != nullptr && json_object_object_get_ex( Root, "Channels", &ChannelsObject ) &&
-                           json_object_is_type( ChannelsObject, json_type_object );
-  const bool HasSchedule = Root != nullptr && json_object_object_get_ex( Root, "SwitchTimes", &SwitchObject ) &&
-                           json_object_is_type( SwitchObject, json_type_array ) &&
-                           json_object_object_get_ex( Root, "Intervals", &IntervalObject ) &&
-                           json_object_is_type( IntervalObject, json_type_array );
-  if( Root == nullptr || ( !HasChannels && !HasSchedule ) )
-   {
-    if( Root != nullptr ) json_object_put( Root );
-    Error = "Invalid remote configuration";
-    return false;
-   }
-  TChannelConfigs NewChannels = Channels;
+  TJsonSchedule Update;
+  if(!GnReadJsonValue(Content,Update) ||
+     (!Update.Chs.Present && !Update.SwitchTimes.Present && !Update.Intervals.Present) ||
+     (Update.Chs.Present && !Update.Chs.Known()))
+   {Error="Invalid remote configuration";return false;}
+  const bool HasChannels=Update.Chs.Known();
+  TChannelConfigs NewChannels=Channels;
   THeaterProfiles NewProfiles;
   TGNString ChannelsJson;
-  if( HasChannels )
+  if(HasChannels)
    {
-    ChannelsJson = json_object_to_json_string_ext( ChannelsObject, JSON_C_TO_STRING_PLAIN );
-    if( !ConfigStore.ChannelsFromJson( ChannelsJson, NewChannels, NewProfiles, Error ) )
-     {
-      json_object_put( Root );
-      return false;
-     }
+    ChannelsJson=GnWriteJson(Update.Chs.Value);
+    if(!ConfigStore.ChannelsFromJson(ChannelsJson,NewChannels,NewProfiles,Error))return false;
    }
-  TGNString SwitchJson;
-  TGNString IntervalJson;
-  if( HasSchedule )
-   {
-    SwitchJson = json_object_to_json_string_ext( SwitchObject, JSON_C_TO_STRING_PLAIN );
-    IntervalJson = json_object_to_json_string_ext( IntervalObject, JSON_C_TO_STRING_PLAIN );
-   }
-  else
-   {
-    SwitchJson = ConfigStore.SwitchTimesToJson( Channels, SwitchTimes );
-    IntervalJson = ConfigStore.IntervalsToJson( Channels, Intervals );
-   }
-  json_object_put( Root );
+  TGNString SwitchJson,IntervalJson;
+  // Preserve unchanged records, including comments and extension fields.
+  if((!Update.SwitchTimes.Present || !Update.Intervals.Present) &&
+     !ConfigStore.LoadScheduleJson(DataDir+"/SwitchTimes.json",SwitchJson,IntervalJson,Error))return false;
+  if(Update.SwitchTimes.Present)SwitchJson=Update.SwitchTimes.IsNull ? "[]" : GnWriteJson(Update.SwitchTimes.Value);
+  if(Update.Intervals.Present)IntervalJson=Update.Intervals.IsNull ? "[]" : GnWriteJson(Update.Intervals.Value);
 
   TSwitchTimes NewSwitchTimes;
   TSwitchIntervals NewIntervals;
   if( !ConfigStore.SwitchTimesFromJson( SwitchJson, NewChannels, NewSwitchTimes, Error ) ||
       !ConfigStore.IntervalsFromJson( IntervalJson, NewChannels, NewIntervals, Error ) )
     return false;
-  std::vector<TChannelId> ChangedChannels;
+  std::vector<TChannelIndex> ChangedChannels;
   if( HasChannels )
    {
     // Function changes may never move the physical array slots or GPIO topology.
@@ -133,7 +144,7 @@ bool TWebApplication::ApplyRemoteTimes( const TGNString & Content, const TGNStri
       if( Old.PhysPos != New.PhysPos || Old.InputPin != New.InputPin || Old.OutputPin != New.OutputPin ||
           Old.InputActiveHigh != New.InputActiveHigh || Old.OutputActiveHigh != New.OutputActiveHigh || Old.InputPullup != New.InputPullup )
        { Error = "Physical channel topology changed"; return false; }
-      if( Old.Id != New.Id || Old.Role != New.Role || Old.Profile != New.Profile ) ChangedChannels.push_back( static_cast<TChannelId>( I ) );
+      if( Old.Id != New.Id || Old.Role != New.Role || Old.Profile != New.Profile ) ChangedChannels.push_back( static_cast<TChannelIndex>( I ) );
      }
    }
   #if !defined( SYSTEM_ESP )
@@ -145,7 +156,7 @@ bool TWebApplication::ApplyRemoteTimes( const TGNString & Content, const TGNStri
     else if( !ConfigStore.SaveScheduleJson( DataDir + "/SwitchTimes.json", SwitchJson, IntervalJson, Error ) ) return false;
   #else
     if( HasChannels && !ConfigStore.SaveChannels( DataDir + "/Channels.json", ChannelsJson, Error ) ) return false;
-    if( HasSchedule && !ConfigStore.SaveScheduleJson( DataDir + "/SwitchTimes.json", SwitchJson, IntervalJson, Error ) ) return false;
+    if( !ConfigStore.SaveScheduleJson( DataDir + "/SwitchTimes.json", SwitchJson, IntervalJson, Error ) ) return false;
   #endif
   for( auto Channel : ChangedChannels ) SchedulerRef.ResetFunctionState( Channel );
   if( HasChannels )
@@ -169,14 +180,14 @@ THttpResponse TWebApplication::Handle( const TGNString & Method, const TGNString
   if( Method == "GET" && Path == "/api/v1/config-revision" )
    {
     auto Root = json_object_new_object();
-    json_object_object_add( Root, "Revision", json_object_new_string( TimeConfigSync.TimeStamp().c_str() ) );
+    json_object_object_add( Root, "Rev", json_object_new_string( TimeConfigSync.TimeStamp().c_str() ) );
     json_object_object_add( Root, "Pending", json_object_new_boolean( ConfigurationPending ) );
     const TGNString Text = json_object_to_json_string_ext( Root, JSON_C_TO_STRING_PLAIN ); json_object_put( Root );
     return { 200, TContentType::Json, Text };
    }
   if( ConfigurationPending && ( Path == "/Channels.json" || Path == "/SwitchTimes.json" || Path == "/Intervals.json" ||
       Path == "/SetChannels/" || Path == "/SetSwitchTimes/" || Path == "/SetIntervals/" ) )
-    return { 409, TContentType::Json, "{\"Ok\":false,\"Error\":\"ConfigurationPending\"}" };
+    return { 409, TContentType::Json, GnJsonResult(false,"ConfigurationPending") };
   if( Path == "/api/v1/sources" && ( Method == "GET" || Method == "POST" ) )
    {
     const bool Locked = GnDashboardAvailable();
@@ -184,19 +195,23 @@ THttpResponse TWebApplication::Handle( const TGNString & Method, const TGNString
      {
       if( !GnDeviceIdentity.SetSources( Body, Locked ) )
         return { Locked ? 409 : 400, TContentType::Json,
-          Locked ? "{\"Ok\":false,\"Error\":\"UseDashboard\"}" : "{\"Ok\":false,\"Error\":\"InvalidSourcesOrStorage\"}", true };
+          Locked ? "{\"Ok\":false,\"Err\":\"UseDashboard\"}" : "{\"Ok\":false,\"Err\":\"InvalidSourcesOrStorage\"}", true };
       TimeConfigSync.RequestSync();
       return { 200, TContentType::Json, "{\"Ok\":true}", true };
      }
     json_object * Identity = json_tokener_parse( GnDeviceIdentity.ReportJson().c_str() ), * Sources = nullptr;
-    json_object_object_get_ex( Identity, "Sources", &Sources );
+    json_object_object_get_ex( Identity, "Srcs", &Sources );
     json_object * Result = json_object_new_object();
-    json_object_object_add( Result, "Sources", json_object_get( Sources ) );
+    json_object_object_add( Result, "Srcs", json_object_get( Sources ) );
     json_object_object_add( Result, "Editable", json_object_new_boolean( !Locked ) );
     const TGNString Text = json_object_to_json_string_ext( Result, JSON_C_TO_STRING_PLAIN );
     json_object_put( Result ); json_object_put( Identity );
     return { 200, TContentType::Json, Text, true };
    }
+#if GN_DEBUG_UDP_RX
+  if ( Method == "GET" && Path == "/api/v1/udp-rx-counters" )
+    return { 200, TContentType::Json, GnUdpRxCountersJson() };
+#endif
   if ( Method == "GET" && Path == "/api/v1/device" )
    {
     return { 200, TContentType::Json, StatusApi.DeviceJson(), true };

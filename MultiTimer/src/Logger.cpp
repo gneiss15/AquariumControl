@@ -1,4 +1,4 @@
-// Logger.cpp, Version: 2.37
+// Logger.cpp, Version: 2.38
 #include <GnBasics.h>
 #include "BuildConfig.h"
 #if !defined( SYSTEM_ESP )
@@ -25,10 +25,12 @@ void TLogger::Write( TLogLevel level, const TGNString & message )
     LastErrorTime = now;
    }
 
+  #if GN_DEBUG_FILE_LOG
   std::ofstream file( FileName, std::ios::app );
   std::tm local{};
   localtime_r( &now, &local );
   file << std::put_time( &local, "%Y-%m-%d %H:%M:%S" ) << " [" << LevelText( level ) << "] " << message << '\n';
+  #endif
  }
 
 bool TLogger::GetLastError( TGNString & message, std::time_t & time ) const

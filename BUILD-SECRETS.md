@@ -1,4 +1,4 @@
-<!-- BUILD-SECRETS.md, Version: 1.08 -->
+<!-- BUILD-SECRETS.md, Version: 1.11 -->
 # Build-private Dateien und gerätespezifischer Zustand
 
 Für die ESP-Projekte werden drei Arten von Quellen getrennt:
@@ -7,9 +7,11 @@ Für die ESP-Projekte werden drei Arten von Quellen getrennt:
 - `DevState/<Device>/`: vollständiger persistenter Zustand genau einer Geräteinstanz.
 - `../PrjsPrivate/`: lokale projektweite private Dateien außerhalb des `Prjs`-Workspace, z. B. Signierschlüssel und zentrale Build-Secrets.
 
-`DevState/<Device>/Config.json` enthält die vollständige Gerätekonfiguration einschließlich gerätespezifischer Passwörter (`WlanPw`, `WlanPw2`, `ApPw`, `FtpPw`). Diese Werte gehören nicht in eine gemeinsame Projekt-Config, weil mehrere Geräteinstanzen desselben Projekts unterschiedliche Zugangsdaten haben können.
+Die Konfiguration unter `DevState/<Device>/Config.json` liefert gerätespezifische Werte wie WLAN-Zugangsdaten und Kalibrierung. `../PrjsPrivate/Secrets.local.json` liefert gemeinsame und projektbezogene Vorgaben. Die Werte aus `DevState` haben Vorrang vor diesen Vorgaben.
 
-`../PrjsPrivate/Secrets.local.json` bleibt für zentrale beziehungsweise nicht gerätespezifische Build-Secrets und für Projekte ohne `DevState` erhalten. Bei einem Device-Build ist `DevState/<Device>/Config.json` die letzte und damit maßgebliche Quelle; Werte aus `../PrjsPrivate/Secrets.local.json` dürfen Gerätewerte nicht überschreiben.
+Beim initialen Erzeugen eines ESP-Abbilds setzt der Build anschließend `Hostname`, `ApSsid`, `ApPw` und `FtpPw` auf den Funktionsnamen. Dafür gilt der Name des Instanzordners als Funktion. Echte Funktionsnamen bleiben unverändert. Nur die Hardware-Platzhalter `ShellyX` und `NousX` werden für diese vier Felder zu `ShellySwX` bzw. `NousA8TSwX` erweitert, damit auch das AP-Passwort die Mindestlänge erfüllt. Der gemeinsame Wert für AP-Name und AP-Passwort muss 8 bis 32 UTF-8-Bytes lang sein.
+
+Beim Gerätetausch überträgt das Dashboard die laufenden Funktionswerte wie bisher auf die Zielhardware.
 
 ## Private-Verzeichnis
 
@@ -59,7 +61,7 @@ Für Feeder, FeederSimple, TmrSw und TmrSwShelly gilt:
 
 1. `EspCompile.sh` ermittelt alle Unterverzeichnisse unter `DevState/`.
 2. Für jedes Device erzeugt `PreBuild.sh` aus gemeinsamem `WebSrc/` plus `DevState/<Device>/` den vollständigen LittleFS-Stand unter `generated/<Device>/data/`.
-3. `ConfigEntries.json` und die Struktur/Defaults von `Config.json` werden weiterhin aus der jeweiligen `*Config.inc.h` abgeleitet. Die vollständige Geräte-Config aus `DevState/<Device>/Config.json` wird danach als letzte Quelle angewendet.
+3. `ConfigEntries.json` und die Struktur/Defaults von `Config.json` werden weiterhin aus der jeweiligen `*Config.inc.h` abgeleitet. Danach werden gemeinsame Vorgaben, die Geräte-Config aus `DevState/<Device>/Config.json` und zuletzt die vier Funktionsfelder angewendet.
 4. Die Firmware wird nur einmal pro Projekt kompiliert, weil sie für alle Geräteinstanzen desselben Projekts identisch ist.
 5. Das LittleFS wird pro Device erzeugt.
 6. Das Combined-Update wird aus der gemeinsamen Firmware und dem jeweiligen Geräte-LittleFS erzeugt.
@@ -135,3 +137,7 @@ Projektlokale Arduino-Libraries werden immer einzeln als exakter Library-Root mi
 ```
 
 Sie dürfen nicht durch `--libraries "$PrjsDir/Libs"` ersetzt werden. Der übergeordnete Suchpfad hat bei den Projekten wiederholt `Multiple libraries were found ...` verursacht.
+
+## Rückgelesene Bestandsgeräte
+
+Für einen Build aus frisch geprüften Geräte-Configs verwenden die Switch-Projekte `PRJS_PRESERVE_FUNCTION_CONFIG=true ./EspCompile.sh`. Dann bleiben `Hostname`, `ApSsid`, `ApPw` und `FtpPw` aus DevState unverändert. Ohne diese ausdrücklich gesetzte Option gilt weiterhin die Initialregel aus dem Instanznamen. Die Mindestlänge des AP-Passworts begrenzt den Initialwert, nicht den separat gesetzten Hostnamen eines Bestandsgeräts.

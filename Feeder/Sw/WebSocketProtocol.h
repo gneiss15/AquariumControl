@@ -1,4 +1,4 @@
-// WebSocketProtocol.h, Version: 1.02
+// WebSocketProtocol.h, Version: 1.03
 #pragma once
 
-#include "Libs/Common/Feeder/WebSocketProtocol.h"
+#include "Common/Feeder/WebSocketProtocol.h"

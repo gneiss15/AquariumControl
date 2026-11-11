@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# UpdateWebFiles.sh, Version: 1.18
+# UpdateWebFiles.sh, Version: 1.19
 
 set -Eeuo pipefail
 
@@ -62,7 +62,6 @@ fi
 [ -f "$MergeHtml" ] || Fail "MergeHtml.py not found: $MergeHtml"
 [ -f "$FormatReadableJson" ] || Fail "FormatReadableJson.py not found: $FormatReadableJson"
 command -v python3 >/dev/null 2>&1 || Fail "python3 not installed or not in PATH"
-command -v sha256sum >/dev/null 2>&1 || Fail "sha256sum not installed or not in PATH"
 [ -x "$MINIFY" ] || Fail "minify not found or not executable: $MINIFY"
 
 mapfile -d '' HtmlFiles < <(find "$WebSrcDir" -maxdepth 1 -type f -name '*.html' -print0)
@@ -92,19 +91,6 @@ done
 )
 HtmlTarget="$DataDir/$HtmlBase"
 "$MINIFY" "$MergedHtml" -o "$HtmlTarget"
-
-Doctype='<!doctype html>'
-DoctypeLength="${#Doctype}"
-if [ "$(head -c "$DoctypeLength" "$HtmlTarget")" != "$Doctype" ]; then
-  Fail "Minified HTML does not start with $Doctype: $HtmlTarget"
-fi
-HtmlHash="$(sha256sum "$HtmlTarget" | awk '{ print $1 }')"
-HashedHtml="$TempDir/Hashed.$HtmlBase"
-{
-  printf '%s<!-- SHA256: %s -->' "$Doctype" "$HtmlHash"
-  tail -c "+$(( DoctypeLength + 1 ))" "$HtmlTarget"
-} > "$HashedHtml"
-mv -- "$HashedHtml" "$HtmlTarget"
 
 CopyJsonFile()
 {

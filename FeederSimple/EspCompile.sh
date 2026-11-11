@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EspCompile.sh, Version: 1.22
+# EspCompile.sh, Version: 1.29
 
 set -euo pipefail
 
@@ -8,6 +8,7 @@ COMPILE_VERBOSE=
 
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 PrjsDir="$(dirname -- "$ProjectDir")"
+bash "$PrjsDir/Common/Feeder/GenerateJs.sh"
 BoardConfig="$ProjectDir/EspBoardConfig.sh"
 DirPushed=0
 
@@ -58,10 +59,11 @@ PreBuildSuccessMessage="Pre-build: configuration JSON and revision updated"
 
 ArduinoLibraries=(
   "$PrjsDir/Libs/GnBasicLib"
+  "$PrjsDir/Libs/GnAqPrjsLib"
   "$PrjsDir/Libs/GnFtpServer"
 )
-ExtraBuildProperties=( "compiler.cpp.extra_flags=-I@SKETCH_DIR@ -I$PrjsDir" "build.float=" )
-CommonSourceDirs=( Libs/Common/Feeder Libs/Common/EspUpdate )
+ExtraBuildProperties=( "compiler.cpp.extra_flags=-DGN_FEEDER_UDP=1 -DGN_FTP_FIXED_BUFFER -DFTP_BUF_SIZE=512 -DARDUINOJSON_POOL_CAPACITY=32 -I@SKETCH_DIR@ -I$PrjsDir" "build.float=" "compiler.c.elf.extra_flags=-Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=pvPortMalloc,--wrap=sdk3_pvPortMalloc,--wrap=pvPortRealloc,--wrap=pvPortCalloc,--wrap=pvPortCallocIram,--wrap=pvPortZalloc,--wrap=pvPortZallocIram" )
+CommonSourceDirs=( Common/Feeder Common/EspUpdate )
 
 # shellcheck source=../tools/EspCompileCommon.sh
 source "$PrjsDir/tools/EspCompileCommon.sh"

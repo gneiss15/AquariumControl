@@ -1,7 +1,8 @@
-// FeederSimple.ino, Version: 1.12
+// FeederSimple.ino, Version: 1.16
 #include <GnBasics.h>
 #include <GnUdpStatus.h>
 #include <LittleFS.h>
+#include "FeederRestartLog.h"
 
 #include "FeederConfig.h"
 #include "FeederDrive.h"
@@ -11,7 +12,6 @@
 #include "FeederWebSocket.h"
 #include "FeedTimes.h"
 #include "FeederTimeSync.h"
-#include "Libs/Common/EspUpdate/EspIndexHtmlCheck.h"
 #include <MyFtpServer.h>
 
 #if !defined( ESP32 )
@@ -43,6 +43,7 @@ void setup(void)
 #endif
   const bool FileSystemMounted = LittleFS.begin();
   FeederStatusApi.FileSystemMounted( FileSystemMounted );
+  FeederRestartLogSetup( FileSystemMounted );
 #if defined( ESP32 )
   if( !FileSystemMounted )
     Debug( "Can't mount LittleFS\n" );
@@ -65,15 +66,6 @@ void setup(void)
 #endif
    }
 #if !defined( ESP32 )
-  StartupLevel = 1;
-#endif
-
-#if !defined( ESP32 )
-  if( !EspIndexHtmlValid() )
-   {
-    StartStartupError( StartupLevel, "Invalid /Index.html" );
-    return;
-   }
   StartupLevel = 2;
 #endif
 
@@ -111,8 +103,9 @@ void setup(void)
 #endif
    }
 
-  if( !GnUdpStatus.Setup( FeederConfig.Hostname.c_str(),
-       []( uint64_t & Signature ) { return FeederStatusApi.StatusJson( Signature ); },
+  if( !GnUdpStatus.SetupCompact( FeederConfig.Hostname.c_str(),
+       []( uint64_t & Signature, TGnUdpInfoParts * Parts, TGNString & Packet )
+        { return FeederStatusApi.CompactStatus( Signature, Parts, Packet ); },
        []()
         {
          TGnUdpTemperature Temperature;
@@ -158,5 +151,5 @@ void setup(void)
 
 void loop(void)
  {
-  LoopInstances.Loop();
+  if( !FeederRestartLogLoop( FeederWifi.TimeIsValid() ) )LoopInstances.Loop();
  }

@@ -1,4 +1,4 @@
-<!-- README.md, Version: 1.18 -->
+<!-- README.md, Version: 1.19 -->
 # MultiTimer
 
 [Deutsch](README.DE.md)
@@ -92,7 +92,7 @@ journalctl -u MultiTimer.service -f
 
 Each physical device is identified by its MAC address and service ID.
 Dashboard can swap functions between functionally compatible devices or individual switching outputs. Hardware configuration and calibration stay with the physical device. Operation is described in [Dashboard – device identity and function swaps](../Dashboard/README.md#device-identity-and-function-swaps).
-Technical details are in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Technical details are in [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md).
 
 ## Device assignments and PC files
 
@@ -119,3 +119,48 @@ Assignments and selection lists are derived from Channels.json. When activated, 
 ## Measurements
 
 MultiTimer receives measurements through UDP version 2 as named numeric fields in the `Status` object. Profiles select the field through `Measurement`, for example `Temperature` or `BatteryPercent`. An empty measurement field means `Temperature`.
+
+## Charge run-on for battery profiles
+
+Enable **Charge run-on active** in the Dashboard profile and enter **Seconds per percentage point**. This requires `Measurement: "BatteryPercent"`. The editor initially suggests `15` seconds per percentage point; learning subsequently adjusts the same factor. Without active run-on, the existing missing-measurement behavior applies.
+
+When reports stop and the output was automatically ON, the switching device calculates the remaining charging time:
+
+`(cutoff percentage − last battery percentage) × seconds per percentage point`
+
+Time already charged since the last report counts towards this budget. An output that was OFF is never switched ON by missing reports. Every manual switching command immediately discards the learning cycle, including returning to automatic control. An aborted cycle never updates the factor. A schedule switching OFF or changed profile parameters also cancels the current cycle. There is no additional maximum run-on duration.
+
+The next valid battery report provides the gain used to calculate a factor from actual ON time. For a gain of at least one percentage point, the new estimate contributes 25 % and the previous factor contributes 75 %. Without a measurable gain, the factor stays unchanged. The new factor is rounded down to whole seconds. Changes below 5 % relative to the last saved factor stay in RAM and carry into the next learning cycle. Only a difference of at least 5 % saves the factor in the profile and synchronizes it with Dashboard. The active learning cycle exists only in RAM; after a restart, fresh battery reports and an automatically enabled output must arm a new cycle.
+
+The laptop grants learning permission through `Status.ChargeLearningAllowed` (boolean) and publishes `Status.ChargeBootCounter`, a wrapping `uint32` boot counter including zero. A returning learning measurement may only be evaluated when the counter difference modulo `2^32` is exactly 1. Additional boots or missing/invalid permission discard the measurement; normal run-on remains available. The learning switch does not increment the counter. See [LaptopBattery](../LaptopBattery/README.md) for installation, controls and external-charging limitations.
+
+The JSON fields are `ChargeRunOn` and `ChargeSecondsPerPercent`. Additional profile fields are allowed and preserved during editing and synchronization. `ChargeRunOn: true` requires a positive integer factor (`uint32_t`); inactive profiles need neither field.
+
+## Status messages
+
+Regular UDP status broadcasts are sent every ten seconds. Output/input states, overrides, errors and measurement validity changes are reported immediately, as are startup and reconnection. Measurement changes alone do not trigger additional broadcasts.
+
+## Optional room-temperature sensor
+
+MultiTimer reads a DS18B20 on BCM GPIO4 (header pin 7) through the Linux 1-Wire driver. Connect the sensor to 3.3 V and GND, with a 4.7 kΩ pull-up between data and 3.3 V. Never pull the GPIO up to 5 V.
+
+After installing the current MultiTimer build, run on the Raspberry Pi:
+
+```sh
+cd /home/pi/Prjs/MultiTimer
+./EnableRoomTemperature.sh
+```
+
+The script requires `sudo`. It checks GPIO4 against the channel configuration, backs up the active boot configuration and `Config.json`, activates 1-Wire live and for future boots, enables the optional sensor and restarts MultiTimer. A Pi reboot is not required.
+
+The native root `Config.json` accepts this optional object:
+
+```json
+"RoomTemperature": {"Enabled": true, "SensorId": ""}
+```
+
+An empty `SensorId` discovers exactly one DS18B20 and binds to it for the process lifetime. With multiple sensors, set its `28-xxxxxxxxxxxx` ID explicitly. An absent object or `Enabled: false` disables the sensor.
+
+A worker starts one conversion every ten seconds; scheduler and network handling keep running. Only complete CRC-checked readings are published, without averaging. Missing, malformed or stale readings are invalid rather than zero. The UDP status contains the `RoomTemperature` measurement and `Temperature` in °C; Dashboard displays room temperature under **System**, separate from the aquarium relay views.
+
+File diagnostics are disabled by default. Rebuild with `make build GN_DEBUG_FILE_LOG=1` to enable `Log/MultiTimer.log`; RAM error reporting remains active. The hourly `FreeCheck.sh` cron entry is commented out. For an explicit memory check use `GN_DEBUG_FREE_CHECK=1 ./FreeCheck.sh`. `RebootPi.sh` still performs the scheduled 00:01 system reboot; its optional file entry requires `GN_DEBUG_FILE_LOG=1`. Existing log files are retained.

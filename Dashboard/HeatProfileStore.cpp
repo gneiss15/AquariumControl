@@ -1,7 +1,17 @@
-// HeatProfileStore.cpp, Version: 1.11
+// HeatProfileStore.cpp, Version: 1.20
+#define Do_THttpResult
+#define Do_TJsonHeatConfig
+#define Do_TJsonProfile
+#define Do_TJsonProfiles
+#define Do_TUdpLastError
 #include "HeatProfileStore.h"
+#include <GnJsonResponses.h>
 
 #include <GnUdpStatus.h>
+#include <GnHeaterControl.h>
+#include <GnProfileModel.h>
+#include <GnChargeProfileJson.h>
+#include <GnHeatPiProfileJson.h>
 #include <arpa/inet.h>
 #include <algorithm>
 #include <cmath>
@@ -18,7 +28,7 @@
 
 namespace
  {
-constexpr char EmptySync[] = "{\n  \"Version\": 1,\n  \"Revision\": \"\",\n  \"Sets\": []\n}\n";
+constexpr char EmptySync[] = "{\n  \"Ver\": 1,\n  \"Rev\": \"\",\n  \"Sets\": []\n}\n";
 
 TGNString JsonText( json_object * Object, bool Pretty = true )
  {
@@ -65,47 +75,10 @@ TGNString NowTimeStamp(void)
   return TGNString( Buffer ) + Fraction;
  }
 
-bool RequiredString( json_object * Row, char const * Name )
- {
-  json_object * Value = nullptr;
-  if( !json_object_object_get_ex( Row, Name, &Value ) || !json_object_is_type( Value, json_type_string ) )
-    return false;
-  const char * Text = json_object_get_string( Value );
-  return Text != nullptr && *Text != '\0';
- }
-
-bool RequiredNumber( json_object * Row, char const * Name, double & Result )
- {
-  json_object * Value = nullptr;
-  if( !json_object_object_get_ex( Row, Name, &Value ) ||
-      ( !json_object_is_type( Value, json_type_double ) && !json_object_is_type( Value, json_type_int ) ) )
-    return false;
-  Result = json_object_get_double( Value );
-  return std::isfinite( Result );
- }
-
-bool ValidUtcTimeStamp( TGNString const & Value )
- {
-  if( Value.size() != 24 || Value[ 4 ] != '-' || Value[ 7 ] != '-' || Value[ 10 ] != 'T' ||
-      Value[ 13 ] != ':' || Value[ 16 ] != ':' || Value[ 19 ] != '.' || Value[ 23 ] != 'Z' ) return false;
-  for( size_t Index : { 0u, 1u, 2u, 3u, 5u, 6u, 8u, 9u, 11u, 12u, 14u, 15u, 17u, 18u, 20u, 21u, 22u } )
-    if( Value[ Index ] < '0' || Value[ Index ] > '9' ) return false;
-  std::tm Utc{};
-  char const * End = strptime( Value.c_str(), "%Y-%m-%dT%H:%M:%S", &Utc );
-  if( End == nullptr || End != Value.c_str() + 19 ) return false;
-  const std::tm Parsed = Utc;
-  Utc.tm_isdst = 0;
-  const std::time_t Epoch = timegm( &Utc );
-  std::tm Checked{};
-  if( gmtime_r( &Epoch, &Checked ) == nullptr ) return false;
-  return Checked.tm_year == Parsed.tm_year && Checked.tm_mon == Parsed.tm_mon && Checked.tm_mday == Parsed.tm_mday &&
-    Checked.tm_hour == Parsed.tm_hour && Checked.tm_min == Parsed.tm_min && Checked.tm_sec == Parsed.tm_sec;
- }
-
 bool ContainsProfileId( json_object * Profiles, TGNString const & Id )
  {
   for( size_t Index = 0; Index < json_object_array_length( Profiles ); ++Index )
-    if( StringValue( json_object_array_get_idx( Profiles, Index ), "Id" ) == Id ) return true;
+    if( StringValue( json_object_array_get_idx( Profiles, Index ), "ProfName" ) == Id ) return true;
   return false;
  }
 
@@ -115,7 +88,7 @@ bool RemovedProfileIsReferenced( json_object * ExistingProfiles, json_object * I
   bool HasRemovedProfile = false;
   for( size_t Index = 0; Index < json_object_array_length( ExistingProfiles ); ++Index )
    {
-    const TGNString Id = StringValue( json_object_array_get_idx( ExistingProfiles, Index ), "Id" );
+    const TGNString Id = StringValue( json_object_array_get_idx( ExistingProfiles, Index ), "ProfName" );
     if( !ContainsProfileId( IncomingProfiles, Id ) )
      {
       HasRemovedProfile = true;
@@ -125,7 +98,7 @@ bool RemovedProfileIsReferenced( json_object * ExistingProfiles, json_object * I
   if( !HasRemovedProfile ) return false;
   json_object * Times = json_object_from_file( TimesFile.c_str() );
   json_object * Channels = nullptr;
-  if( Times == nullptr || !json_object_object_get_ex( Times, "Channels", &Channels ) ||
+  if( Times == nullptr || !json_object_object_get_ex( Times, "Chs", &Channels ) ||
       !json_object_is_type( Channels, json_type_object ) )
    {
     if( Times != nullptr ) json_object_put( Times );
@@ -142,7 +115,7 @@ bool RemovedProfileIsReferenced( json_object * ExistingProfiles, json_object * I
     for( size_t RowIndex = 0; RowIndex < json_object_array_length( Rows ); ++RowIndex )
      {
       json_object * Row = json_object_array_get_idx( Rows, RowIndex );
-      const TGNString Id = StringValue( Row, "Profile" );
+      const TGNString Id = StringValue( Row, "Prof" );
       if( !Id.empty() && ContainsProfileId( ExistingProfiles, Id ) && !ContainsProfileId( IncomingProfiles, Id ) )
        {
         Referenced = true;
@@ -157,38 +130,17 @@ bool RemovedProfileIsReferenced( json_object * ExistingProfiles, json_object * I
 
 bool ValidateProfiles( json_object * Root )
  {
-  json_object * Profiles = nullptr;
-  if( Root == nullptr || !json_object_is_type( Root, json_type_object ) ||
-      !json_object_object_get_ex( Root, "Profiles", &Profiles ) ||
-      !json_object_is_type( Profiles, json_type_array ) ) return false;
-  const int RootKeys = json_object_object_length( Root );
-  json_object * TimeStamp = nullptr;
-  if( RootKeys > 1 && ( RootKeys != 2 ||
-      !json_object_object_get_ex( Root, "TimeStamp", &TimeStamp ) ||
-      !json_object_is_type( TimeStamp, json_type_string ) ||
-      !ValidUtcTimeStamp( StringValue( Root, "TimeStamp" ) ) ) )
-    return false;
+  TJsonProfiles Contract;
+  TGNString Error;
+  if( !GnRead( TGnWireValue( Root ), Contract, Error ) )return false;
   std::vector<TGNString> Ids;
-  for( size_t Index = 0; Index < json_object_array_length( Profiles ); ++Index )
+  if(!Contract.Profs.Known())return false;
+  for( auto const & Profile : Contract.Profs )
    {
-    json_object * Row = json_object_array_get_idx( Profiles, Index );
-    json_object * Measurement = nullptr;
-    const bool HasMeasurement = json_object_is_type( Row, json_type_object ) &&
-      json_object_object_get_ex( Row, "Measurement", &Measurement );
-    if( ( HasMeasurement && ( !json_object_is_type( Measurement, json_type_string ) ||
-          !GnUdpMeasurementFieldValid( json_object_get_string( Measurement ) ) ) ) ||
-        !json_object_is_type( Row, json_type_object ) || json_object_object_length( Row ) != ( HasMeasurement ? 8 : 7 ) ||
-        !RequiredString( Row, "Id" ) || !RequiredString( Row, "TempId" ) ) return false;
-    double FloorOn = 0, FloorOff = 0, MainOn = 0, MainOff = 0;
-    json_object * NoTempOn = nullptr;
-    if( !RequiredNumber( Row, "FloorOn", FloorOn ) || !RequiredNumber( Row, "FloorOff", FloorOff ) ||
-        !RequiredNumber( Row, "MainOn", MainOn ) || !RequiredNumber( Row, "MainOff", MainOff ) ||
-        FloorOn >= FloorOff || MainOn >= MainOff ||
-        !json_object_object_get_ex( Row, "NoTempOn", &NoTempOn ) ||
-        !json_object_is_type( NoTempOn, json_type_boolean ) ) return false;
-    const TGNString Id = StringValue( Row, "Id" );
-    if( std::find( Ids.begin(), Ids.end(), Id ) != Ids.end() ) return false;
-    Ids.push_back( Id );
+    THeaterProfile Values;
+    if(!GnApplyHeatProfile(Profile,Values))return false;
+    if( std::find( Ids.begin(), Ids.end(), Profile.ProfName ) != Ids.end() )return false;
+    Ids.push_back( Profile.ProfName );
    }
   return true;
  }
@@ -202,31 +154,24 @@ json_object * CloneJson( json_object * Value )
 TGNString ProfileSignature( json_object * Root )
  {
   json_object * Profiles = nullptr;
-  if( !ValidateProfiles( Root ) || !json_object_object_get_ex( Root, "Profiles", &Profiles ) ) return {};
+  if( !ValidateProfiles( Root ) || !json_object_object_get_ex( Root, "Profs", &Profiles ) ) return {};
   std::vector<json_object *> Sorted;
   for( size_t Index = 0; Index < json_object_array_length( Profiles ); ++Index )
     Sorted.push_back( json_object_array_get_idx( Profiles, Index ) );
   std::sort( Sorted.begin(), Sorted.end(), []( json_object * Left, json_object * Right )
-   { return StringValue( Left, "Id" ) < StringValue( Right, "Id" ); } );
+   { return StringValue( Left, "ProfName" ) < StringValue( Right, "ProfName" ); } );
 
   json_object * Canonical = json_object_new_object();
   json_object * CanonicalProfiles = json_object_new_array();
   for( json_object * Profile : Sorted )
    {
-    json_object * Entry = json_object_new_object();
-    const char * Keys[] = { "Id", "TempId", "FloorOn", "FloorOff", "MainOn", "MainOff", "NoTempOn" };
-    for( char const * Key : Keys )
-     {
-      json_object * Value = nullptr;
-      json_object_object_get_ex( Profile, Key, &Value );
-      json_object_object_add( Entry, Key, CloneJson( Value ) );
-     }
+    json_object * Entry = CloneJson( Profile );
     json_object * Measurement = nullptr;
-    json_object_object_get_ex( Profile, "Measurement", &Measurement );
-    json_object_object_add( Entry, "Measurement", Measurement ? CloneJson( Measurement ) : json_object_new_string( "Temperature" ) );
+    json_object_object_get_ex( Profile, "Meas", &Measurement );
+    json_object_object_add( Entry, "Meas", Measurement ? CloneJson( Measurement ) : json_object_new_string( "Temperature" ) );
     json_object_array_add( CanonicalProfiles, Entry );
    }
-  json_object_object_add( Canonical, "Profiles", CanonicalProfiles );
+  json_object_object_add( Canonical, "Profs", CanonicalProfiles );
   const TGNString Result = JsonText( Canonical, false );
   json_object_put( Canonical );
   return Result;
@@ -239,7 +184,7 @@ json_object * FindSet( json_object * Sync, TGNString const & Device )
   for( size_t Index = 0; Index < json_object_array_length( Sets ); ++Index )
    {
     json_object * Set = json_object_array_get_idx( Sets, Index );
-    if( StringValue( Set, "Device" ) == Device ) return Set;
+    if( StringValue( Set, "Dev" ) == Device ) return Set;
    }
   return nullptr;
  }
@@ -254,9 +199,9 @@ json_object * EnsureSet( json_object * Sync, TGNString const & Device, TGNString
   json_object * Sets = nullptr;
   json_object_object_get_ex( Sync, "Sets", &Sets );
   json_object * Set = json_object_new_object();
-  SetString( Set, "Device", Device );
+  SetString( Set, "Dev", Device );
   SetString( Set, "Format", Format );
-  SetString( Set, "Revision", "" );
+  SetString( Set, "Rev", "" );
   json_object_object_add( Set, "Synced", json_object_new_boolean( false ) );
   json_object_array_add( Sets, Set );
   return Set;
@@ -264,13 +209,13 @@ json_object * EnsureSet( json_object * Sync, TGNString const & Device, TGNString
 
 void SetAllPending( json_object * Sync, TGNString const & Revision )
  {
-  SetString( Sync, "Revision", Revision );
+  SetString( Sync, "Rev", Revision );
   json_object * Sets = nullptr;
   json_object_object_get_ex( Sync, "Sets", &Sets );
   for( size_t Index = 0; Index < json_object_array_length( Sets ); ++Index )
    {
     json_object * Set = json_object_array_get_idx( Sets, Index );
-    SetString( Set, "Revision", Revision );
+    SetString( Set, "Rev", Revision );
     json_object_object_add( Set, "Synced", json_object_new_boolean( false ) );
    }
  }
@@ -345,9 +290,9 @@ json_object * THeatProfileStore::LoadSync(void) const
    {
     json_object * Profiles = json_object_from_file( ProfilesFile.c_str() );
     const TGNString FileRevision = StringValue( Profiles, "TimeStamp" );
-    if( !FileRevision.empty() && StringValue( Root, "Revision" ) != FileRevision )
+    if( !FileRevision.empty() && StringValue( Root, "Rev" ) != FileRevision )
      {
-      SetString( Root, "Revision", FileRevision );
+      SetString( Root, "Rev", FileRevision );
       SaveSync( Root );
      }
     if( Profiles != nullptr ) json_object_put( Profiles );
@@ -358,7 +303,7 @@ json_object * THeatProfileStore::LoadSync(void) const
   const TGNString Revision = StringValue( Profiles, "TimeStamp" ).empty()
     ? NowTimeStamp() : StringValue( Profiles, "TimeStamp" );
   if( Profiles != nullptr ) json_object_put( Profiles );
-  SetString( Root, "Revision", Revision );
+  SetString( Root, "Rev", Revision );
   json_object_object_get_ex( Root, "Sets", &Sets );
   if( Sets == nullptr )
    {
@@ -371,12 +316,12 @@ json_object * THeatProfileStore::LoadSync(void) const
   if( Times != nullptr )
    {
     json_object_object_get_ex( Times, "Sets", &TimeSets );
-    json_object_object_get_ex( Times, "Channels", &ChannelMaps );
+    json_object_object_get_ex( Times, "Chs", &ChannelMaps );
    }
   for( size_t Index = 0; Index < json_object_array_length( TimeSets ); ++Index )
    {
     json_object * TimeSet = json_object_array_get_idx( TimeSets, Index );
-    const TGNString Device = StringValue( TimeSet, "Device" );
+    const TGNString Device = StringValue( TimeSet, "Dev" );
     const TGNString Type = StringValue( TimeSet, "Type" );
     const TGNString Format = StringValue( TimeSet, "Format" );
     json_object * ChannelRows = nullptr;
@@ -385,7 +330,7 @@ json_object * THeatProfileStore::LoadSync(void) const
         !json_object_object_get_ex( ChannelMaps, Device.c_str(), &ChannelRows ) )
       continue;
     json_object * Set = EnsureSet( Root, Device, Format );
-    SetString( Set, "Revision", Revision );
+    SetString( Set, "Rev", Revision );
     json_object_object_add( Set, "Synced", json_object_new_boolean( false ) );
    }
   if( Times != nullptr ) json_object_put( Times );
@@ -448,10 +393,10 @@ bool THeatProfileStore::HandleCentralRequest( TGNString const & Method, TGNStrin
       if( Profiles != nullptr ) json_object_put( Profiles );
       if( Sync != nullptr ) json_object_put( Sync );
       StatusCode = 500;
-      Response = "{\"Ok\":false,\"Error\":\"Invalid central HeatProfiles.json\"}";
+      Response = GnJsonResult(false,"Invalid central HeatProfiles.json");
       return true;
     }
-    json_object_object_add( Profiles, "Revision", json_object_new_string( StringValue( Sync, "Revision" ).c_str() ) );
+    json_object_object_add( Profiles, "Rev", json_object_new_string( StringValue( Sync, "Rev" ).c_str() ) );
     json_object * ParticipantSets = json_object_new_array();
     json_object * Times = json_object_from_file( ( RootDirectory / "data" / "Times.json" ).c_str() );
     json_object * TimeSets = nullptr;
@@ -463,9 +408,9 @@ bool THeatProfileStore::HandleCentralRequest( TGNString const & Method, TGNStrin
       const TGNString Format = StringValue( TimeSet, "Format" );
       if( Type != "SwitchTimes" || ( Format != "TmrSw" && Format != "MyTimer" ) ) continue;
       json_object * Participant = json_object_new_object();
-      SetString( Participant, "Device", StringValue( TimeSet, "Device" ) );
+      SetString( Participant, "Dev", StringValue( TimeSet, "Dev" ) );
       SetString( Participant, "Format", Format );
-      SetString( Participant, "Revision", StringValue( TimeSet, "TimeStamp" ) );
+      SetString( Participant, "Rev", StringValue( TimeSet, "TimeStamp" ) );
       json_object_object_add( Participant, "Synced", json_object_new_boolean( BoolValue( TimeSet, "Synced", false ) ) );
       json_object_array_add( ParticipantSets, Participant );
      }
@@ -480,7 +425,7 @@ bool THeatProfileStore::HandleCentralRequest( TGNString const & Method, TGNStrin
   if( Method != "PUT" )
    {
     StatusCode = 405;
-    Response = "{\"Ok\":false,\"Error\":\"Method not allowed\"}";
+    Response = GnJsonResult(false,"Method not allowed");
     return true;
    }
   json_object * Incoming = json_tokener_parse( Body.c_str() );
@@ -492,18 +437,34 @@ bool THeatProfileStore::HandleCentralRequest( TGNString const & Method, TGNStrin
     if( Existing != nullptr ) json_object_put( Existing );
     if( Sync != nullptr ) json_object_put( Sync );
     StatusCode = 400;
-    Response = "{\"Ok\":false,\"Error\":\"Invalid heat profiles\"}";
+    Response = GnJsonResult(false,"Invalid heat profiles");
     return true;
+   }
+  const TGNString Expected = StringValue( Incoming, "TimeStamp" );
+  if( !Expected.empty() && Expected != StringValue( Existing, "TimeStamp" ) )
+   {
+    json_object_put( Incoming ); json_object_put( Existing ); json_object_put( Sync );
+    StatusCode = 409;
+    Response = GnJsonResult(false,"Profiles changed; reload before saving");
+    return true;
+   }
+  // A form editing Profiles must not discard unrelated root metadata.
+  json_object_object_foreach( Existing, Key, Value )
+   {
+    json_object * Present = nullptr;
+    if( TGNString( Key ) != "Profiles" && TGNString( Key ) != "TimeStamp" &&
+        !json_object_object_get_ex( Incoming, Key, &Present ) )
+      json_object_object_add( Incoming, Key, CloneJson( Value ) );
    }
   json_object * ExistingRows = nullptr;
   json_object * IncomingRows = nullptr;
-  json_object_object_get_ex( Existing, "Profiles", &ExistingRows );
-  json_object_object_get_ex( Incoming, "Profiles", &IncomingRows );
+  json_object_object_get_ex( Existing, "Profs", &ExistingRows );
+  json_object_object_get_ex( Incoming, "Profs", &IncomingRows );
   if( RemovedProfileIsReferenced( ExistingRows, IncomingRows, RootDirectory / "data" / "Times.json" ) )
    {
     json_object_put( Incoming ); json_object_put( Existing ); json_object_put( Sync );
     StatusCode = 409;
-    Response = "{\"Ok\":false,\"Error\":\"A profile still referenced by a channel cannot be deleted\"}";
+    Response = GnJsonResult(false,"A profile still referenced by a channel cannot be deleted");
     return true;
    }
   const bool Changed = ProfileSignature( Incoming ) != ProfileSignature( Existing );
@@ -515,7 +476,7 @@ bool THeatProfileStore::HandleCentralRequest( TGNString const & Method, TGNStrin
      {
       json_object_put( Incoming ); json_object_put( Existing ); json_object_put( Sync );
       StatusCode = 500;
-      Response = "{\"Ok\":false,\"Error\":\"Cannot save HeatProfiles.json\"}";
+      Response = GnJsonResult(false,"Cannot save HeatProfiles.json");
       return true;
      }
     SetAllPending( Sync, Revision );
@@ -523,13 +484,13 @@ bool THeatProfileStore::HandleCentralRequest( TGNString const & Method, TGNStrin
      {
       json_object_put( Incoming ); json_object_put( Existing ); json_object_put( Sync );
       StatusCode = 500;
-      Response = "{\"Ok\":false,\"Error\":\"Cannot save heat profile sync state\"}";
+      Response = GnJsonResult(false,"Cannot save heat profile sync state");
       return true;
      }
    }
   json_object_put( Incoming ); json_object_put( Existing ); json_object_put( Sync );
   StatusCode = 200;
-  Response = Changed ? "{\"Ok\":true,\"Changed\":true}" : "{\"Ok\":true,\"Changed\":false}";
+  Response = GnJsonChangedResult(Changed);
   return true;
  }
 
@@ -588,19 +549,19 @@ bool THeatProfileStore::HttpPost( TEndpoint const & Endpoint, TGNString const & 
 
 bool THeatProfileStore::TryPushSet( json_object * Sync, json_object * Set, json_object * Profiles )
  {
-  const TGNString Device = StringValue( Set, "Device" );
+  const TGNString Device = StringValue( Set, "Dev" );
   auto Endpoint = Endpoints.find( Device );
   if( Endpoint == Endpoints.end() ) return false;
   json_object * Payload = json_object_new_object();
-  SetString( Payload, "Device", Registry.WireId( Device ) );
+  SetString( Payload, "Dev", Registry.WireId( Device ) );
   Registry.AddPreparation( Device, Payload );
   SetString( Payload, "Type", "SwitchTimes" );
   SetString( Payload, "Format", StringValue( Set, "Format" ) );
-  SetString( Payload, "TimeStamp", StringValue( Sync, "Revision" ) );
+  SetString( Payload, "TimeStamp", StringValue( Sync, "Rev" ) );
   json_object * Times = json_object_from_file( ( RootDirectory / "data" / "Times.json" ).c_str() );
   json_object * DeviceChannels = nullptr;
   json_object * Channels = nullptr;
-  if( Times != nullptr ) json_object_object_get_ex( Times, "Channels", &Channels );
+  if( Times != nullptr ) json_object_object_get_ex( Times, "Chs", &Channels );
   if( Channels == nullptr || !json_object_object_get_ex( Channels, Device.c_str(), &DeviceChannels ) )
    {
     if( Times != nullptr ) json_object_put( Times );
@@ -619,10 +580,10 @@ bool THeatProfileStore::TryPushSet( json_object * Sync, json_object * Set, json_
   json_object * Content = json_object_new_object();
   json_object * ChannelConfig = json_object_new_object();
   json_object * ProfileRows = nullptr;
-  json_object_object_get_ex( Profiles, "Profiles", &ProfileRows );
-  json_object_object_add( ChannelConfig, "Profiles", CloneJson( ProfileRows ) );
-  json_object_object_add( ChannelConfig, "Channels", CloneJson( ChannelRows ) );
-  json_object_object_add( Content, "Channels", ChannelConfig );
+  json_object_object_get_ex( Profiles, "Profs", &ProfileRows );
+  json_object_object_add( ChannelConfig, "Profs", CloneJson( ProfileRows ) );
+  json_object_object_add( ChannelConfig, "Chs", CloneJson( ChannelRows ) );
+  json_object_object_add( Content, "Chs", ChannelConfig );
   json_object_object_add( Payload, "Content", Content );
   json_object_put( Times );
   const TGNString Body = JsonText( Payload, false );
@@ -637,7 +598,7 @@ bool THeatProfileStore::TryPushSet( json_object * Sync, json_object * Set, json_
                         json_object_get_boolean( Ok );
   if( Reply != nullptr ) json_object_put( Reply );
   if( !Accepted ) return false;
-  SetString( Set, "Revision", StringValue( Sync, "Revision" ) );
+  SetString( Set, "Rev", StringValue( Sync, "Rev" ) );
   json_object_object_add( Set, "Synced", json_object_new_boolean( true ) );
   SaveSync( Sync );
   return true;

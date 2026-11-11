@@ -1,4 +1,4 @@
-/* Index.css, Version: 1.54 */
+/* Index.css, Version: 1.68 */
 
 :root {
   color-scheme: light dark;
@@ -285,6 +285,28 @@ main.ConfigMode {
   border-color: color-mix( in srgb, var( --Success ) 30%, var( --Border ) );
 }
 
+.DeviceErrorMessages {
+  margin-bottom: 0.6rem;
+  padding: 0.45rem 0.8rem;
+  color: var( --Danger );
+  background: color-mix( in srgb, var( --Danger ) 8%, var( --Surface ) );
+  border: 1px solid color-mix( in srgb, var( --Danger ) 30%, var( --Border ) );
+  border-radius: 0.6rem;
+}
+
+.DeviceErrorMessages h2 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.DeviceErrorEntry + .DeviceErrorEntry {
+  margin-top: 0.35rem;
+}
+
+.DeviceErrorSource {
+  margin-right: 0.45rem;
+}
+
 .DeviceGrid {
   display: grid;
   grid-template-columns: 1fr;
@@ -440,20 +462,6 @@ main.ConfigMode {
 .ConnectionBadge.Offline {
   color: var( --Danger );
   border-color: color-mix( in srgb, var( --Danger ) 35%, var( --Border ) );
-}
-
-.ErrorPanel {
-  margin: 0.45rem 0.55rem 0;
-  padding: 0.2rem 0.6rem;
-  color: var( --Danger );
-  background: color-mix( in srgb, var( --Danger ) 8%, var( --Surface ) );
-  border-left: 3px solid var( --Danger );
-  font-size: 0.76rem;
-}
-
-.ErrorList {
-  margin: 0.2rem 0 0;
-  padding-left: 1rem;
 }
 
 .MeasurementList {
@@ -951,6 +959,16 @@ main.ConfigMode {
   min-width: 34rem;
 }
 
+.TimeDeviceChannel {
+  display: grid;
+  grid-template-columns: minmax( 0, 1fr ) max-content;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.TimeDeviceName { min-width: 0; overflow-wrap: anywhere; }
+.TimeChannelSelect { box-sizing: border-box; width: max-content; min-width: 0; }
+
 .TimeField {
   display: inline-flex;
   align-items: center;
@@ -960,8 +978,9 @@ main.ConfigMode {
 
 .TimeField > span:first-child { font-size: 0.82rem; }
 .TimeField input[type="time"] { min-width: 6.5rem; }
+.TimeField-portion select { box-sizing: border-box; width: 2.8rem; min-width: 2.8rem; padding-inline: 0.15rem; }
 .TimeField input[type="time"], .TimeField select { min-height: 1.8rem; }
-.TimeField-portion select { width: 4rem; }
+.TimeField-portion select { width: 2.8rem; }
 
 .TimeDays { align-items: flex-start; }
 .TimeDays > span:first-child { padding-top: 0.18rem; }
@@ -1050,10 +1069,21 @@ main.ConfigMode {
   font-size: 0.85rem;
 }
 
+.HeatProfileField[hidden] {
+  display: none !important;
+}
+
 .HeatProfileField input {
   box-sizing: border-box;
   width: 100%;
   min-height: 1.9rem;
+}
+
+.HeatProfileField input[readonly] {
+  color: var( --TextMuted );
+  background: var( --SurfaceMuted );
+  border-color: var( --Border );
+  cursor: default;
 }
 
 .HeatProfileField:has(input[type="checkbox"]) {
@@ -1067,9 +1097,25 @@ main.ConfigMode {
   min-height: 0;
 }
 
-.HeatProfileCard > button {
-  justify-self: start;
+.HeatProfileActions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  align-self: end;
 }
+
+.TrashButton {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: .2rem;
+}
+
+.TrashButton svg { display: block; width: 1.25rem; height: 1.25rem; }
+.ChannelProfileDelete { align-self: center; }
 
 .TimeStatusCell { width: 2.6rem; text-align: center; white-space: nowrap; }
 .TimeStatusPending { color: var( --Warning ); }
@@ -1110,6 +1156,7 @@ main.ConfigMode {
   .TimesTable:not(.AssignmentsTable) tbody td:nth-child( 4 ) { grid-column: 2; grid-row: 1; }
   .TimesTable:not(.AssignmentsTable) tbody td:nth-child( 5 ) { grid-column: 3; grid-row: 1; }
   .TimeDataEditor { width: 100%; min-width: 0; gap: 0.3rem 0.5rem; }
+  .TimeDeviceChannel { grid-template-columns: minmax( 0, 1fr ) max-content; gap: 0.3rem; }
   .TimeField input[type="time"] { width: 5rem; min-width: 0; }
   .TimeStatusCell { width: 2.2rem; }
 }
@@ -1121,51 +1168,6 @@ main.ConfigMode {
   .TimeDays { min-width: 0; }
   .TimeDayChecks { gap: 0.1rem 0.25rem; }
   .TimeDayOption { font-size: 0.72rem; }
-}
-
-@media ( min-width: 30.01rem ) and ( max-width: 64rem ) and ( orientation: portrait ) {
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) {
-    width: 100%;
-    grid-template-columns: minmax( 15rem, 1fr ) minmax( 10rem, 1fr ) max-content minmax( 5rem, 1fr ) 2.2rem auto;
-    grid-template-rows: auto auto;
-    align-items: center;
-  }
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) > td:nth-child( 2 ) {
-    grid-column: 1;
-    grid-row: 1;
-    white-space: nowrap;
-  }
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) > td:nth-child( 3 ),
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeDataEditor { display: contents; }
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) > td:nth-child( 4 ) { grid-column: 5; grid-row: 1; }
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) > td:nth-child( 5 ) { grid-column: 6; grid-row: 1; }
-  .TimeDataEditor {
-    display: grid;
-    grid-template-columns: max-content max-content minmax( 0, 1fr ) max-content;
-    gap: 0.2rem 0.35rem;
-  }
-  .TimeField > span:first-child { font-size: 0.75rem; }
-  .TimeField input[type="time"] { width: 4.4rem; font-size: 0.8rem; padding-inline: 0.1rem; }
-  .TimeField select { max-width: 9.5rem; }
-  .TimeDayChecks { flex-wrap: nowrap; gap: 0.1rem 0.18rem; }
-  .TimeField-time { grid-column: 1; grid-row: 1; }
-  .TimeField-enabled { grid-column: 2; grid-row: 1; }
-  .TimeField-start { grid-column: 1; grid-row: 1; }
-  .TimeField-period { grid-column: 2; grid-row: 1; }
-  .TimeField-onTime { grid-column: 3; grid-row: 1; }
-  .TimeDataEditor:has( .TimeField-period ) .TimeField-enabled { grid-column: 4; }
-  .TimeDays { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
-  .TimeField-channel,
-  .TimeField-portion { grid-column: 3; grid-row: 1; }
-  .TimeDataEditor:has( .TimeField-period ) .TimeField-channel { grid-column: 4; grid-row: 2; }
-  .TimeField-active { grid-column: 4; grid-row: 1; }
-
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-time { grid-column: 1; grid-row: 2; }
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-enabled { grid-column: 2; grid-row: 2; }
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeDays { grid-column: 4 / -1; grid-row: 2; }
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-channel { grid-column: 2 / 4; grid-row: 1; justify-self: end; }
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-active { grid-column: 3; grid-row: 2; }
-  .TimesTable:not(.AssignmentsTable) tbody tr:not( :has( .TimeField-period ) ) .TimeField-portion { grid-column: 2; grid-row: 1; }
 }
 
 /* Assignment management is separate from the fixed tablet overview layout. */
@@ -1227,9 +1229,78 @@ main.ConfigMode {
 
 .FeedbackRow { gap: .5rem; font-size: .85em; }
 .FeedbackRow > :last-child { text-align: right; }
+.GroupOutputList .FeedbackRow { width: calc(100% - 1rem); margin-left: 1rem; }
 
 .HeaderActions { flex-wrap: wrap; max-width: 75%; }
 #FeedbackEditorText { width: 100%; min-height: 16rem; box-sizing: border-box; font-family: monospace; }
 #FeedbackEditorPanel h2 { text-align: center; }
 #FeedbackSoundAcknowledge[hidden] { display: none; }
 .FeedbackRow .Error { color: var(--Danger); font-weight: 700; }
+
+.HeaderTitle {min-width:0;}
+.BrowserClock {display:block;font-size:.8rem;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:left;}
+
+
+.HeatProfileController, .PiAdvanced { grid-column: 1 / -1; }
+.PiAdvanced > summary { cursor: pointer; margin-bottom: 0.45rem; }
+.PiAdvanced > .HeatProfileField { margin-top: 0.35rem; }
+
+.PiSetpoint { grid-column: 1 / -1; }
+.PiSetpoint[hidden], .PiAdvanced[hidden] { display: none !important; }
+.HeatProfileField select { box-sizing: border-box; width: 100%; min-height: 1.9rem; }
+
+/* Editors must fit the available width independently of translated label length. */
+.HeatProfileCard, .HeatProfileField, .ChannelProfileRow > * { min-width: 0; }
+.HeatProfileCard { margin-inline: 0; }
+.HeatProfileField input, .HeatProfileField select { max-width: 100%; min-width: 0; }
+.HeatProfileField > span { overflow-wrap: anywhere; }
+.ChannelProfileRow select { min-width: 0; max-width: 100%; font: inherit; }
+@media (max-width: 72rem) {
+  .ChannelProfilesHeader { display: none; }
+  .ChannelProfileRow { grid-template-columns: minmax(0,1fr) minmax(0,1fr) 2rem; gap: .2rem .35rem; margin-bottom: .3rem; padding: .3rem; font-size: .85rem; }
+  .ChannelProfileRow .TimeField > span { display: none; }
+  .ChannelProfileDevice::before, .ChannelProfileName::before { display: none; }
+  .ChannelProfileDevice, .ChannelProfileName { overflow-wrap: anywhere; }
+  .ChannelProfileDevice { grid-column: 1; grid-row: 1; }
+  .ChannelProfileName { grid-column: 2; grid-row: 1; }
+  .ChannelProfileRow .TimeField-role { grid-column: 1; grid-row: 2; }
+  .ChannelProfileRow .TimeField-profile { grid-column: 2; grid-row: 2; }
+  .ChannelProfileDelete { grid-column: 3; grid-row: 1 / span 2; justify-self: end; align-self: center; }
+}
+@media (max-width: 64rem) {
+  .TimesToolbar { flex-wrap: wrap; }
+  .TimesToolbar select { max-width: 100%; min-width: 0; }
+  .ChannelAssignmentToolbar select { width: 100%; min-width: 0; max-width: 100%; }
+}
+@media (max-width: 32rem) {
+  .HeatProfilesEditor { grid-template-columns: minmax(0,1fr); }
+
+}
+
+
+/* Keep sorting available above the card rows; resizing applies to desktop columns. */
+@media (max-width: 64rem) {
+  .TimesTable:not(.AssignmentsTable) > thead { display: block; }
+  .TimesTable:not(.AssignmentsTable) > thead > tr { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .5rem; }
+  .TimesTable:not(.AssignmentsTable) > thead th { display: block; min-width: 0 !important; width: auto !important; padding: .25rem .4rem; }
+  .TimesTable:not(.AssignmentsTable) > thead .ColumnResizeHandle { display: none; }
+  .ColumnSortButton { white-space: normal; }
+}
+
+/* Compact header: wrap only when the actual title and action group no longer fit. */
+.AppHeader { flex-wrap: wrap; justify-content: flex-start; gap: .25rem .5rem; padding: .35rem .6rem; }
+.HeaderTitle { flex: 1 1 11rem; min-width: 0; }
+.HeaderActions { display: flex; flex: 0 1 auto; flex-wrap: wrap; margin-left: auto; max-width: 100%; gap: .25rem; justify-content: flex-end; }
+.HeaderInfo { min-height: 2rem; }
+.AppHeader .IconButton { width: 2.1rem; height: 2.1rem; min-width: 2.1rem; }
+.LanguageButton { height: 2.1rem; padding-inline: .55rem; }
+#FeedbackSoundToggle svg { width: 1.25rem; height: 1.25rem; display: block; }
+#Assignments { overflow-x: visible; }
+.AssignmentsTableScroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.AssignmentsTable { display: table; }
+.DisclosureToggle { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: .6rem; text-align: left; white-space: normal; }
+.DisclosureToggle::after, .PiAdvanced > summary::after { content: ''; display: block; flex: 0 0 .45rem; width: .45rem; height: .45rem; margin-inline: .25rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.DisclosureToggle[aria-expanded="true"]::after, .PiAdvanced[open] > summary::after { transform: rotate(225deg); }
+.PiAdvanced > summary { display: flex; align-items: center; justify-content: space-between; gap: .6rem; list-style: none; }
+.PiAdvanced > summary::marker { content: ''; }
+.PiAdvanced > summary::-webkit-details-marker { display: none; }

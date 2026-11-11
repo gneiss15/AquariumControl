@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HeatHistory</title><script src="https://cdn.plot.ly/plotly-4.1.1.min.js"></script>
+<style>
+body{margin:0;padding:1rem;color:#17252a;background:#eef3f5;font:16px system-ui,sans-serif}main{width:100%;min-width:0}
+.BrowserClock{display:block;text-align:left;font-size:.85rem;font-variant-numeric:tabular-nums}
+.HeaderMeta{display:flex;justify-content:space-between;align-items:baseline;gap:.75rem;margin-bottom:.25rem;font-size:.85rem;color:#52636b;font-variant-numeric:tabular-nums}
+article{margin:1rem 0;padding:1rem;background:white;border:1px solid #d5e0e3;border-radius:.6rem}
+h1,h2{margin:.3rem 0 .7rem}.chart{min-height:620px;width:100%}.chart-error{color:#8b1e1e}
+.controls{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}.range-bound{display:flex;gap:.3rem;align-items:center;margin:0;padding:.2rem .45rem;border:1px solid #cbd6d9;border-radius:.35rem}.range-bound legend{padding:0 .2rem;font-size:.8rem;color:#52636b}.range-bound input[type=date]{box-sizing:border-box;width:7.8rem;padding:.3rem}.range-bound input[type=time]{box-sizing:border-box;width:5.5rem;padding:.3rem}select,button,input{font:inherit;padding:.4rem}
+#LoadStatus{font-size:.85rem;color:#617177}
+</style></head><body><main>
+<div class="HeaderMeta"><time id="BrowserClock" class="BrowserClock" aria-live="off"></time><span id="AppVersion">App ?</span></div><h1>HeatHistory</h1>
+<div class="controls"><fieldset class="range-bound"><legend>Range</legend><select id="Range"><option value="1h">1 h</option><option value="6h">6 h</option><option value="1day" selected>1 day</option><option value="7days">7 days</option><option value="all">All</option><option value="custom">Custom…</option></select></fieldset><fieldset class="range-bound"><legend>From</legend><input id="RangeFromDate" type="date" aria-label="From date"><input id="RangeFromTime" type="time" step="60" aria-label="From time"></fieldset><fieldset class="range-bound"><legend>To</legend><input id="RangeToDate" type="date" aria-label="To date"><input id="RangeToTime" type="time" step="60" aria-label="To time"></fieldset><fieldset class="range-bound"><legend>Load</legend><button id="ApplyRange">Show range</button></fieldset><span id="LoadStatus"></span></div>
+<p>Water and Room share one temperature plot. All rows share the UTC time axis. All shows the available retained history, starting with PI activation. Energy totals cover the selected range; measurement gaps remain visible.</p>
+<details><summary>PI components explained</summary><p>Proportional: Kp × (setpoint − water temperature). Integral: accumulated temperature error, limited against windup. Heat-loss estimate: estimated baseline from the heat-loss coefficient and room temperature. Total is the limited demand; Act is delivered power.</p></details>
+<p id="chart-error" class="chart-error" hidden>The chart library could not be loaded. An internet connection is required.</p><div id="Charts"></div>
+</main><script src="/Messages.js"></script><script src="/HeatHistory.js"></script></body></html>

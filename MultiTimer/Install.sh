@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install.sh, Version: 1.07
+# Install.sh, Version: 1.08
 
 set -euo pipefail
 
@@ -84,7 +84,7 @@ cat >>"$TempFile" <<EOF_CRON
 1    0  *  *  * root     $ProjectDir/RebootPi.sh
 
 # Check free memory every hour
-12   *  *  *  * root     $ProjectDir/FreeCheck.sh
+# 12 * * * * root GN_DEBUG_FREE_CHECK=1 $ProjectDir/FreeCheck.sh
 # END MultiTimer maintenance
 EOF_CRON
 

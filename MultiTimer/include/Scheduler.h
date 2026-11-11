@@ -1,4 +1,4 @@
-// Scheduler.h, Version: 2.41
+// Scheduler.h, Version: 2.44
 #pragma once
 #include <GnBasics.h>
 #include <GnCoopTimer.h>
@@ -16,6 +16,7 @@
 #include <ctime>
 #include <mutex>
 #include <vector>
+#include <functional>
 
 class TEvent;
 typedef std::vector<TEvent> TEvents;
@@ -25,6 +26,7 @@ class TSchedulerChannelStatus
   friend class TScheduler;
 
  private:
+  TGnChargeRunOn FChargeRunOn;
   std::time_t FOverrideUntil = 0;
   std::time_t FNextChangeTime = 0;
   uint8_t     FState : 1;
@@ -68,11 +70,12 @@ class TScheduler : public TLoopInstance
                               ~TScheduler(void);
   void                        SetSchedule( const TSwitchTimes & switchTimes, const TSwitchIntervals & intervals );
   void                        SetHeaterProfiles( const THeaterProfiles & heaterProfiles );
-  void                        ResetFunctionState( TChannelId Channel );
+  std::function<bool( TGNString const &, uint32_t )> SaveLearnedChargeFactor;
+  void                        ResetFunctionState( TChannelIndex Channel );
   bool                        ReconstructState( TGNString & error, bool firstTime = false );
   TSchedulerChannelStati      ChannelStati(void) const;
-  bool                        ToggleChannel( TChannelId channel, TGNString & error );
-  bool                        ToggleChannel( TChannelId channel, std::chrono::minutes duration, TGNString & error );
+  bool                        ToggleChannel( TChannelIndex channel, TGNString & error );
+  bool                        ToggleChannel( TChannelIndex channel, std::chrono::minutes duration, TGNString & error );
   static bool                 GetHeapRequirement( const TSwitchTimes & switchTimes, const TSwitchIntervals & intervals,
                                                   size_t channelCount, size_t & requiredBytes, size_t & largestBlockBytes );
   void                        Loop(void) override;
@@ -87,16 +90,16 @@ class TScheduler : public TLoopInstance
   static void                 BuildEvents( const TSwitchTimes & switchTimes, const TSwitchIntervals & intervals,
                                            size_t oneTimeCapacity, TEvents & events );
   void                        CalculateStates( uint16_t minuteOfWeek );
-  bool                        UpdateAutomaticState( TChannelId channel, bool writeLog, TGNString & error );
+  bool                        UpdateAutomaticState( TChannelIndex channel, bool writeLog, TGNString & error );
   void                        UpdateHeaters( bool writeLog );
   void                        ApplyEvents( uint16_t minuteOfWeek, bool writeLog );
-  bool                        SetOutput( TChannelId channel, bool on, bool writeLog, TGNString & error );
+  bool                        SetOutput( TChannelIndex channel, bool on, bool writeLog, TGNString & error );
   bool                        SetAllOutputs( bool firstTime, TGNString & error );
-  bool                        ValidateOutputChannel( TChannelId channel, TGNString & error ) const;
-  void                        RemoveOneTimeEvent( TChannelId channel );
-  const TEvent *              FindOneTimeEvent( TChannelId channel ) const;
+  bool                        ValidateOutputChannel( TChannelIndex channel, TGNString & error ) const;
+  void                        RemoveOneTimeEvent( TChannelIndex channel );
+  const TEvent *              FindOneTimeEvent( TChannelIndex channel ) const;
   void                        InsertOneTimeEvent( const TEvent & event );
-  bool                        FindNextEvent( TChannelId channel, std::time_t currentTime, bool initialState,
+  bool                        FindNextEvent( TChannelIndex channel, std::time_t currentTime, bool initialState,
                                              bool onlyStateChanges, bool includeOneTime, TEvent & nextEvent,
                                              std::time_t & nextTime ) const;
 

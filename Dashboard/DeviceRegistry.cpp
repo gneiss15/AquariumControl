@@ -1,7 +1,13 @@
-// DeviceRegistry.cpp, Version: 1.13
+// DeviceRegistry.cpp, Version: 1.18
+#define Do_TJsonRegistryDevice
+#define Do_TJsonRegistryEndpoint
+#define Do_TJsonRegistryView
 #include "DeviceRegistry.h"
+#include <GnJsonSchema.h>
 #include <arpa/inet.h>
 #include <regex>
+#include <AddressResolver.h>
+#include <GnWireJson.h>
 #include <stdexcept>
 #include <fstream>
 #include <chrono>
@@ -15,8 +21,10 @@ namespace
 TGNString Text( json_object * Row, char const * Key )
  {
   json_object * Value = nullptr;
-  return Row && json_object_object_get_ex( Row, Key, &Value ) &&
-    json_object_is_type( Value, json_type_string ) ? json_object_get_string( Value ) : "";
+  if(Row && json_object_object_get_ex(Row,Key,&Value) && json_object_is_type(Value,json_type_string))return json_object_get_string(Value);
+  if(TGNString(Key)=="DevId")
+   {TChannelAddress Address;if(TChannelAddress::Parse(TGnWireValue(Row).Get("OutAddress").Text(),Address))return ServiceAddress(Address);}
+  return {};
  }
 bool NormalizeServiceMetadata( json_object * Document )
  {
@@ -26,11 +34,11 @@ bool NormalizeServiceMetadata( json_object * Document )
    {
     json_object * Service = nullptr;
     if( json_object_object_get_ex( Row, "ServiceId", &Service ) && json_object_get_int( Service ) == 1 &&
-        ( Text( Row, "DeviceType" ) == "MyTimer" || Text( Row, "DeviceType" ) == "MyTimerWeb" ) )
-     { json_object_object_add( Row, "DeviceType", json_object_new_string( "MultiTimer" ) ); Changed = true; }
+        ( Text( Row, "DevType" ) == "MyTimer" || Text( Row, "DevType" ) == "MyTimerWeb" ) )
+     { json_object_object_add( Row, "DevType", json_object_new_string( "MultiTimer" ) ); Changed = true; }
     if( json_object_object_get_ex( Row, "ServiceId", &Service ) && json_object_get_int( Service ) == 2 &&
-        Text( Row, "Function" ) != "Dashboard" )
-     { json_object_object_add( Row, "Function", json_object_new_string( "Dashboard" ) ); Changed = true; }
+        Text( Row, "Func" ) != "Dashboard" )
+     { json_object_object_add( Row, "Func", json_object_new_string( "Dashboard" ) ); Changed = true; }
    };
   for( size_t I = 0; I < json_object_array_length( Rows ); ++I )
    {
@@ -55,11 +63,11 @@ TDeviceRegistry::TDeviceRegistry( std::filesystem::path const & Root )
     throw std::runtime_error( "Invalid DeviceAssignments.json" );
   const TGNString State = Text( Document, "State" );
   json_object * Schema = nullptr;
-  json_object_object_get_ex( Document, "Version", &Schema );
+  json_object_object_get_ex( Document, "Ver", &Schema );
   const int SchemaVersion = Schema ? json_object_get_int( Schema ) : 0;
   if( !( ( SchemaVersion == 1 && State == "MAC" ) || ( SchemaVersion == 2 && State.empty() ) ) ) throw std::runtime_error( "MAC assignment table required" );
   NormalizeServiceMetadata( Document );
-  FRevision = Text( Document, "Revision" );
+  FRevision = Text( Document, "Rev" );
   json_object * Pending = nullptr;
   FPending = json_object_object_get_ex( Document, "PendingOperation", &Pending ) && Pending != nullptr;
   if( FRevision.empty() ) throw std::runtime_error( "MAC registry revision missing" );
@@ -75,8 +83,8 @@ TDeviceRegistry::TDeviceRegistry( std::filesystem::path const & Root )
   auto Add = [&]( json_object * Row, TGNString const & Mac, TGNString const & IP )
    {
     json_object * Service = nullptr, * Port = nullptr;
-    const TGNString FunctionId = Text( Row, "Function" );
-    const TGNString Id = Text( Row, "DeviceId" );
+    const TGNString FunctionId = Text( Row, "Func" );
+    const TGNString Id = Text( Row, "DevId" );
     if( !json_object_object_get_ex( Row, "ServiceId", &Service ) ||
         !json_object_is_type( Service, json_type_int ) ||
         !json_object_object_get_ex( Row, "HttpPort", &Port ) ||
@@ -86,7 +94,7 @@ TDeviceRegistry::TDeviceRegistry( std::filesystem::path const & Root )
     if( Number < 1 || Number > 4 || PortNumber < 1 || PortNumber > 65535 ||
         FunctionId.empty() || Id != Mac + "@" + std::to_string( Number ) || FDevices.count( FunctionId ) )
       throw std::runtime_error( "Invalid/duplicate registry identity" );
-    FDevices.emplace( FunctionId, TDevice{ FunctionId, Id, IP, Text( Row, "DeviceType" ), Text( HardwareNames, Mac.c_str() ), unsigned( PortNumber ) } );
+    FDevices.emplace( FunctionId, TDevice{ FunctionId, Id, IP, Text( Row, "DevType" ), Text( HardwareNames, Mac.c_str() ), unsigned( PortNumber ) } );
     for( auto const & Alias : { FunctionId, Id } )
      {
       auto It = FAliases.find( Alias );
@@ -115,7 +123,7 @@ TDeviceRegistry::TDeviceRegistry( std::filesystem::path const & Root )
    }
   // External senders only publish UDP measurements; they are not managed devices.
   json_object * External = nullptr;
-  if( json_object_object_get_ex( Document, "ExternalSources", &External ) )
+  if( json_object_object_get_ex( Document, "ExternalSrcs", &External ) )
    {
     if( !json_object_is_type( External, json_type_object ) )
       throw std::runtime_error( "Invalid external sources" );
@@ -157,7 +165,7 @@ TGNString TDeviceRegistry::HostnameFor( TGNString const & DeviceId, TGNString co
      {
       auto Row = json_object_array_get_idx( Rows, I );
       json_object * Hardware = nullptr;
-      if( Text( Row, "Name" ) == NewFunction && json_object_object_get_ex( Row, "UseHardwareName", &Hardware ) &&
+      if( Text( Row, "Name" ) == NewFunction && json_object_object_get_ex( Row, "UseHwName", &Hardware ) &&
           json_object_is_type( Hardware, json_type_boolean ) && json_object_get_boolean( Hardware ) )
         Hostname = Device->second.HardwareName;
      }
@@ -173,9 +181,8 @@ bool TDeviceRegistry::ValidateIdentity( TGNString const & FunctionId, json_objec
   if( !json_object_object_get_ex( Envelope, "Identity", &Identity ) ) return false;
   auto It = FDevices.find( Function( FunctionId ) );
   return It != FDevices.end() && json_object_is_type( Identity, json_type_object ) &&
-    json_object_object_get_ex( Identity, "Version", &Version ) && json_object_is_type( Version, json_type_int ) &&
-    ( json_object_get_int( Version ) >= 1 && json_object_get_int( Version ) <= 3 ) && Text( Identity, "DeviceId" ) == It->second.Id &&
-    Text( Identity, "Mode" ) == "MAC";
+    json_object_object_get_ex( Identity, "Ver", &Version ) && json_object_is_type( Version, json_type_int ) &&
+    json_object_get_int( Version ) == 1 && Text( Identity, "ServiceId" ) == It->second.Id;
  }
 
 void TDeviceRegistry::AddPreparation( TGNString const & FunctionId, json_object * Envelope ) const
@@ -183,11 +190,10 @@ void TDeviceRegistry::AddPreparation( TGNString const & FunctionId, json_object 
   auto It = FDevices.find( Function( FunctionId ) );
   if( It == FDevices.end() ) return;
   json_object * Identity = json_object_new_object(), * Sources = json_object_new_object();
-  json_object_object_add( Identity, "Version", json_object_new_int( 1 ) );
-  json_object_object_add( Identity, "DeviceId", json_object_new_string( It->second.Id.c_str() ) );
-  json_object_object_add( Identity, "Mode", json_object_new_string( "MAC" ) );
-  json_object_object_add( Identity, "Function", json_object_new_string( It->second.Function.c_str() ) );
-  json_object_object_add( Identity, "Revision", json_object_new_string( FRevision.c_str() ) );
+  json_object_object_add( Identity, "Ver", json_object_new_int( 1 ) );
+  json_object_object_add( Identity, "ServiceId", json_object_new_string( It->second.Id.c_str() ) );
+  json_object_object_add( Identity, "Func", json_object_new_string( It->second.Function.c_str() ) );
+  json_object_object_add( Identity, "Rev", json_object_new_string( FRevision.c_str() ) );
   // Small complete temperature-source table for both heater consumer classes.
   // Missing hardware (FeederAq3) is excluded by the registry loader.
   if( It->second.Id.back() == '1' || It->second.Id.back() == '4' )
@@ -201,15 +207,15 @@ void TDeviceRegistry::AddPreparation( TGNString const & FunctionId, json_object 
       for( size_t I = 0; I < json_object_array_length( Endpoints ); ++I )
        {
         auto Row = json_object_array_get_idx( Endpoints, I ); json_object * Capability = nullptr;
-        if( json_object_object_get_ex( Row, "Capabilities", &Capability ) && json_object_get_int( Capability ) == 2 )
-          json_object_object_add( Sources, Text( Row, "Function" ).c_str(), json_object_new_string( Text( Row, "DeviceId" ).c_str() ) );
+        if( json_object_object_get_ex( Row, "Caps", &Capability ) && json_object_get_int( Capability ) == 2 )
+          json_object_object_add( Sources, Text( Row, "Func" ).c_str(), json_object_new_string( Text( Row, "DevId" ).c_str() ) );
        }
     if( Journal ) json_object_put( Journal );
    }
   if( It->second.Id.back() == '1' || It->second.Id.back() == '4' )
     for( auto const & Source : FExternalSources )
       json_object_object_add( Sources, Source.first.c_str(), json_object_new_string( Source.second.c_str() ) );
-  json_object_object_add( Identity, "Sources", Sources );
+  json_object_object_add( Identity, "Srcs", Sources );
   json_object_object_add( Envelope, "Identity", Identity );
   // Transfer data belongs only to the two swapped devices, not the other consumers.
   if( FPending )
@@ -219,8 +225,8 @@ void TDeviceRegistry::AddPreparation( TGNString const & FunctionId, json_object 
     if( Document && json_object_object_get_ex( Document, "PendingOperation", &Pending ) &&
         json_object_object_get_ex( Pending, "Transfer", &Transfer ) &&
         json_object_object_get_ex( Transfer, It->second.Id.c_str(), &Target ) &&
-        json_object_object_get_ex( Target, "FunctionConfig", &Config ) )
-      json_object_object_add( Envelope, "FunctionConfig", json_object_get( Config ) );
+        json_object_object_get_ex( Target, "FuncCfg", &Config ) )
+      json_object_object_add( Envelope, "FuncCfg", json_object_get( Config ) );
     if( Document ) json_object_put( Document );
    }
  }
@@ -251,10 +257,10 @@ void TDeviceRegistry::ApplyAddresses( json_object * Configuration ) const
       auto const & Device = It->second;
       const auto Url = "http://" + Device.IP + ( Device.Port == 80 ? "" : ":" + std::to_string( Device.Port ) );
       json_object_object_add( Row, "BaseUrl", json_object_new_string( Url.c_str() ) );
-      json_object_object_add( Row, "Function", json_object_new_string( Device.Function.c_str() ) );
-      json_object_object_add( Row, "DeviceId", json_object_new_string( Device.Id.c_str() ) );
-    json_object_object_add( Row, "DeviceType", json_object_new_string( Device.DeviceType.c_str() ) );
-    json_object_object_add( Row, "HardwareName", json_object_new_string( Device.HardwareName.c_str() ) );
+      json_object_object_add( Row, "Func", json_object_new_string( Device.Function.c_str() ) );
+      json_object_object_add( Row, "DevId", json_object_new_string( Device.Id.c_str() ) );
+    json_object_object_add( Row, "DevType", json_object_new_string( Device.DeviceType.c_str() ) );
+    json_object_object_add( Row, "HwName", json_object_new_string( Device.HardwareName.c_str() ) );
       auto Journal = json_object_from_file( ( FRoot / "data/DeviceAssignments.json" ).c_str() ); json_object * Endpoints = nullptr;
       if( Journal && json_object_object_get_ex( Journal, "Endpoints", &Endpoints ) && ( Device.Id.back() == '1' || Device.Id.back() == '4' ) )
        {
@@ -263,22 +269,22 @@ void TDeviceRegistry::ApplyAddresses( json_object * Configuration ) const
         for( size_t E = 0; E < json_object_array_length( Endpoints ); ++E )
          {
           auto Endpoint = json_object_array_get_idx( Endpoints, E );
-          if( Text( Endpoint, "DeviceId" ) != Device.Id ) continue;
+          if( Text( Endpoint, "DevId" ) != Device.Id ) continue;
           json_object * FunctionGroups = nullptr; json_object_object_get_ex( Endpoint, "Groups", &FunctionGroups );
           for( size_t G = 0; G < json_object_array_length( FunctionGroups ); ++G )
            {
             const TGNString Group = json_object_get_string( json_object_array_get_idx( FunctionGroups, G ) );
             if( !Groups.count( Group ) ) Groups[Group] = json_object_new_array();
-            json_object_array_add( Groups[Group], json_object_new_string( Text( Endpoint, "Function" ).c_str() ) );
+            json_object_array_add( Groups[Group], json_object_new_string( Text( Endpoint, "Func" ).c_str() ) );
            }
           json_object * HardwareLabel = nullptr;
-          json_object_object_get_ex( Endpoint, "UseHardwareName", &HardwareLabel );
-          if( json_object_get_boolean( HardwareLabel ) ) json_object_object_add( HardwareLabels, Text( Endpoint, "Function" ).c_str(), json_object_new_string( Text( Endpoint, "HardwareName" ).c_str() ) );
+          json_object_object_get_ex( Endpoint, "UseHwName", &HardwareLabel );
+          if( json_object_get_boolean( HardwareLabel ) ) json_object_object_add( HardwareLabels, Text( Endpoint, "Func" ).c_str(), json_object_new_string( Text( Endpoint, "HwName" ).c_str() ) );
           if( Device.Id.back() == '4' )
            {
-            json_object_object_add( Row, "EndpointFunction", json_object_new_string( Text( Endpoint, "Function" ).c_str() ) );
+            json_object_object_add( Row, "EndpointFunction", json_object_new_string( Text( Endpoint, "Func" ).c_str() ) );
             const bool Reserve = json_object_get_boolean( HardwareLabel );
-            json_object_object_add( Row, "UseHardwareName", json_object_new_boolean( Reserve ) );
+            json_object_object_add( Row, "UseHwName", json_object_new_boolean( Reserve ) );
             json_object_object_add( Row, "PowerLabel", json_object_new_string( "Power" ) );
            }
          }
@@ -289,7 +295,7 @@ void TDeviceRegistry::ApplyAddresses( json_object * Configuration ) const
           for( auto const & Group : Groups )
            {
             auto View = json_object_new_object(); json_object_object_add( View, "Group", json_object_new_string( Group.first.c_str() ) );
-            json_object_object_add( View, "Channels", Group.second ); json_object_array_add( Views, View );
+            json_object_object_add( View, "Chs", Group.second ); json_object_array_add( Views, View );
            }
           json_object_object_add( Row, "GroupViews", Views );
          }
@@ -299,7 +305,7 @@ void TDeviceRegistry::ApplyAddresses( json_object * Configuration ) const
         for( size_t E = 0; E < json_object_array_length( Endpoints ); ++E )
          {
           auto Endpoint = json_object_array_get_idx( Endpoints, E );
-          if( Text( Endpoint, "DeviceId" ) != Device.Id ) continue;
+          if( Text( Endpoint, "DevId" ) != Device.Id ) continue;
           json_object * SensorGroups = nullptr; json_object_object_get_ex( Endpoint, "Groups", &SensorGroups );
           const auto FeedingGroup = Text( Row, "Group" ); bool SharedGroup = false;
           for( size_t G = 0; G < json_object_array_length( SensorGroups ); ++G )
@@ -307,18 +313,18 @@ void TDeviceRegistry::ApplyAddresses( json_object * Configuration ) const
           auto Views = json_object_new_array(), FeedingView = json_object_new_object(), Measurements = json_object_new_array();
           json_object_object_add( FeedingView, "Group", json_object_new_string( FeedingGroup.c_str() ) );
           if( SharedGroup ) json_object_array_add( Measurements, json_object_new_string( "Temperature" ) );
-          json_object_object_add( FeedingView, "Measurements", Measurements ); json_object_array_add( Views, FeedingView );
+          json_object_object_add( FeedingView, "Meas", Measurements ); json_object_array_add( Views, FeedingView );
           for( size_t G = 0; G < json_object_array_length( SensorGroups ); ++G )
            {
             const TGNString Group = json_object_get_string( json_object_array_get_idx( SensorGroups, G ) );
             if( Group == FeedingGroup ) continue;
             auto View = json_object_new_object(), SensorMeasurements = json_object_new_array();
             json_object_object_add( View, "Group", json_object_new_string( Group.c_str() ) );
-            json_object_object_add( View, "StatusFunction", json_object_new_string( Text( Endpoint, "Function" ).c_str() ) );
+            json_object_object_add( View, "StatusFunction", json_object_new_string( Text( Endpoint, "Func" ).c_str() ) );
             json_object_object_add( View, "TemperatureOnly", json_object_new_boolean( true ) );
             json_object_array_add( SensorMeasurements, json_object_new_string( "Temperature" ) );
-            json_object_object_add( View, "Measurements", SensorMeasurements );
-            json_object_object_add( View, "Channels", json_object_new_array() ); json_object_array_add( Views, View );
+            json_object_object_add( View, "Meas", SensorMeasurements );
+            json_object_object_add( View, "Chs", json_object_new_array() ); json_object_array_add( Views, View );
            }
           json_object_object_add( Row, "GroupViews", Views );
          }
@@ -341,9 +347,8 @@ bool TDeviceRegistry::NeedsAssignment( TGNString const & FunctionId, json_object
   auto It = FDevices.find( Function( FunctionId ) );
   if( It == FDevices.end() ) return true;
   return !json_object_object_get_ex( Envelope, "Identity", &Identity ) ||
-    Text( Identity, "AppliedRevision" ) != FRevision || Text( Identity, "Function" ) != It->second.Function ||
-    Text( Identity, "Mode" ) != "MAC" ||
-    ( json_object_object_get_ex( Identity, "LocalSources", &Identity ) && json_object_get_boolean( Identity ) );
+    Text( Identity, "AppliedRev" ) != FRevision || Text( Identity, "Func" ) != It->second.Function ||
+    ( json_object_object_get_ex( Identity, "LocalSrcs", &Identity ) && json_object_get_boolean( Identity ) );
  }
 
 bool TDeviceRegistry::Save( json_object * Document, TGNString & Error )
@@ -355,7 +360,7 @@ bool TDeviceRegistry::Save( json_object * Document, TGNString & Error )
       json_object_object_del( json_object_array_get_idx( DeviceRows, I ), "LegacyDeviceId" );
   NormalizeServiceMetadata( Document );
   json_object_object_del( Document, "State" );
-  json_object_object_add( Document, "Version", json_object_new_int( 2 ) );
+  json_object_object_add( Document, "Ver", json_object_new_int( 2 ) );
   const TGNString Text = TGNString( json_object_to_json_string_ext( Document, JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE ) ) + "\n";
   const int File = open( Temporary.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0600 );
   if( File < 0 ) { Error = "Cannot write assignment journal"; return false; }
@@ -400,20 +405,20 @@ bool TDeviceRegistry::Change( TGNString const & First, TGNString const & Second,
     for( size_t I = 0; I < json_object_array_length( Endpoints ); ++I )
      {
       auto Row = json_object_array_get_idx( Endpoints, I );
-      if( Text( Row, "DeviceId" ) == A->second.Id ) FirstSensor = Row;
-      if( Text( Row, "DeviceId" ) == B->second.Id ) SecondSensor = Row;
+      if( Text( Row, "DevId" ) == A->second.Id ) FirstSensor = Row;
+      if( Text( Row, "DevId" ) == B->second.Id ) SecondSensor = Row;
      }
     if( FirstSensor && SecondSensor )
      {
-      const auto FirstFunction = Text( FirstSensor, "Function" ), SecondFunction = Text( SecondSensor, "Function" );
+      const auto FirstFunction = Text( FirstSensor, "Func" ), SecondFunction = Text( SecondSensor, "Func" );
       json_object * FirstGroups = nullptr, * SecondGroups = nullptr;
       json_object_object_get_ex( FirstSensor, "Groups", &FirstGroups ); json_object_object_get_ex( SecondSensor, "Groups", &SecondGroups );
       if( FirstGroups ) json_object_get( FirstGroups );
       if( SecondGroups ) json_object_get( SecondGroups );
-      json_object_object_add( FirstSensor, "Function", json_object_new_string( SecondFunction.c_str() ) );
-      json_object_object_add( SecondSensor, "Function", json_object_new_string( FirstFunction.c_str() ) );
-      json_object_object_add( FirstSensor, "Device", json_object_new_string( Second.c_str() ) );
-      json_object_object_add( SecondSensor, "Device", json_object_new_string( First.c_str() ) );
+      json_object_object_add( FirstSensor, "Func", json_object_new_string( SecondFunction.c_str() ) );
+      json_object_object_add( SecondSensor, "Func", json_object_new_string( FirstFunction.c_str() ) );
+      json_object_object_add( FirstSensor, "Dev", json_object_new_string( Second.c_str() ) );
+      json_object_object_add( SecondSensor, "Dev", json_object_new_string( First.c_str() ) );
       if( SecondGroups ) json_object_object_add( FirstSensor, "Groups", SecondGroups );
       if( FirstGroups ) json_object_object_add( SecondSensor, "Groups", FirstGroups );
      }
@@ -426,16 +431,16 @@ bool TDeviceRegistry::Change( TGNString const & First, TGNString const & Second,
     for( size_t I = 0; I < json_object_array_length( Rows ); ++I )
      {
       auto Row = json_object_array_get_idx( Rows, I );
-      if( Text( Row, "Function" ) == First ) FirstGroup = Text( Row, "Group" );
-      if( Text( Row, "Function" ) == Second ) SecondGroup = Text( Row, "Group" );
+      if( Text( Row, "Func" ) == First ) FirstGroup = Text( Row, "Group" );
+      if( Text( Row, "Func" ) == Second ) SecondGroup = Text( Row, "Group" );
      }
     for( size_t I = 0; I < json_object_array_length( Rows ); ++I )
      {
       json_object * Row = json_object_array_get_idx( Rows, I );
-      const auto FunctionId = Text( Row, "Function" );
+      const auto FunctionId = Text( Row, "Func" );
       if( FunctionId == First || FunctionId == Second )
        {
-        json_object_object_add( Row, "Function", json_object_new_string( FunctionId == First ? Second.c_str() : First.c_str() ) );
+        json_object_object_add( Row, "Func", json_object_new_string( FunctionId == First ? Second.c_str() : First.c_str() ) );
         const auto Group = FunctionId == First ? SecondGroup : FirstGroup;
         if( !Group.empty() ) json_object_object_add( Row, "Group", json_object_new_string( Group.c_str() ) );
        }
@@ -452,7 +457,7 @@ bool TDeviceRegistry::Change( TGNString const & First, TGNString const & Second,
   if( !FRevision.empty() && Revision <= FRevision )
    { json_object_put( Document ); Error = "Wait for a newer server timestamp"; return false; }
   json_object_object_add( Document, "State", json_object_new_string( "MAC" ) );
-  json_object_object_add( Document, "Revision", json_object_new_string( Revision.c_str() ) );
+  json_object_object_add( Document, "Rev", json_object_new_string( Revision.c_str() ) );
   json_object * Pending = json_object_new_object();
   json_object_object_add( Pending, "Kind", json_object_new_string( "Swap" ) );
   json_object_object_add( Pending, "First", json_object_new_string( First.c_str() ) );
@@ -469,7 +474,7 @@ bool TDeviceRegistry::InitializeEndpoints( json_object * Endpoints, TGNString & 
   auto Document = json_object_from_file( ( FRoot / "data/DeviceAssignments.json" ).c_str() );
   if( !Document ) { Error = "Cannot read assignment journal"; return false; }
   json_object * Stored = nullptr, * Version = nullptr;
-  json_object_object_get_ex( Document, "Version", &Version );
+  json_object_object_get_ex( Document, "Ver", &Version );
   const bool MetadataChanged = NormalizeServiceMetadata( Document );
   if( !MetadataChanged && json_object_get_int( Version ) == 2 && json_object_object_get_ex( Document, "Endpoints", &Stored ) &&
       json_object_equal( Stored, Endpoints ) ) { json_object_put( Document ); return true; }
@@ -483,7 +488,7 @@ bool TDeviceRegistry::ChangeEndpoints( json_object * Endpoints, json_object * Ti
  {
   if( FPending ) { Error = "Previous operation still pending"; return false; }
   auto Document = json_object_from_file( ( FRoot / "data/DeviceAssignments.json" ).c_str() );
-  if( !Document || Text( Document, "Revision" ) != FRevision )
+  if( !Document || Text( Document, "Rev" ) != FRevision )
    { if( Document ) json_object_put( Document ); Error = "Stale assignment journal"; return false; }
   const auto Now = std::chrono::system_clock::now();
   const auto Seconds = std::chrono::system_clock::to_time_t( Now ); tm Utc{}; gmtime_r( &Seconds, &Utc );
@@ -491,7 +496,7 @@ bool TDeviceRegistry::ChangeEndpoints( json_object * Endpoints, json_object * Ti
   snprintf( Fraction, sizeof( Fraction ), ".%03dZ", int( std::chrono::duration_cast<std::chrono::milliseconds>( Now.time_since_epoch() ).count() % 1000 ) );
   const TGNString Revision = TGNString( Stamp ) + Fraction;
   if( Revision <= FRevision ) { json_object_put( Document ); Error = "Wait for newer timestamp"; return false; }
-  json_object_object_add( Document, "Revision", json_object_new_string( Revision.c_str() ) );
+  json_object_object_add( Document, "Rev", json_object_new_string( Revision.c_str() ) );
   json_object_object_add( Document, "Endpoints", json_object_get( Endpoints ) );
   auto Pending = json_object_new_object();
   json_object_object_add( Pending, "Kind", json_object_new_string( "EndpointSwap" ) );
@@ -514,33 +519,36 @@ bool TDeviceRegistry::Complete( TGNString & Error )
 
 json_object * TDeviceRegistry::View(void) const
  {
-  json_object * Root = json_object_new_object(), * Rows = json_object_new_array();
-  json_object_object_add( Root, "Mode", json_object_new_string( "MAC" ) );
-  json_object_object_add( Root, "Revision", json_object_new_string( FRevision.c_str() ) );
-  json_object_object_add( Root, "Pending", json_object_new_boolean( FPending ) );
-  for( auto const & Item : FDevices )
+  TJsonRegistryView View;
+  View.Rev=FRevision;
+  View.Pending=FPending;
+  for(auto const & Item:FDevices)
    {
-    auto const & Device = Item.second;
-    json_object * Row = json_object_new_object();
-    json_object_object_add( Row, "Function", json_object_new_string( Device.Function.c_str() ) );
-    json_object_object_add( Row, "DeviceId", json_object_new_string( Device.Id.c_str() ) );
-    json_object_object_add( Row, "DeviceType", json_object_new_string( Device.DeviceType.c_str() ) );
-    json_object_object_add( Row, "HardwareName", json_object_new_string( Device.HardwareName.c_str() ) );
-    json_object_object_add( Row, "IP", json_object_new_string( Device.IP.c_str() ) );
-    json_object_object_add( Row, "HttpPort", json_object_new_int( Device.Port ) );
-    json_object_object_add( Row, "ServiceId", json_object_new_int( Device.Id.back() - '0' ) );
-    json_object_object_add( Row, "CapabilityId", json_object_new_int( Device.Id.back() == '2' ? 0 : Device.Id.back() == '3' ? 2 : 1 ) );
-    json_object_array_add( Rows, Row );
+    auto const & Device=Item.second;
+    TJsonRegistryDevice Row;
+    Row.Func=Device.Function;
+    Row.DevId=Device.Id;
+    Row.DevType=Device.DeviceType;
+    Row.HwName=Device.HardwareName;
+    Row.Url="http://"+Device.IP+":"+std::to_string(Device.Port)+"/";
+    Row.ServiceId=static_cast<TServiceId>(Device.Id.back()-'0');
+    Row.Caps=TCapabilityFlags(Device.Id.back()=='2'?0:Device.Id.back()=='3'?2:1);
+    View.Devices.push_back(std::move(Row));
    }
-  json_object_object_add( Root, "Devices", Rows );
-  auto External = json_object_new_object();
-  for( auto const & Source : FExternalSources )
-    json_object_object_add( External, Source.first.c_str(), json_object_new_string( Source.second.c_str() ) );
-  json_object_object_add( Root, "ExternalSources", External );
-  auto Document = json_object_from_file( ( FRoot / "data/DeviceAssignments.json" ).c_str() ); json_object * Endpoints = nullptr;
-  if( Document && json_object_object_get_ex( Document, "Endpoints", &Endpoints ) ) json_object_object_add( Root, "Endpoints", json_object_get( Endpoints ) );
-  if( Document ) json_object_put( Document );
-  return Root;
+  View.ExternalSrcs=FExternalSources;
+  auto Document=json_object_from_file((FRoot/"data/DeviceAssignments.json").c_str());
+  json_object * Endpoints=nullptr;
+  if(Document && json_object_object_get_ex(Document,"Endpoints",&Endpoints))
+   {
+    std::vector<TJsonRegistryEndpoint> Rows;
+    TGNString Error;
+    const bool Valid=GnRead(TGnWireValue(Endpoints),Rows,Error);
+    json_object_put(Document);
+    if(!Valid)throw std::runtime_error("Invalid endpoint registry view");
+    View.Endpoints=std::move(Rows);
+   }
+  else if(Document)json_object_put(Document);
+  return json_tokener_parse(GnWriteJson(View).c_str());
  }
 
 bool TDeviceRegistry::RestartConfirmed( TGNString const & FunctionId, json_object * Identity ) const
@@ -553,8 +561,8 @@ bool TDeviceRegistry::RestartConfirmed( TGNString const & FunctionId, json_objec
   bool Ok = Document && json_object_object_get_ex( Document, "PendingOperation", &Pending ) &&
     json_object_object_get_ex( Pending, "Transfer", &Transfer );
   if( Ok && json_object_object_get_ex( Transfer, It->second.Id.c_str(), &Target ) )
-    Ok = json_object_object_get_ex( Target, "BootCounter", &Previous ) && json_object_is_type( Previous, json_type_int ) &&
-      json_object_object_get_ex( Identity, "BootCounter", &Current ) && json_object_is_type( Current, json_type_int ) &&
+    Ok = json_object_object_get_ex( Target, "BootCnt", &Previous ) && json_object_is_type( Previous, json_type_int ) &&
+      json_object_object_get_ex( Identity, "BootCnt", &Current ) && json_object_is_type( Current, json_type_int ) &&
       json_object_get_int64( Current ) > json_object_get_int64( Previous );
   if( Document ) json_object_put( Document );
   return Ok;

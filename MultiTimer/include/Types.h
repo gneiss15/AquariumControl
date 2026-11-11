@@ -1,13 +1,14 @@
-// Types.h, Version: 2.40
+// Types.h, Version: 2.41
 #pragma once
 #include <GnBasics.h>
 #include <GnHeaterControl.h>
 #include <cstdint>
+#include <cstdio>
 #include <optional>
 #include <vector>
 
-using TChannelId = uint8_t;
-constexpr TChannelId InvalidChannelId = 0xFF;
+using TChannelIndex = uint8_t;
+constexpr TChannelIndex InvalidChannelId = 0xFF;
 
 using TChannelRole = THeaterRole;
 
@@ -40,6 +41,12 @@ struct TChannelConfig
   TChannelRole                 Role = TChannelRole::Timer;
 
   bool                         HasOutput(void) const { return OutputPin || Output; }
+  unsigned PhysicalNumber(void) const
+   {
+    unsigned Number=0;char Trailing=0;
+    return std::sscanf(PhysPos.c_str(),"Main %u%c",&Number,&Trailing)==1 && Number>=1 && Number<=8 ? Number : 0;
+   }
+
  };
 typedef std::vector<TChannelConfig> TChannelConfigs;
 
@@ -72,7 +79,7 @@ typedef struct
   uint16_t   MinuteOfDay : 15;
   uint16_t   On : 1;
   TWdayUnion wday;
-  TChannelId Channel;
+  TChannelIndex Channel;
  }
  TSwitchRecord;
 
@@ -89,7 +96,7 @@ typedef struct
   uint16_t   PeriodMinutes;
   uint16_t   OnMinutes;
   TWdayUnion wday;
-  TChannelId Channel;
+  TChannelIndex Channel;
  }
  TSwitchInterval;
 typedef std::vector<TSwitchInterval> TSwitchIntervals;

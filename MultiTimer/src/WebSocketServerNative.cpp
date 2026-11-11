@@ -1,4 +1,4 @@
-// WebSocketServerNative.cpp, Version: 2.38
+// WebSocketServerNative.cpp, Version: 2.43
 #include <GnBasics.h>
 #include "BuildConfig.h"
 #if defined( SYSTEM_DUMMY ) || defined( SYSTEM_RASPI )
@@ -40,7 +40,6 @@ class TWebSocketServer::TImplementation
  private:
   static bool                                       SendAll( int Socket, char const * Data, size_t Size );
   static bool                                       ReadHandshake( int Socket, TGNString & Request );
-  static TGNString                                  BuildEvent( unsigned long long Sequence, TGNString const & Status );
   static bool                                       SendFrame( int Socket, uint8_t OpCode, TGNString const & Payload );
   bool                                              AcceptClient(void);
   bool                                              HandleClientData( TWebSocketClient & Client );
@@ -173,15 +172,6 @@ bool TWebSocketServer::TImplementation::ReadHandshake( int Socket, TGNString & R
   return true;
  }
 
-TGNString TWebSocketServer::TImplementation::BuildEvent( unsigned long long Sequence, TGNString const & Status )
- {
-  TGNString Event = StringFormat( "{\"Type\":\"Status\",\"Sequence\":%llu,\"Timestamp\":%lld,\"Status\":",
-                                  Sequence, static_cast<long long>( std::time( nullptr ) ) );
-  Event += Status;
-  Event += '}';
-  return Event;
- }
-
 bool TWebSocketServer::TImplementation::SendFrame( int Socket, uint8_t OpCode, TGNString const & Payload )
  {
   const TGNString Frame = WebSocketProtocol::BuildFrame( OpCode, Payload );
@@ -226,8 +216,8 @@ bool TWebSocketServer::TImplementation::AcceptClient(void)
    }
 
   Clients.push_back( { ClientSocket, {} } );
-  const TGNString Status = StatusApi->StatusJson();
-  if ( !SendFrame( ClientSocket, 0x1, BuildEvent( Sequence, Status ) ) )
+  const TGNString Event = StatusApi->StatusEventJson( Sequence );
+  if ( Event.empty() || !SendFrame( ClientSocket, 0x1, Event ) )
    {
     shutdown( ClientSocket, SHUT_RDWR );
     close( ClientSocket );
@@ -279,13 +269,14 @@ void TWebSocketServer::TImplementation::Broadcast( uint8_t OpCode, TGNString con
 void TWebSocketServer::TImplementation::CheckStatus(void)
  {
   uint64_t signature = 0;
-  const TGNString status = StatusApi->StatusJson( signature );
-  if( signature == LastSignature )
+  if( StatusApi->StatusJson( signature ).empty() || signature == LastSignature )
     return;
 
+  const TGNString Event = StatusApi->StatusEventJson( Sequence + 1 );
+  if( Event.empty() )return;
   LastSignature = signature;
   ++Sequence;
-  Broadcast( 0x1, BuildEvent( Sequence, status ) );
+  Broadcast( 0x1, Event );
  }
 
 void TWebSocketServer::TImplementation::Run(void)

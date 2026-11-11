@@ -1,4 +1,4 @@
-# DeviceFsArtifactName.py, Version: 1.00
+# DeviceFsArtifactName.py, Version: 1.02
 """Filesystem upload names follow the verified Config hostname, not a reserve slot."""
 import json,pathlib,re,sys
 
@@ -9,13 +9,12 @@ def artifact_name(config):
   return name
 
 def validate_directory(directory):
-  names=set()
-  for state in pathlib.Path(directory).iterdir():
-    if not state.is_dir():continue
-    name=artifact_name(state/'Config.json')
-    if name in names:raise ValueError('Duplicate filesystem Hostname: '+name)
-    names.add(name)
-  if not names:raise ValueError('No active filesystem hostnames')
+  names = [state.name for state in pathlib.Path(directory).iterdir() if state.is_dir()]
+  if not names:
+    raise ValueError('No active filesystem hostnames')
+  for name in names:
+    if not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?', name):
+      raise ValueError('Invalid function name for filesystem artifact: ' + name)
 
 if __name__=='__main__':
   if sys.argv[1]=='--check-directory':validate_directory(sys.argv[2])

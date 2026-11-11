@@ -1,4 +1,4 @@
-# PrepareSimpleFtpServer.py, Version: 1.02
+# PrepareSimpleFtpServer.py, Version: 1.03
 from __future__ import annotations
 
 import argparse
@@ -76,6 +76,17 @@ def patch_esp32_storage(config_path: pathlib.Path) -> bool:
   return True
 
 
+def patch_fixed_buffer(config_path: pathlib.Path) -> None:
+  text = config_path.read_text(encoding="utf-8")
+  original = "#if defined(ESP32) || defined(ESP8266)\n\t#define DYNAMIC_TRANSFER_BUFFER"
+  guarded = "#if !defined(GN_FTP_FIXED_BUFFER) && (defined(ESP32) || defined(ESP8266))\n\t#define DYNAMIC_TRANSFER_BUFFER"
+  if text.count(guarded) == 1:
+    return
+  if text.count(original) != 1:
+    raise ValueError("expected exactly one dynamic FTP buffer selector")
+  config_path.write_text(text.replace(original, guarded), encoding="utf-8")
+
+
 def prepare(source_dir: pathlib.Path) -> None:
   if not source_dir.is_dir():
     raise ValueError(f"SimpleFTPServer library directory not found: {source_dir}")
@@ -86,6 +97,7 @@ def prepare(source_dir: pathlib.Path) -> None:
 
   timeout_changed = patch_timeout(config_path)
   storage_changed = patch_esp32_storage(config_path)
+  patch_fixed_buffer(config_path)
 
   if timeout_changed:
     print(f"SimpleFTPServer: FTP_AUTH_TIME_OUT patched to {FTP_AUTH_TIME_OUT} s")

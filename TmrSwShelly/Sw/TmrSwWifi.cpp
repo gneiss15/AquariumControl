@@ -1,9 +1,10 @@
-// TmrSwWifi.cpp, Version: 4.21
+// TmrSwWifi.cpp, Version: 4.27
 //****************************************************************
 // Includes
 //****************************************************************
 
 #include <GnBasics.h>
+#include <GnUdpRxCounters.h>
 #include <GnDeviceIdentity.h>
 #include "TmrSwWifi.h"
 
@@ -17,8 +18,9 @@
 #include <ArduinoJson.h>
 #include <GnTimeSync.h>
 #include "TmrSwStatusApi.h"
+#include "Common/TmrSw/TmrSwRestartLog.h"
 #include "DeviceType.inc.h"
-#include "Libs/Common/EspUpdate/EspSignedArtifact.h"
+#include "Common/EspUpdate/EspSignedArtifact.h"
 #include <algorithm>
 #include <cstring>
 #include <esp_app_desc.h>
@@ -776,13 +778,16 @@ void TTmrSwWifi::SHandleIndex( void )
 
 bool TTmrSwWifi::SetupHttpServer( void )
  {
-  if( ReadFile( F( "/Index.html" ) ).length() == 0 )
-    return false;
-
   FHttpServer.onNotFound( SHandleNotFound );
 
   // Dashboard API
   FHttpServer.on( "/api/v1/device", HTTP_GET, SHandleDeviceApi );
+  FHttpServer.on( "/api/v1/rescue-version", HTTP_GET, []()
+   {
+    const TGNString Version = TmrSwStatusApi.RescueVersion();
+    HttpServer.sendHeader( "Cache-Control", "no-store" );
+    HttpServer.send( Version.empty() ? 404 : 200, "text/plain", Version.c_str() );
+   } );
   FHttpServer.on( "/api/v1/sources", HTTP_GET, []()
    {
     JsonDocument Result, Identity;
@@ -804,6 +809,17 @@ bool TTmrSwWifi::SetupHttpServer( void )
   FHttpServer.on( "/api/v1/sources", HTTP_OPTIONS, SHandleApiOptions );
   FHttpServer.on( "/api/v1/device", HTTP_OPTIONS, SHandleApiOptions );
   FHttpServer.on( "/api/v1/status", HTTP_GET, SHandleStatusApi );
+  FHttpServer.on( "/api/v1/restarts", HTTP_GET, []()
+   {
+    char const * Path = HttpServer.hasArg( "previous" ) ? TmrSwRestartLogPreviousPath : TmrSwRestartLogPath;
+    File Journal = LittleFS.open( Path, "r" );
+    HttpServer.sendHeader( "Cache-Control", "no-store" );
+    if( Journal )HttpServer.streamFile( Journal, "text/csv" );
+    else HttpServer.send( 404, "text/plain", "No restart journal" );
+   } );
+#if GN_DEBUG_UDP_RX
+  FHttpServer.on( "/api/v1/udp-rx-counters", HTTP_GET, []() { SSendJson(GnUdpRxCountersJson()); } );
+#endif
   FHttpServer.on( "/api/v1/status", HTTP_OPTIONS, SHandleApiOptions );
   FHttpServer.on( "/api/v1/power/calibration", HTTP_GET, SHandlePowerCalibrationApi );
   FHttpServer.on( "/api/v1/power/calibration", HTTP_POST, SHandleSetPowerCalibrationApi );
@@ -841,8 +857,6 @@ bool TTmrSwWifi::SetupHttpServer( void )
 
   FHttpServer.begin();
 
-  MDNS.begin( TmrSwConfig.Hostname.c_str() );
-  MDNS.addService( "http", "tcp", 80 );
 
   return true;
  }

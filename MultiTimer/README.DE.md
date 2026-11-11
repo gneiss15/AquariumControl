@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 1.18 -->
+<!-- README.DE.md, Version: 1.19 -->
 # MultiTimer
 
 [English](README.md)
@@ -119,7 +119,7 @@ Im Dashboard lassen sich Funktionen zwischen funktionskompatiblen Geräten bzw.
 einzelnen Schaltausgängen tauschen. Hardwarekonfiguration und Kalibrierung bleiben
 beim physischen Gerät. Die Bedienung beschreibt
 [Dashboard – Geräteidentität und Funktionstausch](../Dashboard/README.DE.md#geräteidentität-und-funktionstausch).
-Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md).
 
 ## Gerätezuordnung und PC-Dateien
 
@@ -158,3 +158,48 @@ MultiTimer empfängt Messwerte über UDP-Version 2 als benannte numerische Felde
 im Objekt `Status`. Profile wählen mit `Measurement` den auszuwertenden Messwert,
 beispielsweise `Temperature` oder `BatteryPercent`. Ein leeres Messwertfeld bedeutet
 `Temperature`.
+
+## Ladenachlauf für Akku-Profile
+
+Im Dashboard-Profil **Ladenachlauf aktiv** einschalten und **Sekunden je Prozentpunkt** angeben. Das setzt `Measurement: "BatteryPercent"` voraus. Der Editor schlägt zunächst `15` Sekunden je Prozentpunkt vor; derselbe Faktor wird anschließend durch Lernen angepasst. Ohne aktivierten Ladenachlauf bleibt das bisherige Verhalten bei fehlenden Messwerten erhalten.
+
+Wenn der Sender ausbleibt und der Ausgang zuvor automatisch EIN war, berechnet das Schaltgerät die Restladezeit:
+
+`(Abschaltgrenze − letzter Akkustand) × Sekunden je Prozentpunkt`
+
+Die seit der letzten Meldung bereits geladene Zeit wird angerechnet. Ein zuvor ausgeschalteter Ausgang wird dadurch nicht eingeschaltet. Jeder manuelle Schaltbefehl verwirft den Lernzyklus sofort, auch beim Zurückschalten zur Automatik. Aus dem abgebrochenen Zyklus wird kein Faktor gelernt. Zeitplan AUS oder geänderte Profilparameter beenden den laufenden Zyklus ebenfalls. Es gibt keine zusätzliche maximale Nachlaufzeit.
+
+Bei der nächsten gültigen Akkumeldung wird aus tatsächlicher Einschaltzeit und Akkugewinn ein Faktor ermittelt. Ab einem Gewinn von einem Prozentpunkt wird er mit 25 % gewichtet; 75 % stammen vom bisherigen Faktor. Ohne messbaren Gewinn bleibt der Faktor unverändert. Der neue Faktor wird auf ganze Sekunden abgerundet. Änderungen unter 5 % gegenüber dem zuletzt gespeicherten Faktor bleiben im RAM und gehen in den nächsten Lernzyklus ein. Erst ab 5 % Unterschied wird der Faktor im Profil gespeichert und mit dem Dashboard synchronisiert. Der laufende Lernzyklus liegt ausschließlich im RAM; nach einem Neustart beginnt er erst mit frischen Akkumeldungen und automatisch eingeschaltetem Ausgang erneut.
+
+Der Laptop erteilt die Lernfreigabe mit `Status.ChargeLearningAllowed` (boolesch) und meldet `Status.ChargeBootCounter` als überlauffähigen `uint32`-Startzähler einschließlich Null. Die Lernmessung darf bei Rückkehr nur ausgewertet werden, wenn die Zählerdifferenz modulo `2^32` genau 1 beträgt. Zusätzliche Starts oder eine fehlende/ungültige Freigabe verwerfen die Messung; der normale Nachlauf bleibt erhalten. Der Lernschalter erhöht den Zähler nicht. Installation, Bedienung und Besonderheiten bei externem Laden stehen unter [LaptopBattery](../LaptopBattery/README.DE.md).
+
+Die JSON-Felder heißen `ChargeRunOn` und `ChargeSecondsPerPercent`. Zusätzliche Profilfelder sind erlaubt und bleiben beim Bearbeiten und Synchronisieren erhalten. Bei `ChargeRunOn: true` ist ein positiver ganzzahliger Faktor (`uint32_t`) Pflicht; ohne Aktivierung müssen diese Felder nicht vorhanden sein.
+
+## Statusmeldungen
+
+Regelmäßige UDP-Statusmeldungen erfolgen alle zehn Sekunden. Ein-/Ausgangszustände, Übersteuerungen, Fehler und Änderungen der Messwertgültigkeit werden sofort gemeldet, ebenso Start und Wiederverbindung. Reine Messwertänderungen lösen keine zusätzlichen Broadcasts aus.
+
+## Optionaler Raumtemperatursensor
+
+MultiTimer liest einen DS18B20 an BCM GPIO4 (Steckerleiste Pin 7) über den Linux-1-Wire-Treiber aus. Versorgung mit 3,3 V und GND; 4,7-kΩ-Pull-up zwischen Datenleitung und 3,3 V. Den GPIO niemals auf 5 V hochziehen.
+
+Nach Installation des aktuellen MultiTimer-Builds auf dem Raspberry Pi ausführen:
+
+```sh
+cd /home/pi/Prjs/MultiTimer
+./EnableRoomTemperature.sh
+```
+
+Das Skript benötigt `sudo`. Es prüft GPIO4 gegen die Kanalbelegung, sichert die aktive Bootkonfiguration und `Config.json`, aktiviert 1-Wire sofort sowie für künftige Starts, schaltet den optionalen Sensor frei und startet MultiTimer neu. Ein Pi-Neustart ist nicht erforderlich.
+
+Die native Root-`Config.json` erlaubt dieses optionale Objekt:
+
+```json
+"RoomTemperature": {"Enabled": true, "SensorId": ""}
+```
+
+Eine leere `SensorId` sucht genau einen DS18B20 und bindet ihn für die Prozesslaufzeit. Bei mehreren Sensoren dessen Kennung `28-xxxxxxxxxxxx` ausdrücklich eintragen. Ohne Objekt oder mit `Enabled: false` ist der Sensor deaktiviert.
+
+Ein Hintergrund-Worker startet alle zehn Sekunden eine Messung; Schaltsteuerung und Netzwerk laufen weiter. Erst der vollständige CRC-geprüfte Messwert wird gesendet, ohne Mittelung. Fehlende, fehlerhafte oder veraltete Messungen werden als ungültig gemeldet, nicht als null Grad. Der UDP-Status enthält den Messwert `RoomTemperature` und `Temperature` in °C; Dashboard zeigt die Raumtemperatur unter **System**, getrennt von den Aquarium-Relaisansichten.
+
+Dateidiagnosen sind standardmäßig deaktiviert. Ein Neubau mit `make build GN_DEBUG_FILE_LOG=1` aktiviert `Log/MultiTimer.log`; die Fehleranzeige im RAM bleibt aktiv. Der stündliche Cron-Eintrag für `FreeCheck.sh` ist auskommentiert. Eine gezielte Speicherdiagnose ist mit `GN_DEBUG_FREE_CHECK=1 ./FreeCheck.sh` möglich. `RebootPi.sh` führt weiterhin den geplanten Systemneustart um 00:01 Uhr aus; sein optionaler Dateieintrag benötigt `GN_DEBUG_FILE_LOG=1`. Bestehende Logdateien bleiben erhalten.

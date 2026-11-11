@@ -1,4 +1,5 @@
-// Menu.cpp, Version: 1.00
+// Menu.cpp, Version: 1.01
+#if !defined( FEEDER_NO_OLED )
 //****************************************************************
 // Includes
 //****************************************************************
@@ -98,3 +99,4 @@ void TBaseWrapMenu::DrawBar(void)
    }
   return false;
  }
+#endif

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreBuild.sh, Version: 1.09
+# PreBuild.sh, Version: 1.13
 set -Eeuo pipefail
 
 ProjectDir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -21,15 +21,16 @@ CleanupPreBuild()
 }
 trap CleanupPreBuild EXIT
 BuildWebSrcDir="${PRJS_BUILD_ROOT:-$ProjectDir/generated/build/main}/WebSrc"
-WebSrcDir="$PrjsDir/Libs/Common/TmrSw/WebSrc"
-PrepareWebSrc="$PrjsDir/Libs/Common/EspUpdate/PrepareWebSrc.py"
+WebSrcDir="$PrjsDir/Common/TmrSw/WebSrc"
+PrepareWebSrc="$PrjsDir/Common/EspUpdate/PrepareWebSrc.py"
 ValidateJsonFiles="$PrjsDir/tools/ValidateJsonFiles.py"
 
 [ -d "$WebSrcDir" ] || { echo "Web source directory not found: $WebSrcDir" >&2; exit 1; }
 [ -d "$DeviceStateDir" ] || { echo "Device state directory not found: $DeviceStateDir" >&2; exit 1; }
 [ -f "$DeviceConfigFile" ] || { echo "Device Config.json not found: $DeviceConfigFile" >&2; exit 1; }
 python3 "$ValidateJsonFiles" "$WebSrcDir" "$DeviceStateDir"
-python3 "$PrepareWebSrc" "$WebSrcDir" "$BuildWebSrcDir" --platform esp32-rescue --shelly-calibration-warning
+python3 "$PrepareWebSrc" "$WebSrcDir" "$BuildWebSrcDir" \
+  --device-type-file "${PRJS_DEVICE_TYPE_FILE:-$ProjectDir/DeviceType.txt}" --platform esp32-rescue --shelly-calibration-warning
 
 
 mkdir -p -- "$DataDir"
@@ -41,8 +42,38 @@ for SourceFile in "$DeviceStateDir"/*.json; do
   [ "$(basename -- "$SourceFile")" = "Config.json" ] && continue
   install -m 0644 "$SourceFile" "$DataDir/$(basename -- "$SourceFile")"
 done
-PRJS_DATA_DIR="$DataDir" PRJS_DEVICE_CONFIG_FILE="$DeviceConfigFile" \
+# Initial provisioning derives credentials from the function; readback builds preserve them.
+ConfigEnvironment=()
+case "${PRJS_PRESERVE_FUNCTION_CONFIG:-false}" in
+  true) ConfigEnvironment+=( -u PRJS_INITIAL_FUNCTION ) ;;
+  false) ConfigEnvironment+=( "PRJS_INITIAL_FUNCTION=$DeviceName" ) ;;
+  *) echo "PRJS_PRESERVE_FUNCTION_CONFIG must be true or false" >&2; exit 2 ;;
+esac
+env "${ConfigEnvironment[@]}" PRJS_DATA_DIR="$DataDir" PRJS_DEVICE_CONFIG_FILE="$DeviceConfigFile" \
   bash "$PrjsDir/tools/UpdateJsonFiles.sh" "$ProjectDir/Sw/TmrSwConfig.inc.h" Config.json ConfigEntries.json "$DataDir" aligned
+# Keep centrally synchronized data empty in the build image; retain channel assignments.
+if [[ "${PRJS_INITIAL_RUNTIME_SEED:-false}" != true ]]; then
+python3 - "$DataDir" <<'PYDUMMY'
+from pathlib import Path
+import json
+import sys
+root=Path(sys.argv[1])
+for name in ("SwitchTimes.json", "Intervals.json"):
+  path=root/name
+  if path.is_file():path.write_text("[]\n")
+path=root/"Channels.json"
+data=json.loads(path.read_text())
+data.pop("Profiles",None)
+data["Profs"]=[]
+path.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n")
+path=root/"SwitchTimes.sync.json"
+if path.is_file():
+  data=json.loads(path.read_text())
+  data["TimeStamp"]="1970-01-01T00:00:00.000Z"
+  data["Synced"]=False
+  path.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n")
+PYDUMMY
+fi
 PRJS_DATA_DIR="$DataDir" python3 "$PrjsDir/tools/UpdateVersionFiles.py" "$ProjectDir"
 popd >/dev/null
 

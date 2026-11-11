@@ -1,6 +1,13 @@
-// TimeConfigSync.cpp, Version: 1.15
+// TimeConfigSync.cpp, Version: 1.21
+#define Do_THttpResult
+#define Do_THttpTimePayload
+#define Do_THttpTimeReply
+#define Do_TJsonSchedule
+#define Do_TJsonSyncMeta
+#define Do_TUdpLastError
 #include "BuildConfig.h"
 #include "TimeConfigSync.h"
+#include <GnJsonResponses.h>
 #if !defined( SYSTEM_ESP )
 #include <filesystem>
 #endif
@@ -96,30 +103,18 @@ TGNString TTimeConfigSync::ScheduleFile(void) const
 
 void TTimeConfigSync::LoadMeta(void)
  {
-  FTimeStamp = "1970-01-01T00:00:00.000Z";
-  const TGNString Text = ReadTextFile( MetaFile() );
-#if defined( SYSTEM_ESP )
-  JsonDocument Document;
-  if( deserializeJson( Document, Text.c_str() ) ) return;
-  const char * TimeStamp = Document[ "TimeStamp" ] | "";
-  FTimeStamp = TimeStamp;
-  FSynced = Document[ "Synced" ] | false;
-#else
-  json_object * Root = json_tokener_parse( Text.c_str() );
-  json_object * Value = nullptr;
-  if( Root == nullptr ) return;
-  if( json_object_object_get_ex( Root, "TimeStamp", &Value ) && json_object_is_type( Value, json_type_string ) )
-    FTimeStamp = json_object_get_string( Value );
-  if( json_object_object_get_ex( Root, "Synced", &Value ) )
-    FSynced = json_object_get_boolean( Value );
-  json_object_put( Root );
-#endif
+  FTimeStamp="1970-01-01T00:00:00.000Z";
+  TJsonSyncMeta Meta;
+  if(!GnReadJsonValue(ReadTextFile(MetaFile()),Meta))return;
+  FTimeStamp=Meta.TimeStamp;FSynced=Meta.Synced;
  }
 
 bool TTimeConfigSync::SaveMeta(void) const
  {
-  TGNString Text = "{\"TimeStamp\":\"" + FTimeStamp + "\",\"Synced\":" + ( FSynced ? "true" : "false" ) + "}\n";
-  return WriteTextFile( MetaFile(), Text );
+  TJsonSyncMeta Meta;
+  Meta.TimeStamp=FTimeStamp;Meta.Synced=FSynced;
+  const TGNString Text=GnWriteJson(Meta);
+  return !Text.empty() && WriteTextFile(MetaFile(),Text+"\n");
  }
 
 TGNString TTimeConfigSync::NewTimeStamp(void)
@@ -172,18 +167,19 @@ void TTimeConfigSync::RemoteApplied( TGNString const & TimeStamp )
 
 TGNString TTimeConfigSync::BuildPayload(void) const
  {
-#if !defined( SYSTEM_ESP )
-  // Never publish partially materialized files while an incoming transaction awaits recovery.
-  if( std::filesystem::exists( FDataDir + "/Configuration.transaction.json" ) ) return {};
+#if !defined(SYSTEM_ESP)
+  if(std::filesystem::exists(FDataDir+"/Configuration.transaction.json"))return {};
 #endif
-  const TGNString Schedule = ReadTextFile( ScheduleFile() );
-  const TGNString Channels = ReadTextFile( FDataDir == "/" ? "/Channels.json" : FDataDir + "/Channels.json" );
-  const size_t End = Schedule.find_last_not_of( " \t\r\n" );
-  if( Channels.empty() || End == TGNString::npos || Schedule[ End ] != '}' ) return {};
-  TGNString Content = Schedule.substr( 0, End );
-  Content += ",\"Channels\":" + Channels + "}";
-  return "{\"Device\":\"" + GnDeviceIdentity.DeviceId() + "\",\"Type\":\"SwitchTimes\",\"Format\":\"MyTimer\",\"TimeStamp\":\"" +
-         FTimeStamp + "\",\"Identity\":" + GnDeviceIdentity.ReportJson() + ",\"Content\":" + Content + "}";
+  TJsonSchedule Content;
+  if(!GnReadJsonValue(ReadTextFile(ScheduleFile()),Content))return {};
+  if(!GnReadJsonValue(ReadTextFile(FDataDir=="/"?"/Channels.json":FDataDir+"/Channels.json"),Content.Chs))return {};
+  THttpTimePayload Payload;
+  Payload.Dev=GnDeviceIdentity.DeviceId();
+  Payload.Type="SwitchTimes";Payload.Format="MyTimer";
+  Payload.TimeStamp=FTimeStamp;Payload.Content=std::move(Content);
+  Payload.Identity.Present = true;
+  GnDeviceIdentity.ReportIdentity( Payload.Identity.Value );
+  return GnWriteJson(Payload);
  }
 
 bool TTimeConfigSync::HttpPost( TGNString const & Body, int & StatusCode, TGNString & Response )
@@ -241,99 +237,42 @@ bool TTimeConfigSync::HttpPost( TGNString const & Body, int & StatusCode, TGNStr
 
 bool TTimeConfigSync::SyncNow(void)
  {
-  if( FTimeStamp.empty() || FApplication == nullptr ) return false;
-  int StatusCode = 0;
-  TGNString Response;
-  if( !HttpPost( BuildPayload(), StatusCode, Response ) || StatusCode < 200 || StatusCode >= 300 ) return false;
-#if defined( SYSTEM_ESP )
-  JsonDocument Document;
-  if( deserializeJson( Document, Response.c_str() ) ) return false;
-  const char * Action = Document[ "Action" ] | "";
-  if( String( Action ) != "UseCentral" && String( Action ) != "Synced" ) return false;
-  if( !GnDeviceIdentity.ApplyEnvelope( Response ) ) return false;
-  if( String( Action ) == "UseCentral" )
+  if(FApplication==nullptr || FTimeStamp.empty())return false;
+  const TGNString Body=BuildPayload();
+  if(Body.empty())return false;
+  int StatusCode=0;TGNString Response;
+  if(!HttpPost(Body,StatusCode,Response) || StatusCode<200 || StatusCode>=300)return false;
+  THttpTimeReply Reply;
+  if(!GnReadJsonValue(Response,Reply) || !Reply.Action.Known() || !Reply.TimeStamp.Known() ||
+     !Reply.Identity.Known() || (Reply.Action=="UseCentral" && !Reply.Content.Known()) ||
+     !GnDeviceIdentity.ApplyEnvelope(Response))return false;
+  if(Reply.Action=="UseCentral")
    {
-    TGNString Content; serializeJson( Document[ "Content" ], Content );
     TGNString Error;
-    const char * TimeStamp = Document[ "TimeStamp" ] | "";
-    return FApplication->ApplyRemoteTimes( Content, TimeStamp, Error ) && GnDeviceIdentity.CommitAssignment();
+    return FApplication->ApplyRemoteTimes(GnWriteJson(Reply.Content.Value),Reply.TimeStamp,Error) && GnDeviceIdentity.CommitAssignment();
    }
-  if( String( Action ) != "Synced" ) return false;
-#else
-  json_object * Root = json_tokener_parse( Response.c_str() );
-  if( Root == nullptr ) return false;
-  json_object * Value = nullptr;
-  TGNString Action;
-  if( json_object_object_get_ex( Root, "Action", &Value ) && json_object_is_type( Value, json_type_string ) ) Action = json_object_get_string( Value );
-  if( ( Action != "UseCentral" && Action != "Synced" ) || !GnDeviceIdentity.ApplyEnvelope( Response ) )
-   { json_object_put( Root ); return false; }
-  if( Action == "UseCentral" )
-   {
-    json_object * Content = nullptr;
-    const TGNString TimeStamp = json_object_object_get_ex( Root, "TimeStamp", &Value ) ? json_object_get_string( Value ) : "";
-    if( !json_object_object_get_ex( Root, "Content", &Content ) ) { json_object_put( Root ); return false; }
-    const TGNString ContentText = json_object_to_json_string_ext( Content, JSON_C_TO_STRING_PLAIN );
-    TGNString Error;
-    const bool Ok = FApplication->ApplyRemoteTimes( ContentText, TimeStamp, Error );
-    json_object_put( Root );
-    return Ok && GnDeviceIdentity.CommitAssignment();
-   }
-  json_object_put( Root );
-  if( Action != "Synced" ) return false;
-#endif
-  if( !GnDeviceIdentity.CommitAssignment() ) return false;
-  if( !FSynced )
-   {
-    FSynced = true;
-    SaveMeta();
-   }
+  if(!GnDeviceIdentity.CommitAssignment())return false;
+  if(!FSynced) {FSynced=true;SaveMeta();}
   return true;
  }
 
-int TTimeConfigSync::HandleIncoming( TGNString const & Body, TGNString & Response )
+int TTimeConfigSync::HandleIncoming(TGNString const & Body,TGNString & Response)
  {
-#if defined( SYSTEM_ESP )
-  JsonDocument Document;
-  if( deserializeJson( Document, Body.c_str() ) ) { Response = "{\"Ok\":false}"; return 400; }
-  const char * TimeStamp = Document[ "TimeStamp" ] | "";
-  if( TGNString( Document["Device"] | "" ) != GnDeviceIdentity.DeviceId() ||
-      strcmp( Document["Type"] | "", "SwitchTimes" ) != 0 ||
-      strcmp( Document["Format"] | "", "MyTimer" ) != 0 || TimeStamp[0] == '\0' || Document["Content"].isNull() )
-   { Response = "{\"Ok\":false,\"Error\":\"InvalidPayload\"}"; return 400; }
-  if( FTimeStamp > TimeStamp && !GnDeviceIdentity.AssignmentPending( Body ) ) { Response = "{\"Ok\":false,\"Reason\":\"OlderTimeStamp\"}"; return 409; }
-  if( !GnDeviceIdentity.ApplyEnvelope( Body ) ) { Response = "{\"Ok\":false,\"Error\":\"InvalidIdentityOrStorage\"}"; return 400; }
-  if( FTimeStamp == TimeStamp && !GnDeviceIdentity.AssignmentPending( Body ) ) { Response = "{\"Ok\":true}"; return 200; }
-  TGNString Content; serializeJson( Document[ "Content" ], Content );
-#else
-  json_object * Root = json_tokener_parse( Body.c_str() );
-  json_object * Value = nullptr;
-  json_object * ContentObject = nullptr;
-  if( Root == nullptr || !json_object_object_get_ex( Root, "TimeStamp", &Value ) || !json_object_is_type( Value, json_type_string ) ||
-      !json_object_object_get_ex( Root, "Content", &ContentObject ) )
-   { if( Root != nullptr ) json_object_put( Root ); Response = "{\"Ok\":false}"; return 400; }
-  const TGNString TimeStamp = json_object_get_string( Value );
-  auto Matches = [&]( char const * Key, TGNString const & Expected )
-   {
-    json_object * Field = nullptr;
-    return json_object_object_get_ex( Root, Key, &Field ) && json_object_is_type( Field, json_type_string ) &&
-      Expected == json_object_get_string( Field );
-   };
-  if( TimeStamp.empty() || !ContentObject || !Matches( "Device", GnDeviceIdentity.DeviceId() ) ||
-      !Matches( "Type", "SwitchTimes" ) || !Matches( "Format", "MyTimer" ) )
-   { json_object_put( Root ); Response = "{\"Ok\":false,\"Error\":\"InvalidPayload\"}"; return 400; }
-  if( !FTimeStamp.empty() && FTimeStamp > TimeStamp && !GnDeviceIdentity.AssignmentPending( Body ) ) { json_object_put( Root ); Response = "{\"Ok\":false,\"Reason\":\"OlderTimeStamp\"}"; return 409; }
-  if( !GnDeviceIdentity.ApplyEnvelope( Body ) ) { json_object_put( Root ); Response = "{\"Ok\":false,\"Error\":\"InvalidIdentityOrStorage\"}"; return 400; }
-  if( FTimeStamp == TimeStamp && !GnDeviceIdentity.AssignmentPending( Body ) ) { json_object_put( Root ); Response = "{\"Ok\":true}"; return 200; }
-  const TGNString Content = json_object_to_json_string_ext( ContentObject, JSON_C_TO_STRING_PLAIN );
-#endif
+  THttpTimePayload Payload;
+  if(!GnReadJsonValue(Body,Payload) || Payload.Dev!=GnDeviceIdentity.DeviceId() ||
+     Payload.Type!="SwitchTimes" || Payload.Format!="MyTimer" ||
+     !Payload.TimeStamp.Known() || !Payload.Content.Known())
+   {Response=GnJsonResult(false,"InvalidPayload");return 400;}
+  if(!FTimeStamp.empty() && FTimeStamp>Payload.TimeStamp.Value && !GnDeviceIdentity.AssignmentPending(Body))
+   {Response=GnJsonResult(false,{},"OlderTimeStamp");return 409;}
+  if(!GnDeviceIdentity.ApplyEnvelope(Body)) {Response=GnJsonResult(false,"InvalidIdentityOrStorage");return 400;}
+  if(FTimeStamp==Payload.TimeStamp && !GnDeviceIdentity.AssignmentPending(Body))
+   {Response=GnJsonResult(true);return 200;}
   TGNString Error;
-  const bool Ok = FApplication != nullptr && FApplication->ApplyRemoteTimes( Content, TimeStamp, Error );
-#if !defined( SYSTEM_ESP )
-  json_object_put( Root );
-#endif
-  const bool Committed = Ok && GnDeviceIdentity.CommitAssignment();
-  Response = Committed ? "{\"Ok\":true}" : "{\"Ok\":false,\"Error\":\"ApplyFailed\"}";
-  return Committed ? 200 : 400;
+  const bool Ok=FApplication && FApplication->ApplyRemoteTimes(GnWriteJson(Payload.Content.Value),Payload.TimeStamp,Error);
+  const bool Committed=Ok && GnDeviceIdentity.CommitAssignment();
+  Response=GnJsonResult(Committed,Committed?TGNString{}:TGNString("ApplyFailed"));
+  return Committed?200:400;
  }
 
 void TTimeConfigSync::Loop(void)

@@ -1,4 +1,4 @@
-# EspCompileCommon.sh, Version: 1.37
+# EspCompileCommon.sh, Version: 1.40
 # Common implementation sourced by project-specific EspCompile.sh scripts.
 # Do not execute this file directly.
 
@@ -54,7 +54,7 @@ PrjsPrivateDir="${PRJS_PRIVATE_DIR:-$(dirname -- "$(dirname -- "$PrjsDir")")/Prj
 SecretsFile="${PRJS_SECRETS_FILE:-${SecretsFile:-$PrjsPrivateDir/Secrets.local.json}}"
 PrivateKey="${PrivateKey:-$PrjsPrivateDir/private.key}"
 PublicKey="${PublicKey:-$PrjsPrivateDir/public.key}"
-Esp8266SigningHeaderHelper="${Esp8266SigningHeaderHelper:-$PrjsDir/Libs/Common/EspUpdate/EspUpdateSigning.py}"
+Esp8266SigningHeaderHelper="${Esp8266SigningHeaderHelper:-$PrjsDir/Common/EspUpdate/EspUpdateSigning.py}"
 SimpleFtpServerPrepareHelper="${SimpleFtpServerPrepareHelper:-$PrjsDir/tools/PrepareSimpleFtpServer.py}"
 
 declare -p RequiredDataFiles >/dev/null 2>&1 || RequiredDataFiles=()
@@ -599,6 +599,10 @@ SetupEsp32Tools()
 
 RunIdfCompile()
 {
+  local -a IdfActions=(build)
+  if declare -p IdfBuildActions >/dev/null 2>&1; then
+    IdfActions=( "${IdfBuildActions[@]}" )
+  fi
   local PortableDir="${ARDUINO_PORTABLE_DIR:-$MountDir/Portables/Arduino2/portable}"
   local CoreDir="${ARDUINO_CORE_DIR:-$Esp32CoreDir}"
   local IdfBuildDir="$CompileDir/idf"
@@ -626,7 +630,7 @@ PYIDF
         -D "SDKCONFIG=$IdfBuildDir/sdkconfig" \
         -D "PRJS_IDF_DEPENDENCIES=$Dependencies" \
         -D "PRJS_GENERATED_INCLUDE=$SketchDir" \
-        -D "PRJS_VERSION_FILE=$BuildRoot/ProjectVersion.cmake" build
+        -D "PRJS_VERSION_FILE=$BuildRoot/ProjectVersion.cmake" "${IdfActions[@]}"
   ) || { cat "$CompileDir/IdfCompile.log" >>"$LogFile"; ShowFailure "ESP-IDF build failed"; }
   cat "$CompileDir/IdfCompile.log" >>"$LogFile"
   python3 "$ProjectDir/VerifyIdfBuild.py" "$IdfBuildDir" >>"$LogFile" 2>&1 || \
@@ -1280,6 +1284,7 @@ for DeviceName in "${DeviceNames[@]}"; do
       "$LogFile" \
       env PRJS_SECRETS_FILE="$SecretsFile" \
       PRJS_DEVICE_NAME="$DeviceName" \
+      PRJS_DEVICE_TYPE_FILE="$DeviceTypeFile" \
       PRJS_DEVICE_STATE_DIR="$DevStateRoot/$DeviceName" \
       PRJS_DATA_DIR="$DataDir" \
       PRJS_BUILD_ROOT="$BuildRoot" \
@@ -1291,7 +1296,7 @@ for DeviceName in "${DeviceNames[@]}"; do
     if ! RunLongStepToFile \
       "$ProjectName pre-build" \
       "$LogFile" \
-      env PRJS_SECRETS_FILE="$SecretsFile" bash "$PreBuildScript"
+      env PRJS_SECRETS_FILE="$SecretsFile" PRJS_DEVICE_TYPE_FILE="$DeviceTypeFile" bash "$PreBuildScript"
     then
       ShowFailure "$ProjectName pre-build failed"
     fi

@@ -1,4 +1,4 @@
-// ShellyPowerMeter.h, Version: 1.01
+// ShellyPowerMeter.h, Version: 1.02
 #pragma once
 #include <Arduino.h>
 #include <HardwareSerial.h>
@@ -28,6 +28,7 @@ class TShellyPowerMeter
   bool Setup(void);
   void Loop(void);
   bool Valid(void) const;
+  uint32_t AgeMs(void) const { return uint32_t(millis()-FLastValid); }
   float Voltage(void) const;
   float Current(void) const;
   float Power(void) const;

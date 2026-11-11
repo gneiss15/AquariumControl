@@ -1,4 +1,4 @@
-<!-- README.DE.md, Version: 1.27 -->
+<!-- README.DE.md, Version: 1.31 -->
 # TmrSwA8T
 
 [English](README.md)
@@ -47,7 +47,7 @@ Ein Nous A8T kann mithilfe eines Shelly als Messreferenz abgeglichen werden. [An
 - `./EspRescueCompile.sh`: Rescue-Firmware.
 
 `EspRescueCompile.sh` bindet das gemeinsame
-`../Libs/Common/EspRescue/_EspRescueCompileEsp32Common.sh` mit `source` ein.
+`../Common/EspRescue/_EspRescueCompileEsp32Common.sh` mit `source` ein.
 Dieses Hilfsskript besitzt keine Ausführungsrechte und ist kein direkter
 Buildeinstieg; auch ein direkter Aufruf über `bash` wird abgefangen.
 
@@ -103,7 +103,7 @@ LittleFS-Abbilder unverändert. `--full-clean` entfernt sie ausdrücklich.
 
 Main verwendet ESP-IDF 5.5.1 und Arduino-ESP32 3.3.11 als aus Quellen gebaute
 Komponente. Die setup/loop-Aufgabe läuft auf Core 1 mit 8192 Byte Stack.
-Rescue verwendet einen Arduino-CLI-Build.
+Rescue wird direkt mit ESP-IDF 5.5.1 gebaut. Die Partitionstabelle liegt bei `0x8000`.
 Die Binärdateien liegen unter `generated/bin/esp32_Arduino2/`.
 
 Die lokale IDF-Umgebung wird über `ESP_IDF_ENABLE_SCRIPT` geladen;
@@ -128,7 +128,7 @@ Im Dashboard lassen sich Funktionen zwischen funktionskompatiblen Geräten bzw.
 einzelnen Schaltausgängen tauschen. Hardwarekonfiguration und Kalibrierung bleiben
 beim physischen Gerät. Die Bedienung beschreibt
 [Dashboard – Geräteidentität und Funktionstausch](../Dashboard/README.DE.md#geräteidentität-und-funktionstausch).
-Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnBasicLib/DeviceIdentity.md).
+Technische Einzelheiten stehen in [DeviceIdentity.md](../Libs/GnAqPrjsLib/DeviceIdentity.md).
 
 ## Gerätezuordnung und PC-Dateien
 
@@ -178,3 +178,49 @@ Relais, LED, Taster und Messwertauswahl werden über die gemeinsame
 GnBasics-GPIO-Schnittstelle angesteuert. Vor dem Aktivieren der Ausgänge werden
 die inaktiven Ausgangspegel gesetzt. Der Relaisstatus gilt erst nach erfolgreicher
 Initialisierung als bekannt.
+
+## Ladenachlauf für Akku-Profile
+
+Im Dashboard-Profil **Ladenachlauf aktiv** einschalten und **Sekunden je Prozentpunkt** angeben. Das setzt `Measurement: "BatteryPercent"` voraus. Der Editor schlägt zunächst `15` Sekunden je Prozentpunkt vor; derselbe Faktor wird anschließend durch Lernen angepasst. Ohne aktivierten Ladenachlauf bleibt das bisherige Verhalten bei fehlenden Messwerten erhalten.
+
+Wenn der Sender ausbleibt und der Ausgang zuvor automatisch EIN war, berechnet das Schaltgerät die Restladezeit:
+
+`(Abschaltgrenze − letzter Akkustand) × Sekunden je Prozentpunkt`
+
+Die seit der letzten Meldung bereits geladene Zeit wird angerechnet. Ein zuvor ausgeschalteter Ausgang wird dadurch nicht eingeschaltet. Jeder manuelle Schaltbefehl verwirft den Lernzyklus sofort, auch beim Zurückschalten zur Automatik. Aus dem abgebrochenen Zyklus wird kein Faktor gelernt. Zeitplan AUS oder geänderte Profilparameter beenden den laufenden Zyklus ebenfalls. Es gibt keine zusätzliche maximale Nachlaufzeit.
+
+Bei der nächsten gültigen Akkumeldung wird aus tatsächlicher Einschaltzeit und Akkugewinn ein Faktor ermittelt. Ab einem Gewinn von einem Prozentpunkt wird er mit 25 % gewichtet; 75 % stammen vom bisherigen Faktor. Ohne messbaren Gewinn bleibt der Faktor unverändert. Der neue Faktor wird auf ganze Sekunden abgerundet. Änderungen unter 5 % gegenüber dem zuletzt gespeicherten Faktor bleiben im RAM und gehen in den nächsten Lernzyklus ein. Erst ab 5 % Unterschied wird der Faktor im Profil gespeichert und mit dem Dashboard synchronisiert. Der laufende Lernzyklus liegt ausschließlich im RAM; nach einem Neustart beginnt er erst mit frischen Akkumeldungen und automatisch eingeschaltetem Ausgang erneut.
+
+Der Laptop erteilt die Lernfreigabe mit `Status.ChargeLearningAllowed` (boolesch) und meldet `Status.ChargeBootCounter` als überlauffähigen `uint32`-Startzähler einschließlich Null. Die Lernmessung darf bei Rückkehr nur ausgewertet werden, wenn die Zählerdifferenz modulo `2^32` genau 1 beträgt. Zusätzliche Starts oder eine fehlende/ungültige Freigabe verwerfen die Messung; der normale Nachlauf bleibt erhalten. Der Lernschalter erhöht den Zähler nicht. Installation, Bedienung und Besonderheiten bei externem Laden stehen unter [LaptopBattery](../LaptopBattery/README.DE.md).
+
+Die JSON-Felder heißen `ChargeRunOn` und `ChargeSecondsPerPercent`. Zusätzliche Profilfelder sind erlaubt und bleiben beim Bearbeiten und Synchronisieren erhalten. Bei `ChargeRunOn: true` ist ein positiver ganzzahliger Faktor (`uint32_t`) Pflicht; ohne Aktivierung müssen diese Felder nicht vorhanden sein.
+
+## Statusmeldungen
+
+Regelmäßige UDP-Statusmeldungen erfolgen alle zehn Sekunden. Ein-/Ausgangszustände, Übersteuerungen, Fehler und Änderungen der Messwertgültigkeit werden sofort gemeldet, ebenso Start und Wiederverbindung. Reine Messwertänderungen lösen keine zusätzlichen Broadcasts aus.
+Spannung, Strom und Wirkleistung werden gemeinsam aus dem letzten vollständigen Messzyklus gesendet. Vorläufige Ergebnisse überschreiben keine einzelnen Felder des freigegebenen Satzes. Diagnosewerte der Leistungsmessung bleiben gezielt über `/api/v1/status` abrufbar; UDP-Broadcasts enthalten sie nicht.
+
+## PI-Beobachtungsbetrieb
+
+Heizprofile können ein zusätzliches `Pi`-Objekt mit `Mode: "Shadow"` enthalten. Die bisherige Hystereseregelung schaltet unverändert weiter. Der PI-Regler berechnet alle zehn Sekunden einen Gesamtleistungsbedarf und teilt ihn zuerst der Bodenheizung zu; erst der Rest entfällt auf die Hauptheizung. Die gemeldeten Schaltanforderungen sind hypothetisch und werden nicht an Relais oder andere Geräte übertragen. `Mode: "Off"` bzw. ein fehlendes `Pi`-Objekt deaktiviert die Beobachtung. Ein aktiver PI-Schaltmodus wird noch nicht angenommen oder akzeptiert.
+
+Der Integralanteil ist begrenzt, wird bei Sättigung nicht weiter in die gleiche Richtung aufintegriert ausschließlich aus der Temperaturabweichung mit Ki = Kp / Ti fortgeschrieben. Nicht überbrückbare Messwertlücken, manuelle Übersteuerung und ausgeschaltete Zeitfreigabe unterbrechen das Lernen. Ein fehlender Bodenstatus nimmt dessen Leistung aus der Aufteilung und sperrt das Lernen; fehlende Raumtemperatur stoppt nur Modelllernen/Vorsteuerung, nicht die PI-Berechnung.
+
+Das langsame Modelllernen verwendet reale gemessene Hauptleistung und die gemessene konstante Bodenleistung bei bestätigtem EIN. Gültige 0 W bleiben 0 W. Einstündige durchgehend gültige Fenster passen den effektiven Wärmeverlust bei nahezu gleicher Start-/Endtemperatur schwach an; ausreichend große Temperaturänderung (mindestens 0,25 K) ermöglicht eine begrenzte Wärmekapazitäts-/Verstärkungsanpassung. Pro akzeptiertem Fenster werden nur 5 % der Schätzung übernommen, plausible Schätzungen müssen innerhalb des halben bis doppelten konfigurierten Startwerts liegen. Die konfigurierte Verzögerung verschiebt die Energiebasis für das Modelllernen. Lernwerte bleiben im Beobachtungsbetrieb im RAM und werden als Telemetrie aufgezeichnet; Neustart oder geänderte Konfiguration beginnt mit den Profil-Startwerten. Ti bleibt der konfigurierte langsame Startwert. Das ist kein Nachweis einer bereits eingeregelten Anlage.
+
+`HeatPi` im HTTP-/UDP-Status enthält Bedarf, P-/I-/Vorsteuerungsanteil, tatsächliche Leistung, hypothetische Boden-/Hauptanforderung, Modellparameter und Lernstatus. Beobachtungswerte verursachen keine zusätzlichen UDP-Sendungen. Der Bodenpeer wird über seine feste MAC@Service-ID und den aktuellen Kanalnamen geprüft; nach Kanal-/Gerätetausch ist diese explizite Beobachtungszuordnung anzupassen.
+
+## PI-Messwertlücken
+
+Bei fehlenden oder ungültigen Messwerten verwendet der PI-Regler die letzten
+gültigen Temperatur-, Leistungs- und Raumtemperaturwerte bis zu einem Alter von
+60 Sekunden. Die PWM läuft weiter; Integralfortschreibung und Lernen laufen mit den überbrückten Werten weiter.
+Die Diagnose nennt diesen Zustand `measurement-held`; die Werte sind keine
+frischen Messungen. Ohne vorherigen gültigen Wert oder nach Ablauf greift der
+konfigurierte Rückfall. Die letzte gültige Hauptanforderung für die Bodenheizung
+gilt ebenfalls 60 Sekunden; eine ausdrücklich empfangene AUS-Anforderung wirkt
+sofort. Neustart oder Profilwechsel verwirft den Messwertcache.
+
+Bei `measurement-held` nutzt das Lernen bis zur 60-s-Grenze angenäherte Energie aus den letzten gültigen Leistungswerten. Diese Abschnitte sind über den Diagnosegrund erkennbar und keine zusätzlichen echten Messungen.
+
+Die aktive PI-Schaltung verwendet ein festes Energiebudget je PWM-Periode. Hauptenergie wird aus gemessener Leistung integriert, Bodenenergie aus gemessener konstanter Bodenleistung und gemeldetem Schaltzustand. Fehlende Energie wird mit Bodenpriorität in die nächste Periode übertragen; Überlieferung bis zum nächsten Abtastpunkt verringert das Folgebudget. Manuelle Eingriffe, ungültige Messwerte nach Ablauf der Toleranz, Konfigurationsänderungen und Beobachtungslücken verwerfen das laufende Budget. Budget und Vortrag liegen nur im RAM; Mess- und Rückmeldetakt begrenzen die Abschaltgenauigkeit.

@@ -1,4 +1,4 @@
-// main.cpp, Version: 1.03
+// main.cpp, Version: 1.04
 #include <GnBasics.h>
 #include "sdkconfig.h"
 #include "ShellyLayout.h"
@@ -7,7 +7,7 @@
 #include "esp_chip_info.h"
 #include "esp_secure_boot.h"
 #include "esp_flash_encrypt.h"
-#include "Libs/Common/TmrSw/TmrSwMain.inc.h"
+#include "Common/TmrSw/TmrSwCommonMain.cpp"
 static_assert(CONFIG_PARTITION_TABLE_OFFSET == 0x10000, "Shelly table offset must match its loader");
 bool ShellyLayoutVerified(void)
  {
